@@ -62,6 +62,15 @@ class Tradeoff(BaseModel):
     sacrifice: str
 
 
+class InputQuality(BaseModel):
+    """Assessment of whether the user's input is specific enough to analyse."""
+    level: Literal["sufficient", "too_vague", "needs_options", "needs_numbers"] = "sufficient"
+    # Human-readable explanation of WHY the input is insufficient
+    reason: str = ""
+    # Concrete suggestions shown to the user (max 3 bullet points)
+    suggestions: list[str] = Field(default_factory=list)
+
+
 class DecisionCase(BaseModel):
     """
     Primary human-centric problem representation.
@@ -85,6 +94,9 @@ class DecisionCase(BaseModel):
     priority_tokens: list[str] = Field(default_factory=list)
     selected_priority_tokens: list[str] = Field(default_factory=list)
     break_even_point: str | None = None
+    # Quality gate: populated by LLMAdvisor before any solver work starts
+    input_quality: InputQuality = Field(default_factory=InputQuality)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     problem_ir_id: str | None = None
+

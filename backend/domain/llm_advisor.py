@@ -24,6 +24,7 @@ from backend.domain.decision_case import (
     Criterion,
     DecisionCase,
     Fact,
+    InputQuality,
     Option,
     Tradeoff,
     Unknown,
