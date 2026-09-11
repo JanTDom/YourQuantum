@@ -78,23 +78,28 @@ All 20 external audit deficiencies have been addressed, refactored, and verified
    - 5 structured tabs: Przewodnik krok po kroku, Gotowe przykłady z życia (one-click prefill), Pytania i odpowiedzi (FAQ), Słowniczek pojęć, Stan Silnika Live.
    - Context-aware stage awareness (Intake -> Workspace -> Approval -> Recommendation).
 
-10. **3D Interactive Cognitive Brain (`frontend/src/components/EngineBrain3D.tsx`, `frontend/src/components/BrainModal.tsx`)**:
-    - Built with Three.js (WebGL hardware-accelerated 60 FPS).
-    - Features 24-node cognitive hypergraph with pulsing icosahedrons and glowing additive bezier synapses.
-    - Continuous undulating QUBO / Hamiltonian energy manifold with central gravity well (Global Optimum ground state).
-    - Triple concentric phase interference gyroscope rings.
-    - 360° mouse drag orbit controls and scroll zoom.
-    - Dynamic layer switcher (Wszystko / Topologia / Krajobraz QUBO / Faza i Fale) and interactive shockwave trigger ("Wyślij impuls kwantowy ⚡").
-    - Embedded directly on the Landing Page (both in the Hero section and in the Machine section), as well as in the expandable modal.
-    - Protected by `ErrorBoundary` and WebGL feature detection with an automated 2D Canvas fallback to eliminate any risk of unhandled crashes or blank white pages.
-    - Explicit return navigation: prominent "← Wróć do YourQuantum (Opisz dylemat)" and "✍️ Rozwiąż dylemat" actions.
-    - Replaced `THREE.Clock` with standard monotonic `performance.now()`.
+10. **Awwwards-Grade Volumetric 3D Cognitive Brain & Landing Page Architecture (`frontend/src/components/EngineBrain3D.tsx`, `frontend/src/components/BrainModal.tsx`, `frontend/src/components/LandingPage.tsx`)**:
+    - **Homepage Copy & Art Preservation**: Exact requested 4-line formula:
+      `Twój dylemat`
+      `ma jedno`
+      `właściwe`
+      `rozwiązanie.`
+      The right-side quantum entanglement artwork is completely unobstructed.
+    - **Header & Navigation Integration**: Accessible via prominent `🧠 Mózg Silnika 3D` button in the top fixed header and sticky navigation.
+    - **Volumetric 3D Dual-Hemisphere Anatomy**: 2,400-particle parametric point cloud with clear cognitive segregation:
+      * Left hemisphere: Classical constraint logic & CP-SAT (logic blues and golds).
+      * Right hemisphere: Quantum superposition & QAOA (deep violet and cyan).
+      * Center: Global Optimum ground-state singularity sphere.
+    - **Synaptic Axon Splines & Action Potentials**: 42 dynamic 3D bezier curves with traveling action-potential photons.
+    - **Hamiltonian Energy Manifold & Gyroscopes**: Undulating potential energy floor and concentric phase interference gyroscope rings.
+    - **4 Guided Cognitive Lobes with Storytelling Cards**: Frontal Intake, Left Hemisphere, Right Hemisphere, and Core Optimum. Includes 12-second automated simulation sequence ("▶ Uruchom Proces Decyzyjny 3D").
+    - **Bulletproof Modal Navigation**: Header with `← Wróć do YourQuantum (Opisz dylemat)` and `✕ Zamknij`, plus bottom direct intake action. Zero white screen locks, protected by `ErrorBoundary` and monotonic timer.
 
-11. **Empirical Test Suite**:
+11. **Empirical Test Suite & Production Delivery**:
     - Pytest suite: **54/54 PASS** across domain, verifier, quantum solvers, help service, and formalizer tests.
     - TypeScript build: **0 errors, 0 warnings** (`tsc -b && vite build`).
-    - Synced to GitHub repository `https://github.com/JanTDom/YourQuantum`.
-    - Production deployed on `https://yourquantum.pl`.
+    - Synced to GitHub repository `https://github.com/JanTDom/YourQuantum` (`main`).
+    - Production deployed on `https://yourquantum.pl` and verified with live browser testing.
 
 ---
 
