@@ -85,16 +85,20 @@ All 20 external audit deficiencies have been addressed, refactored, and verified
     - Triple concentric phase interference gyroscope rings.
     - 360° mouse drag orbit controls and scroll zoom.
     - Dynamic layer switcher (Wszystko / Topologia / Krajobraz QUBO / Faza i Fale) and interactive shockwave trigger ("Wyślij impuls kwantowy ⚡").
-    - Strict know-how protection: communicates scientific rigor via abstract topological and physical metrics (phase coherence, synergy vector, boundary margins) with zero proprietary code or formula leaks.
+    - Embedded directly on the Landing Page (both in the Hero section and in the Machine section), as well as in the expandable modal.
+    - Protected by `ErrorBoundary` and WebGL feature detection with an automated 2D Canvas fallback to eliminate any risk of unhandled crashes or blank white pages.
+    - Explicit return navigation: prominent "← Wróć do YourQuantum (Opisz dylemat)" and "✍️ Rozwiąż dylemat" actions.
+    - Replaced `THREE.Clock` with standard monotonic `performance.now()`.
 
 11. **Empirical Test Suite**:
     - Pytest suite: **54/54 PASS** across domain, verifier, quantum solvers, help service, and formalizer tests.
     - TypeScript build: **0 errors, 0 warnings** (`tsc -b && vite build`).
     - Synced to GitHub repository `https://github.com/JanTDom/YourQuantum`.
+    - Production deployed on `https://yourquantum.pl`.
 
 ---
 
 ## Next Step
 
-Gather early user feedback on live domain `yourquantum.pl` and test additional edge-case life dilemmas.
+Observe user interaction and expand solver adapters for multi-objective Pareto frontiers.
 

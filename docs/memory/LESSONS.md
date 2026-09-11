@@ -87,3 +87,6 @@ When adding new columns (e.g. `publication_status`) to SQLAlchemy models during 
 ### L-014: Process hygiene and daemon task management
 Leaving long-running dev servers (`uvicorn`, `vite`) as unmanaged background tasks causes resource drain, port conflicts, and user annoyance. Always explicitly inspect running tasks with `manage_task list` and terminate them cleanly with `manage_task kill` at the end of each verification stage.
 
+### L-015: 3D WebGL in React requires ErrorBoundary and 2D fallback to prevent blank white screens
+When rendering Three.js / WebGL in React, if WebGL context creation fails or throws without an ErrorBoundary, React 18/19 unmounts the entire application root (`#root`), leaving a completely blank white page ("biała strona"). Always wrap 3D canvases in a resilient React ErrorBoundary, detect WebGL capabilities beforehand, provide a Canvas 2D fallback, protect aspect ratio calculations against 0-height containers, and expose clear return/exit navigation actions.
+
