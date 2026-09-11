@@ -12,6 +12,8 @@ import s from './LandingPage.module.css'
 interface LandingPageProps {
   onSubmit: (text: string) => void
   isLoading: boolean
+  onOpenHelp?: () => void
+  onOpenBrain?: () => void
 }
 
 interface ParticleData {
@@ -283,6 +285,8 @@ const HERO_EXAMPLES = [
 export const LandingPage: React.FC<LandingPageProps> = ({
   onSubmit,
   isLoading,
+  onOpenHelp,
+  onOpenBrain,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const inputSectionRef = useRef<HTMLDivElement>(null)
@@ -332,13 +336,51 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         <span className={s.stickyNavLogo} aria-label="YourQuantum">
           YourQuantum
         </span>
-        <button
-          className={s.stickyNavCta}
-          onClick={scrollToTop}
-          type="button"
-        >
-          Opisz swój problem →
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          {onOpenBrain && (
+            <button
+              onClick={onOpenBrain}
+              type="button"
+              style={{
+                background: 'oklch(18% 0.03 250)',
+                border: '1px solid oklch(30% 0.04 250)',
+                color: 'oklch(90% 0.02 250)',
+                padding: '0.4rem 0.75rem',
+                borderRadius: '6px',
+                fontSize: '0.8125rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              ⚡ Mózg 3D
+            </button>
+          )}
+          {onOpenHelp && (
+            <button
+              onClick={onOpenHelp}
+              type="button"
+              style={{
+                background: 'oklch(18% 0.03 250)',
+                border: '1px solid oklch(30% 0.04 250)',
+                color: 'oklch(90% 0.02 250)',
+                padding: '0.4rem 0.75rem',
+                borderRadius: '6px',
+                fontSize: '0.8125rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              ? Pomoc
+            </button>
+          )}
+          <button
+            className={s.stickyNavCta}
+            onClick={scrollToTop}
+            type="button"
+          >
+            Opisz swój problem →
+          </button>
+        </div>
       </nav>
 
       {/* ── HERO ────────────────────────────────────────────── */}
@@ -645,6 +687,32 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </div>
             ))}
           </div>
+          {onOpenBrain && (
+            <div style={{ marginTop: '1.75rem' }}>
+              <button
+                type="button"
+                onClick={onOpenBrain}
+                style={{
+                  background: 'linear-gradient(135deg, oklch(75% 0.12 80), oklch(62% 0.18 240))',
+                  border: 'none',
+                  borderRadius: '10px',
+                  padding: '0.75rem 1.5rem',
+                  fontSize: '0.9375rem',
+                  fontWeight: 800,
+                  color: 'oklch(10% 0.02 250)',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.625rem',
+                  boxShadow: '0 0 24px oklch(75% 0.12 80 / 0.4)',
+                  transition: 'all 200ms ease',
+                }}
+              >
+                <span>Otwórz Mózg Silnika 3D</span>
+                <span style={{ fontSize: '1.125rem' }}>⚡</span>
+              </button>
+            </div>
+          )}
         </div>
 
         <div className={s.machineImgRight} aria-hidden="true">

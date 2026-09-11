@@ -10,6 +10,8 @@ import { LandingPage } from './components/LandingPage'
 import { CaseWorkspace } from './components/CaseWorkspace'
 import { ModelApprovalGate } from './components/ModelApprovalGate'
 import { RecommendationView } from './components/RecommendationView'
+import { HelpCenterModal } from './components/HelpCenterModal'
+import { BrainModal } from './components/BrainModal'
 
 type AppStage = 'INTAKE' | 'CASE_WORKSPACE' | 'MODEL_APPROVAL' | 'RECOMMENDATION'
 
@@ -18,6 +20,10 @@ export const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
+  // Modals state
+  const [isHelpOpen, setIsHelpOpen] = useState(false)
+  const [isBrainOpen, setIsBrainOpen] = useState(false)
 
   // Current session data
   const [userQuery, setUserQuery] = useState('')
@@ -171,7 +177,12 @@ export const App: React.FC = () => {
     }}>
       {/* AppHeader only shown after INTAKE — LandingPage manages its own nav */}
       {stage !== 'INTAKE' && (
-        <AppHeader onReset={handleReset} isBusy={isLoading} />
+        <AppHeader
+          onReset={handleReset}
+          isBusy={isLoading}
+          onOpenHelp={() => setIsHelpOpen(true)}
+          onOpenBrain={() => setIsBrainOpen(true)}
+        />
       )}
 
       {/* Global notifications (non-INTAKE stages only) */}
@@ -206,7 +217,12 @@ export const App: React.FC = () => {
       {/* Main content stage */}
       <main style={{ flex: 1, paddingBottom: stage === 'INTAKE' ? 0 : '3rem' }}>
         {stage === 'INTAKE' && (
-          <LandingPage onSubmit={handleIntakeSubmit} isLoading={isLoading} />
+          <LandingPage
+            onSubmit={handleIntakeSubmit}
+            isLoading={isLoading}
+            onOpenHelp={() => setIsHelpOpen(true)}
+            onOpenBrain={() => setIsBrainOpen(true)}
+          />
         )}
 
         {stage === 'CASE_WORKSPACE' && decisionCase && (
@@ -239,6 +255,19 @@ export const App: React.FC = () => {
           />
         )}
       </main>
+
+      {/* Modals */}
+      <HelpCenterModal
+        isOpen={isHelpOpen}
+        onClose={() => setIsHelpOpen(false)}
+        currentStage={stage}
+        onSelectExample={handleIntakeSubmit}
+      />
+
+      <BrainModal
+        isOpen={isBrainOpen}
+        onClose={() => setIsBrainOpen(false)}
+      />
 
       {/* Footer only shown after INTAKE stages */}
       {stage !== 'INTAKE' && (

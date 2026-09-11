@@ -318,5 +318,40 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(req),
     }),
+
+  getHelpKnowledge: () =>
+    request<HelpResponse>('/help'),
+
+  getEngineSnapshot: () =>
+    request<EngineCapabilitySnapshot>('/help/snapshot'),
 }
+
+export interface HelpTopic {
+  id: string
+  title: string
+  short_desc: string
+  category: string
+  content_markdown: string
+  read_time_minutes: number
+  badge?: string
+  target_stages: string[]
+}
+
+export interface EngineCapabilitySnapshot {
+  engine_version: string
+  active_solvers_count: number
+  solvers: Array<{ name: string; version: string; kind: string; status: string }>
+  supported_dilemma_types: string[]
+  verification_mode: string
+  last_updated: string
+}
+
+export interface HelpResponse {
+  engine_status: EngineCapabilitySnapshot
+  categories: string[]
+  topics: HelpTopic[]
+  faq: Array<{ q: string; a: string }>
+  glossary: Array<{ term: string; meaning: string }>
+}
+
 

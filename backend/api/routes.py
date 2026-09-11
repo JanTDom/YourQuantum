@@ -539,3 +539,20 @@ async def create_benchmark(
         "qaoa_job_id": qaoa_job_id,
         "status": "QUEUED",
     }
+
+
+# ---------------------------------------------------------------------------
+# Dynamic Layperson Help & Engine Capabilities
+# ---------------------------------------------------------------------------
+
+@router.get("/help")
+async def get_help_knowledge():
+    from backend.api.help_service import generate_help_knowledge_base
+    return generate_help_knowledge_base()
+
+
+@router.get("/help/snapshot")
+async def get_engine_snapshot():
+    from backend.api.help_service import get_dynamic_engine_snapshot
+    return get_dynamic_engine_snapshot()
+

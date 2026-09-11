@@ -3,9 +3,11 @@ import React from 'react'
 interface AppHeaderProps {
   onReset: () => void
   isBusy: boolean
+  onOpenHelp?: () => void
+  onOpenBrain?: () => void
 }
 
-export const AppHeader: React.FC<AppHeaderProps> = ({ onReset, isBusy }) => {
+export const AppHeader: React.FC<AppHeaderProps> = ({ onReset, isBusy, onOpenHelp, onOpenBrain }) => {
   return (
     <header
       className="no-print"
@@ -98,13 +100,96 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onReset, isBusy }) => {
       </button>
 
       {/* Right side */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+        {/* 3D Brain Button */}
+        {onOpenBrain && (
+          <button
+            onClick={onOpenBrain}
+            style={{
+              background: 'oklch(14% 0.025 250)',
+              border: '1px solid oklch(28% 0.04 250)',
+              borderRadius: 'var(--radius-sm)',
+              padding: '0.45rem 0.875rem',
+              fontSize: '0.8125rem',
+              color: 'oklch(90% 0.02 250)',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              transition: 'all 200ms ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'oklch(18% 0.035 250)'
+              e.currentTarget.style.borderColor = 'oklch(40% 0.08 240)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'oklch(14% 0.025 250)'
+              e.currentTarget.style.borderColor = 'oklch(28% 0.04 250)'
+            }}
+            title="Otwórz interaktywną wizualizację 3D mózgu silnika"
+          >
+            <span style={{
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              background: '#4df0ff',
+              boxShadow: '0 0 8px #4df0ff',
+            }} />
+            <span>Mózg Silnika 3D</span>
+          </button>
+        )}
+
+        {/* Help Center Button */}
+        {onOpenHelp && (
+          <button
+            onClick={onOpenHelp}
+            style={{
+              background: 'oklch(14% 0.025 250)',
+              border: '1px solid oklch(28% 0.04 250)',
+              borderRadius: 'var(--radius-sm)',
+              padding: '0.45rem 0.875rem',
+              fontSize: '0.8125rem',
+              color: 'oklch(90% 0.02 250)',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              transition: 'all 200ms ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'oklch(18% 0.035 250)'
+              e.currentTarget.style.borderColor = 'oklch(40% 0.08 80)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'oklch(14% 0.025 250)'
+              e.currentTarget.style.borderColor = 'oklch(28% 0.04 250)'
+            }}
+            title="Otwórz przewodnik dla laików i bazę wiedzy"
+          >
+            <span style={{
+              width: '18px',
+              height: '18px',
+              borderRadius: '50%',
+              background: 'oklch(75% 0.12 80 / 0.2)',
+              color: 'oklch(75% 0.12 80)',
+              fontSize: '0.6875rem',
+              fontWeight: 900,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>?</span>
+            <span>Pomoc dla Laików</span>
+          </button>
+        )}
+
         {/* Live status badge */}
         <div style={{
           display: 'inline-flex',
           alignItems: 'center',
           gap: '0.4375rem',
-          padding: '0.375rem 0.875rem',
+          padding: '0.375rem 0.75rem',
           borderRadius: 'var(--radius-full)',
           background: isBusy
             ? 'oklch(16% 0.04 70)'
@@ -142,7 +227,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onReset, isBusy }) => {
             background: 'oklch(75% 0.12 80)',
             border: 'none',
             borderRadius: 'var(--radius-sm)',
-            padding: '0.5rem 1.125rem',
+            padding: '0.45rem 1rem',
             fontSize: '0.8125rem',
             color: 'oklch(6% 0.01 250)',
             fontWeight: 800,
@@ -163,6 +248,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onReset, isBusy }) => {
           Nowy dylemat
         </button>
       </div>
+
 
       <style>{`
         @keyframes headerDotPulse {
