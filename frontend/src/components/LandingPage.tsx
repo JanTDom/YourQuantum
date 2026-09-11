@@ -5,6 +5,8 @@ import React, {
   useState,
 } from 'react'
 import { ConversationPanel } from './ConversationPanel'
+import { EngineBrain3D } from './EngineBrain3D'
+import { ErrorBoundary } from './ErrorBoundary'
 import s from './LandingPage.module.css'
 
 // ── Types ─────────────────────────────────────────────────────
@@ -177,19 +179,6 @@ const TiltCard: React.FC<TiltCardProps> = ({ children, className = '' }) => {
   )
 }
 
-// ── CSS 3D Quantum Sphere ──────────────────────────────────────
-
-const QuantumSphere: React.FC = () => (
-  <div className={s.sphereWrapper} aria-hidden="true">
-    <div className={s.sphereCore} />
-    <div className={s.ring1} />
-    <div className={s.ring2} />
-    <div className={s.ring3} />
-    <div className={s.dot1} />
-    <div className={s.dot2} />
-    <div className={s.dot3} />
-  </div>
-)
 
 // ── Comparison data ────────────────────────────────────────────
 
@@ -497,9 +486,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </button>
           </div>
 
-          {/* Right: 3D Quantum Sphere */}
+          {/* Right: Live Interactive 3D Cognitive Brain */}
           <div className={s.heroRight}>
-            <QuantumSphere />
+            <ErrorBoundary>
+              <EngineBrain3D
+                height={430}
+                compact={true}
+                interactive={true}
+                onExpand={onOpenBrain}
+                onGoToDilemma={scrollToTop}
+              />
+            </ErrorBoundary>
           </div>
         </div>
 
@@ -687,41 +684,66 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </div>
             ))}
           </div>
-          {onOpenBrain && (
-            <div style={{ marginTop: '1.75rem' }}>
+          <div style={{ marginTop: '1.75rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={scrollToTop}
+              style={{
+                background: 'linear-gradient(135deg, oklch(75% 0.12 80), oklch(62% 0.18 240))',
+                border: 'none',
+                borderRadius: '10px',
+                padding: '0.75rem 1.5rem',
+                fontSize: '0.9375rem',
+                fontWeight: 800,
+                color: 'oklch(10% 0.02 250)',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                boxShadow: '0 0 24px oklch(75% 0.12 80 / 0.4)',
+                transition: 'all 200ms ease',
+              }}
+            >
+              <span>✍️ Opisz dylemat w formularzu</span>
+            </button>
+            {onOpenBrain && (
               <button
                 type="button"
                 onClick={onOpenBrain}
                 style={{
-                  background: 'linear-gradient(135deg, oklch(75% 0.12 80), oklch(62% 0.18 240))',
-                  border: 'none',
+                  background: 'oklch(18% 0.03 250)',
+                  border: '1px solid oklch(30% 0.04 250)',
                   borderRadius: '10px',
-                  padding: '0.75rem 1.5rem',
+                  padding: '0.75rem 1.25rem',
                   fontSize: '0.9375rem',
-                  fontWeight: 800,
-                  color: 'oklch(10% 0.02 250)',
+                  fontWeight: 700,
+                  color: 'oklch(92% 0.01 250)',
                   cursor: 'pointer',
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '0.625rem',
-                  boxShadow: '0 0 24px oklch(75% 0.12 80 / 0.4)',
+                  gap: '0.5rem',
                   transition: 'all 200ms ease',
                 }}
               >
-                <span>Otwórz Mózg Silnika 3D</span>
-                <span style={{ fontSize: '1.125rem' }}>⚡</span>
+                <span>Powiększ na cały ekran</span>
+                <span style={{ fontSize: '1rem' }}>↗</span>
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
-        <div className={s.machineImgRight} aria-hidden="true">
-          <img
-            src="/images/datacenter.jpg"
-            alt=""
-            className={s.machineImgRightImg}
-            loading="lazy"
-          />
+        <div className={s.machineImgRight} aria-label="Interaktywny model kognitywny 3D">
+          <div style={{ width: '100%', maxWidth: '640px' }}>
+            <ErrorBoundary>
+              <EngineBrain3D
+                height={500}
+                compact={false}
+                interactive={true}
+                onExpand={onOpenBrain}
+                onGoToDilemma={scrollToTop}
+              />
+            </ErrorBoundary>
+          </div>
         </div>
       </section>
 

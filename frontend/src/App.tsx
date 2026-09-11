@@ -267,6 +267,10 @@ export const App: React.FC = () => {
       <BrainModal
         isOpen={isBrainOpen}
         onClose={() => setIsBrainOpen(false)}
+        onGoToDilemma={() => {
+          setIsBrainOpen(false)
+          window.scrollTo({ top: 0, behavior: 'smooth' })
+        }}
       />
 
       {/* Footer only shown after INTAKE stages */}
