@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from "react"
+import React, { useEffect, useRef } from "react"
 import { EngineBrain3D } from "./EngineBrain3D"
 import { ErrorBoundary } from "./ErrorBoundary"
 
@@ -8,56 +8,60 @@ interface BrainModalProps {
   onGoToDilemma?: () => void
 }
 
-// Uses native <dialog> so browser Back button closes the modal instead of leaving the SPA.
+// Uses a <div> overlay for maximum cross-browser compatibility (Safari <dialog> bugs).
+// Browser Back button is handled via history.pushState / popstate so pressing Back
+// closes the modal instead of leaving the SPA (white screen).
 export const BrainModal: React.FC<BrainModalProps> = ({
   isOpen,
   onClose,
   onGoToDilemma,
 }) => {
-  const dialogRef = useRef<HTMLDialogElement>(null)
-  const contentRef = useRef<HTMLDivElement>(null)
-  const [contentHeight, setContentHeight] = useState<number>(600)
+  const sentinelRef = useRef(false)
 
-  // Open / close the native <dialog> element imperatively
+  // Push a history entry when the modal opens so browser Back = close modal.
+  // On close, pop that entry if it's still in the stack.
   useEffect(() => {
-    const dialog = dialogRef.current
-    if (!dialog) return
     if (isOpen) {
-      if (!dialog.open) {
-        dialog.showModal()
+      // Push a "brain open" state so Back brings the user back here
+      history.pushState({ brainModal: true }, "")
+      sentinelRef.current = true
+
+      const handlePop = () => {
+        sentinelRef.current = false
+        onClose()
       }
+      window.addEventListener("popstate", handlePop)
+      return () => window.removeEventListener("popstate", handlePop)
     } else {
-      if (dialog.open) {
-        dialog.close()
+      // If we closed via button (not Back), pop the entry we pushed
+      if (sentinelRef.current) {
+        sentinelRef.current = false
+        history.back()
       }
     }
-  }, [isOpen])
+  }, [isOpen, onClose])
 
-  // When the native dialog fires its own "close" event (ESC or browser back),
-  // propagate that to the React state so it stays in sync.
+  // Escape key
   useEffect(() => {
-    const dialog = dialogRef.current
-    if (!dialog) return
-    const handleNativeClose = () => onClose()
-    dialog.addEventListener("close", handleNativeClose)
-    return () => dialog.removeEventListener("close", handleNativeClose)
-  }, [onClose])
-
-  // Measure the real available pixel height for the Three.js canvas
-  // so the renderer never initialises with 0×0 dimensions.
-  useLayoutEffect(() => {
-    if (!isOpen || !contentRef.current) return
-    const measure = () => {
-      const h = contentRef.current?.clientHeight ?? 0
-      if (h > 0) setContentHeight(h)
+    if (!isOpen) return
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose()
     }
-    // First measurement on next paint
-    requestAnimationFrame(measure)
-    // Also observe resize so fullscreen changes work
-    const ro = new ResizeObserver(measure)
-    if (contentRef.current) ro.observe(contentRef.current)
-    return () => ro.disconnect()
+    window.addEventListener("keydown", handleKey)
+    return () => window.removeEventListener("keydown", handleKey)
+  }, [isOpen, onClose])
+
+  // Lock body scroll while open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = "hidden"
+    } else {
+      document.body.style.overflow = ""
+    }
+    return () => { document.body.style.overflow = "" }
   }, [isOpen])
+
+  if (!isOpen) return null
 
   const handleReturnToDilemma = () => {
     onClose()
@@ -69,60 +73,54 @@ export const BrainModal: React.FC<BrainModalProps> = ({
   }
 
   return (
-    <dialog
-      ref={dialogRef}
+    <div
+      role="dialog"
+      aria-modal="true"
       aria-label="Prezentacja Mózgu Silnika 3D"
-      // Intercept clicks on the backdrop (the ::backdrop pseudo-element is
-      // behind the dialog; clicks on the outer <dialog> itself mean backdrop)
       onClick={(e) => {
-        if (e.target === dialogRef.current) onClose()
+        if (e.target === e.currentTarget) onClose()
       }}
       style={{
-        // Reset browser default dialog styles
-        border: "none",
-        padding: 0,
-        background: "transparent",
-        maxWidth: "100vw",
-        maxHeight: "100vh",
-        width: "100vw",
-        height: "100vh",
-        // Centre the content
+        position: "fixed",
+        inset: 0,
+        zIndex: 9999,
+        background: "rgba(3, 5, 10, 0.92)",
+        backdropFilter: "blur(22px)",
+        WebkitBackdropFilter: "blur(22px)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
+        padding: "clamp(0.5rem, 2vw, 1.5rem)",
       }}
     >
-      {/* Backdrop — applied via <style> below; also handle click-outside via dialog onClick above */}
-      <style>{`
-        dialog::backdrop {
-          background: rgba(3, 5, 10, 0.88);
-          backdrop-filter: blur(20px);
-          -webkit-backdrop-filter: blur(20px);
-        }
-        dialog[open] {
-          animation: dlg-in 160ms ease;
-        }
-        @keyframes dlg-in {
-          from { opacity: 0; transform: scale(0.97); }
-          to   { opacity: 1; transform: scale(1); }
-        }
-      `}</style>
-
       {/* Inner panel */}
       <div
         style={{
-          width: "calc(100vw - clamp(1rem, 4vw, 3rem))",
+          width: "100%",
           maxWidth: "1460px",
-          height: "min(930px, 96vh)",
+          height: "min(930px, 94vh)",
           background: "oklch(8% 0.015 250)",
           border: "1px solid oklch(24% 0.035 250)",
-          borderRadius: "24px",
-          boxShadow: "0 32px 120px rgba(0,0,0,0.95), 0 0 80px oklch(75% 0.12 80 / 0.12)",
+          borderRadius: "20px",
+          boxShadow:
+            "0 32px 120px rgba(0,0,0,0.95), 0 0 80px oklch(75% 0.12 80 / 0.12)",
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
+          // Entrance animation
+          animation: "brainModalIn 160ms cubic-bezier(0.16, 1, 0.3, 1) forwards",
         }}
       >
+        <style>{`
+          @keyframes brainModalIn {
+            from { opacity: 0; transform: scale(0.97) translateY(8px); }
+            to   { opacity: 1; transform: scale(1) translateY(0); }
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .brain-modal-panel { animation: none !important; }
+          }
+        `}</style>
+
         {/* ── Header bar ── */}
         <div
           style={{
@@ -143,7 +141,8 @@ export const BrainModal: React.FC<BrainModalProps> = ({
                 width: "40px",
                 height: "40px",
                 borderRadius: "10px",
-                background: "linear-gradient(135deg, oklch(75% 0.12 80), oklch(62% 0.18 240))",
+                background:
+                  "linear-gradient(135deg, oklch(75% 0.12 80), oklch(62% 0.18 240))",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -155,10 +154,17 @@ export const BrainModal: React.FC<BrainModalProps> = ({
               🧠
             </div>
             <div>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  flexWrap: "wrap",
+                }}
+              >
                 <h2
                   style={{
-                    fontSize: "clamp(1rem, 2.2vw, 1.2rem)",
+                    fontSize: "clamp(1rem, 2vw, 1.2rem)",
                     fontWeight: 900,
                     margin: 0,
                     color: "oklch(97% 0.008 250)",
@@ -184,8 +190,15 @@ export const BrainModal: React.FC<BrainModalProps> = ({
                   Volumetric 3D • 60 FPS
                 </span>
               </div>
-              <p style={{ margin: "2px 0 0 0", fontSize: "0.8125rem", color: "oklch(68% 0.02 250)" }}>
-                Interaktywna eksploracja półkuli logicznej (CP-SAT), kwantowej (QAOA) oraz jądra Globalnego Optimum.
+              <p
+                style={{
+                  margin: "2px 0 0 0",
+                  fontSize: "0.8125rem",
+                  color: "oklch(68% 0.02 250)",
+                }}
+              >
+                Interaktywna eksploracja półkuli logicznej (CP-SAT), kwantowej
+                (QAOA) oraz jądra Globalnego Optimum.
               </p>
             </div>
           </div>
@@ -195,7 +208,8 @@ export const BrainModal: React.FC<BrainModalProps> = ({
               onClick={handleReturnToDilemma}
               type="button"
               style={{
-                background: "linear-gradient(135deg, oklch(75% 0.12 80), oklch(62% 0.18 240))",
+                background:
+                  "linear-gradient(135deg, oklch(75% 0.12 80), oklch(62% 0.18 240))",
                 border: "none",
                 color: "oklch(10% 0.02 250)",
                 padding: "0.45rem 1.1rem",
@@ -237,21 +251,17 @@ export const BrainModal: React.FC<BrainModalProps> = ({
           </div>
         </div>
 
-        {/* ── 3D Viewport — flex:1 fills remaining height, explicit px height passed to Three.js ── */}
-        <div
-          ref={contentRef}
-          style={{ flex: 1, minHeight: 0, position: "relative", overflow: "hidden" }}
-        >
+        {/* ── 3D Viewport ── */}
+        <div style={{ flex: 1, minHeight: 0, position: "relative", overflow: "hidden" }}>
           <ErrorBoundary>
-            {/* Pass the measured pixel height so Three.js renderer never starts at 0×0 */}
             <EngineBrain3D
-              height={contentHeight > 0 ? contentHeight : "100%"}
+              height="100%"
               interactive={true}
               onGoToDilemma={handleReturnToDilemma}
             />
           </ErrorBoundary>
         </div>
       </div>
-    </dialog>
+    </div>
   )
 }

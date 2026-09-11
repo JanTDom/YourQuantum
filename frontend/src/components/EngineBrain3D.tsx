@@ -195,14 +195,23 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
     let cleanupFn: (() => void) | null = null
 
     // Defer Three.js initialisation until the container has real pixel dimensions.
-    // When BrainModal uses flex:1 the clientHeight can be 0 on the first render.
+    // Safari is slower than Chrome to resolve flex:1 heights — poll up to 60 frames.
+    let retryCount = 0
     const startInit = () => {
       const w = container.clientWidth
-      const h = typeof height === "number" ? (height as number) : container.clientHeight
-      if ((w === 0 || h === 0) && !isDisposed) {
+      // In Safari, height:"100%" on a flex:1 child may report 0 for many frames.
+      // Fall back to the parent's clientHeight if needed.
+      let h = typeof height === "number"
+        ? (height as number)
+        : container.clientHeight || container.parentElement?.clientHeight || 0
+
+      if ((w === 0 || h === 0) && !isDisposed && retryCount < 60) {
+        retryCount++
         retryRafId = requestAnimationFrame(startInit)
         return
       }
+      // Ultimate fallback so we never start with 0
+      if (h === 0) h = window.innerHeight * 0.85
       if (!isDisposed) initThreeScene()
     }
     retryRafId = requestAnimationFrame(startInit)
