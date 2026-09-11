@@ -462,9 +462,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </p>
 
             <h1 className={s.heroHeadline}>
-              <span className={s.headlineLine1}>Twoje dylematy</span>
-              <span className={s.headlineLine2}>mają jedno</span>
-              <span className={s.headlineLine3}>właściwe wyjście.</span>
+              <span className={s.headlineLine1}>Twój dylemat</span>
+              <span className={s.headlineLine2}>ma jedno</span>
+              <span className={s.headlineLine3}>właściwe</span>
+              <span className={s.headlineLine4}>rozwiązanie.</span>
             </h1>
 
             <p className={s.heroSub}>

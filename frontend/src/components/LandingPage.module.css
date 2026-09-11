@@ -378,6 +378,16 @@
   animation: fadeInUp 1s 0.54s ease both;
 }
 
+.headlineLine4 {
+  display: block;
+  font-size: clamp(2.5rem, 5.5vw, 4.5rem);
+  font-weight: 900;
+  letter-spacing: -0.035em;
+  color: oklch(75% 0.12 80);
+  text-shadow: 0 0 80px oklch(75% 0.12 80 / 0.55);
+  animation: fadeInUp 1s 0.62s ease both;
+}
+
 /* ── HERO SUB ─────────────────────────────────────────────────── */
 .heroSub {
   font-size: clamp(1.0625rem, 2vw, 1.25rem);
