@@ -8,6 +8,7 @@ interface LobeInfo {
   name: string
   subtitle: string
   color: string
+  glowHex: number
   badge: string
   cameraPos: [number, number, number]
   targetPos: [number, number, number]
@@ -21,9 +22,10 @@ export const BRAIN_LOBES: Record<BrainLobeId, LobeInfo> = {
     name: "Płat Czołowy: Ekstrakcja Faktów",
     subtitle: "Analiza Semantyczna & Opcje Wyboru",
     color: "#fbbf24",
+    glowHex: 0xfbbf24,
     badge: "Etap 1: Intake",
-    cameraPos: [0, 6, 26],
-    targetPos: [0, 0, 4],
+    cameraPos: [0, 4, 19],
+    targetPos: [0, 0.5, 3],
     explanation:
       "Tu Twój dylemat życiowy zostaje rozbity na czynniki pierwsze. System wyciąga z tekstu twarde fakty, alternatywne opcje i identyfikuje brakujące informacje.",
     bulletPoints: [
@@ -37,9 +39,10 @@ export const BRAIN_LOBES: Record<BrainLobeId, LobeInfo> = {
     name: "Płat Lewy: Filtr Ograniczeń Twardych",
     subtitle: "Dyskretny Solver Dokładny (CP-SAT)",
     color: "#38bdf8",
+    glowHex: 0x38bdf8,
     badge: "Etap 2: Warunki Brzegowe",
-    cameraPos: [-20, 8, 16],
-    targetPos: [-6, 0, 0],
+    cameraPos: [-14, 4, 14],
+    targetPos: [-4.5, 0, 0],
     explanation:
       "Bezwzględny matematyczny strażnik Twoich granic. Każdy wariant, który łamie Twój budżet, czas pracy czy nienaruszalne zasady osobiste, zostaje natychmiast wycięty z przestrzeni rozwiązań.",
     bulletPoints: [
@@ -53,9 +56,10 @@ export const BRAIN_LOBES: Record<BrainLobeId, LobeInfo> = {
     name: "Płat Prawy: Splątanie Kwantowe",
     subtitle: "Superpozycja & Tunelowanie (QAOA / Ising)",
     color: "#c084fc",
+    glowHex: 0xc084fc,
     badge: "Etap 3: Optymalizacja Kwantowa",
-    cameraPos: [20, 8, 16],
-    targetPos: [6, 0, 0],
+    cameraPos: [14, 4, 14],
+    targetPos: [4.5, 0, 0],
     explanation:
       "Wielowymiarowa przestrzeń kompromisów. Trudne dylematy mają miliony kombinacji. Zamiast sprawdzać je po kolei, algorytm kwantowy traktuje je jak interferujące fale prawdopodobieństwa.",
     bulletPoints: [
@@ -69,9 +73,10 @@ export const BRAIN_LOBES: Record<BrainLobeId, LobeInfo> = {
     name: "Rdzeń Centralny: Globalne Optimum",
     subtitle: "Stan Podstawowy & Niezależny Audyt",
     color: "#ffffff",
+    glowHex: 0xffffff,
     badge: "Etap 4: Wynik z Dowodem",
-    cameraPos: [0, 14, 18],
-    targetPos: [0, -1, 0],
+    cameraPos: [0, 7, 13],
+    targetPos: [0, 0, 0],
     explanation:
       "Punkt najniższej energii potencjalnej. Rozwiązanie o najwyższej synergii, poparte niezależnym audytem sprawdzającym linijka po linijce wszystkie warunki.",
     bulletPoints: [
@@ -80,6 +85,25 @@ export const BRAIN_LOBES: Record<BrainLobeId, LobeInfo> = {
       "Konkretny punkt zwrotny: wiesz dokładnie, co musiałoby się zmienić, by inna opcja wygrała.",
     ],
   },
+}
+
+// Generate smooth circular radial glow texture for high-luminosity particles
+function createGlowTexture(): THREE.Texture {
+  const canvas = document.createElement("canvas")
+  canvas.width = 64
+  canvas.height = 64
+  const ctx = canvas.getContext("2d")
+  if (ctx) {
+    const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32)
+    gradient.addColorStop(0, "rgba(255, 255, 255, 1.0)")
+    gradient.addColorStop(0.25, "rgba(255, 255, 255, 0.85)")
+    gradient.addColorStop(0.6, "rgba(120, 200, 255, 0.35)")
+    gradient.addColorStop(1, "rgba(0, 0, 0, 0.0)")
+    ctx.fillStyle = gradient
+    ctx.fillRect(0, 0, 64, 64)
+  }
+  const texture = new THREE.CanvasTexture(canvas)
+  return texture
 }
 
 interface EngineBrain3DProps {
@@ -96,6 +120,7 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null)
   const [activeLobe, setActiveLobe] = useState<BrainLobeId>("FRONTAL_INTAKE")
+  const activeLobeRef = useRef<BrainLobeId>("FRONTAL_INTAKE")
   const [isSimulating, setIsSimulating] = useState(false)
   const [simStep, setSimStep] = useState<string | null>(null)
   const [telemetry, setTelemetry] = useState({
@@ -105,18 +130,19 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
     mode: "CP-SAT + QAOA Aer",
   })
 
-  // Target camera state for smooth tweening
+  // Target camera state for responsive tweening
   const camTargetRef = useRef({
     x: 0,
-    y: 8,
-    z: 28,
+    y: 4,
+    z: 19,
     lookX: 0,
-    lookY: 0,
-    lookZ: 0,
+    lookY: 0.5,
+    lookZ: 3,
   })
 
   const focusLobe = (lobeId: BrainLobeId) => {
     setActiveLobe(lobeId)
+    activeLobeRef.current = lobeId
     const lobe = BRAIN_LOBES[lobeId]
     camTargetRef.current = {
       x: lobe.cameraPos[0],
@@ -142,19 +168,19 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
       focusLobe("RIGHT_QUANTUM")
       setSimStep("Krok 2/3: Kwantowe splątanie w przestrzeni stanów (QAOA)...")
       setTelemetry((prev) => ({ ...prev, coherence: "99.9%", searchSpeed: "0.42s" }))
-    }, 3800)
+    }, 3500)
 
-    // Phase 3: Global Optimum Collapse (after 7.5s)
+    // Phase 3: Global Optimum Collapse (after 7s)
     setTimeout(() => {
       focusLobe("CORE_OPTIMUM")
       setSimStep("Krok 3/3: Kolaps do Globalnego Optimum i audyt niezależny (PASS)!")
-    }, 7800)
+    }, 7000)
 
-    // Finish simulation (after 12s)
+    // Finish simulation (after 10.5s)
     setTimeout(() => {
       setIsSimulating(false)
       setSimStep(null)
-    }, 12000)
+    }, 10500)
   }
 
   useEffect(() => {
@@ -164,18 +190,20 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
     let isDisposed = false
     let animationFrameId = 0
 
-    // Setup dimensions
+    // Setup initial dimensions
     const width = Math.max(container.clientWidth || 800, 320)
     const rawHeight = typeof height === "number" ? height : container.clientHeight || 640
     const heightPx = Math.max(rawHeight, 400)
 
     // 1. Scene, Camera, Renderer
     const scene = new THREE.Scene()
-    scene.fog = new THREE.FogExp2(0x05070d, 0.022)
+    // Very gentle background fog to preserve crisp particle brightness
+    scene.fog = new THREE.FogExp2(0x04060c, 0.006)
 
     const camera = new THREE.PerspectiveCamera(45, width / heightPx, 0.1, 1000)
-    camera.position.set(0, 8, 28)
-    const currentLookAt = new THREE.Vector3(0, 0, 0)
+    const initialLobe = BRAIN_LOBES[activeLobeRef.current]
+    camera.position.set(initialLobe.cameraPos[0], initialLobe.cameraPos[1], initialLobe.cameraPos[2])
+    const currentLookAt = new THREE.Vector3(initialLobe.targetPos[0], initialLobe.targetPos[1], initialLobe.targetPos[2])
     camera.lookAt(currentLookAt)
 
     let renderer: THREE.WebGLRenderer
@@ -200,26 +228,30 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
     }
     container.appendChild(renderer.domElement)
 
+    // Glow texture for bright point sprites
+    const glowTexture = createGlowTexture()
+
     // 2. Main Groups
-    const brainGroup = new THREE.Group()
+    const mainBrainGroup = new THREE.Group()
     const axonCurvesGroup = new THREE.Group()
     const photonsGroup = new THREE.Group()
     const coreGlowGroup = new THREE.Group()
     const gyroscopeRingsGroup = new THREE.Group()
+    const lobeHighlightsGroup = new THREE.Group()
 
-    scene.add(brainGroup)
+    scene.add(mainBrainGroup)
     scene.add(axonCurvesGroup)
     scene.add(photonsGroup)
     scene.add(coreGlowGroup)
     scene.add(gyroscopeRingsGroup)
+    scene.add(lobeHighlightsGroup)
 
-    // 3. Volumetric Dual-Hemisphere Brain Point Cloud Generation
-    // Mathematical Parametric Human Brain Model
-    const brainParticlesCount = 2400
+    // 3. Volumetric Dual-Hemisphere Brain Point Cloud
+    // 2,600 luminous particles with anatomical clustering
+    const brainParticlesCount = 2600
     const brainGeo = new THREE.BufferGeometry()
     const positions = new Float32Array(brainParticlesCount * 3)
     const colors = new Float32Array(brainParticlesCount * 3)
-    const sizes = new Float32Array(brainParticlesCount)
 
     const colorLogicCyan = new THREE.Color("#38bdf8")
     const colorLogicAmber = new THREE.Color("#fbbf24")
@@ -233,45 +265,38 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
       const isRightHemisphere = i % 2 === 0
       const sideSign = isRightHemisphere ? 1 : -1
 
-      // Spherical & cortical harmonics for realistic brain lobes
-      const u = Math.random() * Math.PI // theta (0 to PI)
-      const v = (Math.random() - 0.5) * Math.PI * 2 // phi (-PI to PI)
+      const u = Math.random() * Math.PI
+      const v = (Math.random() - 0.5) * Math.PI * 2
 
-      // Anisotropic brain shape scaling factors
-      const rx = 6.2
-      const ry = 5.2
-      const rz = 7.8
+      const rx = 5.8
+      const ry = 4.8
+      const rz = 7.2
 
-      // Cortical convolutions (sulci & gyri wrinkles)
       const gyrusRipple =
         Math.sin(u * 9 + (isRightHemisphere ? 1 : 0)) * 0.45 +
         Math.cos(v * 8) * 0.35
 
-      // Longitudinal fissure separation
       const fissureGap = 0.55
 
-      // Anatomical shape coordinates
       let x = sideSign * (fissureGap + Math.abs(Math.sin(u) * Math.cos(v) * rx * (1 + gyrusRipple * 0.12)))
       let y = Math.cos(u) * ry * (1 + gyrusRipple * 0.12)
       let z = Math.sin(u) * Math.sin(v) * rz * (1 + gyrusRipple * 0.12)
 
-      // Indent bottom (cerebellum / brainstem notch)
       if (y < -1.5 && z < 0) {
-        x *= 0.7
-        y += 0.8
-        z *= 0.8
+        x *= 0.75
+        y += 0.7
+        z *= 0.75
       }
 
-      // Frontal elongation & parietal height
       if (z > 1) {
-        y += 0.5 * Math.sin(u)
+        y += 0.4 * Math.sin(u)
       }
 
-      // Add a cluster of deep subcortical / quantum core points near center
-      if (i < 240) {
-        const coreDist = Math.random() * 2.8
+      // Add a cluster of deep core singularity points
+      if (i < 260) {
+        const coreDist = Math.random() * 2.4
         const coreAng = Math.random() * Math.PI * 2
-        const coreZ = (Math.random() - 0.5) * 4
+        const coreZ = (Math.random() - 0.5) * 3
         x = Math.cos(coreAng) * coreDist
         y = Math.sin(coreAng) * coreDist * 0.8
         z = coreZ
@@ -281,36 +306,26 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
       positions[i * 3 + 1] = y
       positions[i * 3 + 2] = z
 
-      // Particle colors based on brain lobe & hemisphere
       const c = new THREE.Color()
       const distFromCenter = Math.sqrt(x * x + y * y + z * z)
 
-      if (distFromCenter < 3.2) {
-        // Quantum Core
+      if (distFromCenter < 2.8) {
         c.copy(colorCoreWhite)
-        sizes[i] = 2.4
-      } else if (z > 3.0) {
-        // Frontal Lobe (Intake & facts)
-        c.copy(colorLogicAmber).lerp(colorLogicCyan, 0.4)
-        sizes[i] = 1.8
+      } else if (z > 2.8) {
+        c.copy(colorLogicAmber).lerp(colorCoreWhite, 0.25)
       } else if (isRightHemisphere) {
-        // Right Hemisphere (Quantum Superposition & QAOA)
         const t = Math.min(1, (z + 4) / 8)
         c.copy(colorQuantumViolet).lerp(colorQuantumCyan, t)
-        sizes[i] = 1.6
       } else {
-        // Left Hemisphere (Classical Logic & CP-SAT)
         const t = Math.min(1, (z + 4) / 8)
-        c.copy(colorLogicCyan).lerp(colorLogicAmber, t * 0.5)
-        sizes[i] = 1.6
+        c.copy(colorLogicCyan).lerp(colorLogicAmber, t * 0.3)
       }
 
       colors[i * 3] = c.r
       colors[i * 3 + 1] = c.g
       colors[i * 3 + 2] = c.b
 
-      // Store a subset for axon connection anchoring
-      if (i % 38 === 0) {
+      if (i % 35 === 0) {
         corticalNodes.push(new THREE.Vector3(x, y, z))
       }
     }
@@ -318,44 +333,100 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
     brainGeo.setAttribute("position", new THREE.BufferAttribute(positions, 3))
     brainGeo.setAttribute("color", new THREE.BufferAttribute(colors, 3))
 
+    // High luminosity point material using circular glow sprite
     const brainMaterial = new THREE.PointsMaterial({
-      size: 0.18,
+      size: 0.62,
+      map: glowTexture,
       vertexColors: true,
       transparent: true,
-      opacity: 0.85,
+      opacity: 0.95,
       blending: THREE.AdditiveBlending,
+      depthWrite: false,
     })
 
     const brainPoints = new THREE.Points(brainGeo, brainMaterial)
-    brainGroup.add(brainPoints)
+    mainBrainGroup.add(brainPoints)
 
     // 4. Central Radiant Singularity (The Quantum Ground State Core)
-    const coreMeshGeo = new THREE.IcosahedronGeometry(1.6, 2)
+    const coreMeshGeo = new THREE.IcosahedronGeometry(1.8, 2)
     const coreMeshMat = new THREE.MeshBasicMaterial({
       color: 0xffffff,
       wireframe: true,
       transparent: true,
-      opacity: 0.7,
+      opacity: 0.85,
       blending: THREE.AdditiveBlending,
     })
     const coreMesh = new THREE.Mesh(coreMeshGeo, coreMeshMat)
     coreGlowGroup.add(coreMesh)
 
-    // Core halo sprite
-    const haloGeo = new THREE.RingGeometry(1.6, 2.5, 32)
-    const haloMat = new THREE.MeshBasicMaterial({
+    // Glowing core nucleus sphere
+    const coreSphereGeo = new THREE.SphereGeometry(1.1, 16, 16)
+    const coreSphereMat = new THREE.MeshBasicMaterial({
       color: 0x4df0ff,
+      transparent: true,
+      opacity: 0.6,
+      blending: THREE.AdditiveBlending,
+    })
+    const coreSphere = new THREE.Mesh(coreSphereGeo, coreSphereMat)
+    coreGlowGroup.add(coreSphere)
+
+    // Core halo ring
+    const haloGeo = new THREE.RingGeometry(1.8, 3.2, 48)
+    const haloMat = new THREE.MeshBasicMaterial({
+      color: 0xfbbf24,
       side: THREE.DoubleSide,
       transparent: true,
-      opacity: 0.45,
+      opacity: 0.5,
       blending: THREE.AdditiveBlending,
     })
     const haloRing = new THREE.Mesh(haloGeo, haloMat)
     haloRing.rotation.x = Math.PI / 2
     coreGlowGroup.add(haloRing)
 
-    // 5. Synaptic Axon Splines & Action Potential Photons
-    const splineCount = 42
+    // 5. Interactive Lobe Focal Highlights (Visual feedback on active lobe!)
+    // Frontal Lobe Highlight Aura
+    const frontalAuraGeo = new THREE.RingGeometry(2.4, 3.8, 32)
+    const frontalAuraMat = new THREE.MeshBasicMaterial({
+      color: 0xfbbf24,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.7,
+      blending: THREE.AdditiveBlending,
+    })
+    const frontalAura = new THREE.Mesh(frontalAuraGeo, frontalAuraMat)
+    frontalAura.position.set(0, 0.5, 4.5)
+    lobeHighlightsGroup.add(frontalAura)
+
+    // Left Lobe (Constraints) Highlight Aura
+    const leftAuraGeo = new THREE.RingGeometry(2.8, 4.2, 32)
+    const leftAuraMat = new THREE.MeshBasicMaterial({
+      color: 0x38bdf8,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.7,
+      blending: THREE.AdditiveBlending,
+    })
+    const leftAura = new THREE.Mesh(leftAuraGeo, leftAuraMat)
+    leftAura.position.set(-5, 0, 0)
+    leftAura.rotation.y = Math.PI / 2
+    lobeHighlightsGroup.add(leftAura)
+
+    // Right Lobe (Quantum) Highlight Aura
+    const rightAuraGeo = new THREE.RingGeometry(2.8, 4.2, 32)
+    const rightAuraMat = new THREE.MeshBasicMaterial({
+      color: 0xc084fc,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.7,
+      blending: THREE.AdditiveBlending,
+    })
+    const rightAura = new THREE.Mesh(rightAuraGeo, rightAuraMat)
+    rightAura.position.set(5, 0, 0)
+    rightAura.rotation.y = -Math.PI / 2
+    lobeHighlightsGroup.add(rightAura)
+
+    // 6. Synaptic Axon Splines & Action Potential Photons
+    const splineCount = 36
     const splines: THREE.CatmullRomCurve3[] = []
     const photons: Array<{
       mesh: THREE.Mesh
@@ -364,7 +435,7 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
       speed: number
     }> = []
 
-    const photonGeo = new THREE.SphereGeometry(0.16, 8, 8)
+    const photonGeo = new THREE.SphereGeometry(0.24, 8, 8)
     const photonMat = new THREE.MeshBasicMaterial({
       color: 0xffffff,
       blending: THREE.AdditiveBlending,
@@ -373,47 +444,43 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
     for (let s = 0; s < splineCount; s++) {
       const p1 = corticalNodes[s % corticalNodes.length]
       const p2 = corticalNodes[(s + 7) % corticalNodes.length]
-      // Arc through the center core or arch across hemispheres
-      const mid = new THREE.Vector3()
-        .addVectors(p1, p2)
-        .multiplyScalar(0.5)
-      mid.y += (Math.random() - 0.5) * 2.5
-      mid.x += (Math.random() - 0.5) * 1.5
+      const mid = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5)
+      mid.y += (Math.random() - 0.5) * 2.2
+      mid.x += (Math.random() - 0.5) * 1.4
 
       const curve = new THREE.CatmullRomCurve3([p1, mid, p2])
       splines.push(curve)
 
-      const curvePoints = curve.getPoints(36)
+      const curvePoints = curve.getPoints(30)
       const curveGeo = new THREE.BufferGeometry().setFromPoints(curvePoints)
       const isQuantumSide = s % 2 === 0
       const curveMat = new THREE.LineBasicMaterial({
         color: isQuantumSide ? 0xc084fc : 0x38bdf8,
         transparent: true,
-        opacity: 0.22,
+        opacity: 0.38,
         blending: THREE.AdditiveBlending,
       })
       const line = new THREE.Line(curveGeo, curveMat)
       axonCurvesGroup.add(line)
 
-      // Spawn traveling action potential photon
       const photonMesh = new THREE.Mesh(photonGeo, photonMat)
       photonsGroup.add(photonMesh)
       photons.push({
         mesh: photonMesh,
         curve,
         progress: Math.random(),
-        speed: 0.003 + Math.random() * 0.005,
+        speed: 0.005 + Math.random() * 0.006,
       })
     }
 
-    // 6. Quantum Phase Interference Gyroscope Rings
-    const gyroRadii = [9.5, 11.5, 13.5]
+    // 7. Quantum Phase Interference Gyroscope Rings
+    const gyroRadii = [8.8, 10.8, 12.8]
     const gyroColors = [0x4df0ff, 0xc084fc, 0xfbbf24]
     const gyroRings: THREE.Line[] = []
 
     gyroRadii.forEach((r, idx) => {
-      const curve = new THREE.EllipseCurve(0, 0, r, r * 0.92, 0, Math.PI * 2, false, 0)
-      const pts = curve.getPoints(90)
+      const curve = new THREE.EllipseCurve(0, 0, r, r * 0.94, 0, Math.PI * 2, false, 0)
+      const pts = curve.getPoints(80)
       const geo = new THREE.BufferGeometry().setFromPoints(pts)
       geo.rotateX(Math.PI / 2 + idx * 0.4)
       geo.rotateY(idx * 0.6)
@@ -421,7 +488,7 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
       const mat = new THREE.LineBasicMaterial({
         color: gyroColors[idx],
         transparent: true,
-        opacity: 0.32,
+        opacity: 0.45,
         blending: THREE.AdditiveBlending,
       })
       const ring = new THREE.Line(geo, mat)
@@ -429,22 +496,21 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
       gyroRings.push(ring)
     })
 
-    // 7. Undulating Hamiltonian Potential Floor
-    const floorSize = 40
-    const floorGeo = new THREE.PlaneGeometry(floorSize, floorSize, 36, 36)
+    // 8. Hamiltonian Energy Potential Grid Base
+    const floorGeo = new THREE.PlaneGeometry(36, 36, 18, 18)
     floorGeo.rotateX(-Math.PI / 2)
-    floorGeo.translate(0, -9, 0)
+    floorGeo.translate(0, -8, 0)
 
     const floorMat = new THREE.MeshBasicMaterial({
-      color: 0x172554,
+      color: 0x1d4ed8,
       wireframe: true,
       transparent: true,
-      opacity: 0.25,
+      opacity: 0.35,
     })
     const floorMesh = new THREE.Mesh(floorGeo, floorMat)
     scene.add(floorMesh)
 
-    // 8. Mouse Drag Controls with Inertia
+    // 9. Mouse Drag Controls with Inertia
     let isDragging = false
     let prevMouse = { x: 0, y: 0 }
     const rotationVelocity = { x: 0.0018, y: 0.0006 }
@@ -459,8 +525,8 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
       const dx = e.clientX - prevMouse.x
       const dy = e.clientY - prevMouse.y
 
-      brainGroup.rotation.y += dx * 0.005
-      brainGroup.rotation.x += dy * 0.005
+      mainBrainGroup.rotation.y += dx * 0.005
+      mainBrainGroup.rotation.x += dy * 0.005
       axonCurvesGroup.rotation.y += dx * 0.005
       axonCurvesGroup.rotation.x += dy * 0.005
       photonsGroup.rotation.y += dx * 0.005
@@ -475,7 +541,7 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault()
-      camTargetRef.current.z = Math.max(12, Math.min(46, camTargetRef.current.z + e.deltaY * 0.03))
+      camTargetRef.current.z = Math.max(10, Math.min(36, camTargetRef.current.z + e.deltaY * 0.025))
     }
 
     if (interactive) {
@@ -485,7 +551,7 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
       container.addEventListener("wheel", onWheel, { passive: false })
     }
 
-    // 9. Animation & Smooth Camera Tween Loop
+    // 10. Ultra-Responsive Animation & Smooth Camera Tween Loop
     const startTime = performance.now()
 
     const animate = () => {
@@ -493,8 +559,8 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
       animationFrameId = requestAnimationFrame(animate)
       const t = (performance.now() - startTime) / 1000
 
-      // Smooth Camera Tweening towards target
-      const lerpFactor = 0.04
+      // Fast, snappy camera lerp (0.12 = fast smooth glide in ~300ms instead of 4 seconds!)
+      const lerpFactor = 0.12
       camera.position.x += (camTargetRef.current.x - camera.position.x) * lerpFactor
       camera.position.y += (camTargetRef.current.y - camera.position.y) * lerpFactor
       camera.position.z += (camTargetRef.current.z - camera.position.z) * lerpFactor
@@ -504,21 +570,43 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
       currentLookAt.z += (camTargetRef.current.lookZ - currentLookAt.z) * lerpFactor
       camera.lookAt(currentLookAt)
 
-      // Idle Rotation if user isn't dragging
-      if (!isDragging) {
-        brainGroup.rotation.y += rotationVelocity.x
-        brainGroup.rotation.x = Math.sin(t * 0.3) * 0.08
-        axonCurvesGroup.rotation.y += rotationVelocity.x
-        axonCurvesGroup.rotation.x = brainGroup.rotation.x
-        photonsGroup.rotation.y += rotationVelocity.x
-        photonsGroup.rotation.x = brainGroup.rotation.x
-        gyroscopeRingsGroup.rotation.y -= rotationVelocity.x * 0.6
+      // Active Lobe Dynamic 3D Feedback (Highlights the selected lobe instantly!)
+      const currentLobe = activeLobeRef.current
+      const pulseWave = 1 + 0.25 * Math.sin(t * 5.0)
+
+      frontalAura.visible = currentLobe === "FRONTAL_INTAKE"
+      if (frontalAura.visible) {
+        frontalAura.scale.setScalar(pulseWave)
       }
 
-      // Pulse Central Quantum Singularity
-      const corePulse = 1 + 0.15 * Math.sin(t * 3.5)
-      coreMesh.scale.setScalar(corePulse)
-      haloRing.scale.setScalar(corePulse * 1.1)
+      leftAura.visible = currentLobe === "LEFT_CONSTRAINTS"
+      if (leftAura.visible) {
+        leftAura.scale.setScalar(pulseWave)
+      }
+
+      rightAura.visible = currentLobe === "RIGHT_QUANTUM"
+      if (rightAura.visible) {
+        rightAura.scale.setScalar(pulseWave)
+      }
+
+      // Idle Rotation
+      if (!isDragging) {
+        mainBrainGroup.rotation.y += rotationVelocity.x
+        mainBrainGroup.rotation.x = Math.sin(t * 0.3) * 0.06
+        axonCurvesGroup.rotation.y += rotationVelocity.x
+        axonCurvesGroup.rotation.x = mainBrainGroup.rotation.x
+        photonsGroup.rotation.y += rotationVelocity.x
+        photonsGroup.rotation.x = mainBrainGroup.rotation.x
+        gyroscopeRingsGroup.rotation.y -= rotationVelocity.x * 0.7
+      }
+
+      // Central Quantum Singularity Pulse
+      const isCoreActive = currentLobe === "CORE_OPTIMUM"
+      const corePulseFactor = isCoreActive ? 1.4 + 0.3 * Math.sin(t * 6.0) : 1 + 0.15 * Math.sin(t * 3.5)
+      coreMesh.scale.setScalar(corePulseFactor)
+      coreSphere.scale.setScalar(corePulseFactor * 0.9)
+      haloRing.scale.setScalar(corePulseFactor * 1.15)
+      haloRing.rotation.z += 0.015
 
       // Advance Action Potential Photons along splines
       photons.forEach((p) => {
@@ -528,23 +616,12 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
         p.mesh.position.copy(point)
       })
 
-      // Animate Undulating Hamiltonian Floor
-      const pos = floorGeo.attributes.position as THREE.BufferAttribute
-      for (let i = 0; i < pos.count; i++) {
-        const vx = pos.getX(i)
-        const vz = pos.getZ(i)
-        const distCenter = Math.sqrt(vx * vx + vz * vz)
-        const wave =
-          Math.sin(distCenter * 0.4 - t * 1.6) * 0.5 +
-          Math.cos(vx * 0.25 + t) * 0.3 -
-          Math.exp(-distCenter * 0.16) * 2.8 // Gravitational well into ground state
-        pos.setY(i, wave)
-      }
-      pos.needsUpdate = true
+      // Elegant Hamiltonian base slow rotation (0 CPU vertex recomputation!)
+      floorMesh.rotation.z += 0.0015
 
-      // Wobble Gyroscope Rings
+      // Gyroscope wobble
       gyroRings.forEach((r, idx) => {
-        r.rotation.z += (idx + 1) * 0.0018
+        r.rotation.z += (idx + 1) * 0.002
       })
 
       renderer.render(scene, camera)
@@ -552,7 +629,7 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
 
     animate()
 
-    // 10. Resize Observer
+    // 11. Dynamic Resize Observer for robust viewport fitting
     const handleResize = () => {
       if (!container || !renderer) return
       const w = Math.max(container.clientWidth || 800, 320)
@@ -562,11 +639,16 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
       renderer.setSize(w, h)
     }
 
+    const ro = new ResizeObserver(() => {
+      if (!isDisposed) handleResize()
+    })
+    ro.observe(container)
     window.addEventListener("resize", handleResize)
 
     return () => {
       isDisposed = true
       cancelAnimationFrame(animationFrameId)
+      ro.disconnect()
       window.removeEventListener("resize", handleResize)
       if (interactive) {
         container.removeEventListener("mousedown", onMouseDown)
@@ -580,6 +662,9 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
           container.removeChild(renderer.domElement)
         }
       }
+      glowTexture.dispose()
+      brainGeo.dispose()
+      brainMaterial.dispose()
     }
   }, [interactive, height])
 
@@ -591,7 +676,7 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
         position: "relative",
         width: "100%",
         height: height,
-        background: "radial-gradient(ellipse at 50% 35%, oklch(14% 0.025 250) 0%, oklch(5% 0.01 250) 80%)",
+        background: "radial-gradient(ellipse at 50% 35%, oklch(14% 0.025 250) 0%, oklch(4% 0.01 250) 80%)",
         borderRadius: "20px",
         overflow: "hidden",
         border: "1px solid oklch(24% 0.035 250)",
@@ -606,6 +691,7 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
           height: "100%",
           cursor: interactive ? "grab" : "default",
           minWidth: 0,
+          position: "relative",
         }}
       />
 
@@ -632,7 +718,7 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
               display: "inline-flex",
               alignItems: "center",
               gap: "0.5rem",
-              background: "oklch(12% 0.025 250 / 0.9)",
+              background: "oklch(12% 0.025 250 / 0.92)",
               backdropFilter: "blur(12px)",
               border: "1px solid oklch(30% 0.05 250)",
               borderRadius: "10px",
@@ -678,7 +764,7 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
               alignItems: "center",
               gap: "0.45rem",
               boxShadow: "0 0 20px oklch(75% 0.12 80 / 0.4)",
-              transition: "all 200ms ease",
+              transition: "all 150ms ease",
             }}
           >
             <span>{isSimulating ? "⚡ Symulacja w toku..." : "▶ Uruchom Proces Decyzyjny 3D"}</span>
@@ -713,7 +799,7 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
           top: "4.25rem",
           left: "1rem",
           display: "flex",
-          gap: "0.375rem",
+          gap: "0.45rem",
           zIndex: 10,
           flexWrap: "wrap",
         }}
@@ -727,30 +813,31 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
               onClick={() => focusLobe(l.id)}
               type="button"
               style={{
-                background: isSelected ? "oklch(22% 0.04 250 / 0.95)" : "oklch(12% 0.02 250 / 0.85)",
-                border: isSelected ? `1.5px solid ${l.color}` : "1px solid oklch(24% 0.03 250)",
+                background: isSelected ? "oklch(25% 0.05 250 / 0.98)" : "oklch(12% 0.02 250 / 0.85)",
+                border: isSelected ? `2px solid ${l.color}` : "1px solid oklch(24% 0.03 250)",
                 borderRadius: "8px",
-                padding: "0.35rem 0.75rem",
-                fontSize: "0.75rem",
+                padding: "0.4rem 0.85rem",
+                fontSize: "0.8125rem",
                 fontWeight: isSelected ? 800 : 600,
                 color: isSelected ? "#ffffff" : "oklch(75% 0.015 250)",
                 cursor: "pointer",
                 backdropFilter: "blur(10px)",
                 display: "inline-flex",
                 alignItems: "center",
-                gap: "0.375rem",
-                boxShadow: isSelected ? `0 0 16px ${l.color}40` : "none",
-                transition: "all 180ms ease",
+                gap: "0.45rem",
+                boxShadow: isSelected ? `0 0 20px ${l.color}60` : "none",
+                transform: isSelected ? "scale(1.04)" : "scale(1)",
+                transition: "all 120ms ease",
               }}
             >
-              <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: l.color }} />
+              <span style={{ width: "9px", height: "9px", borderRadius: "50%", background: l.color, boxShadow: `0 0 8px ${l.color}` }} />
               <span>{l.name.split(":")[0]}</span>
             </button>
           )
         })}
       </div>
 
-      {/* Explanatory Narrative Card (Right Sidebar) — Explains exactly WHAT is on screen */}
+      {/* Explanatory Narrative Card (Right Sidebar) */}
       <div
         style={{
           width: "360px",
