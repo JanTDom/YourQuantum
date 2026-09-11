@@ -189,11 +189,34 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
 
     let isDisposed = false
     let animationFrameId = 0
+    let retryRafId = 0
 
-    // Setup initial dimensions
-    const width = Math.max(container.clientWidth || 800, 320)
-    const rawHeight = typeof height === "number" ? height : container.clientHeight || 640
-    const heightPx = Math.max(rawHeight, 400)
+    // Outer-scope cleanup handles that initThreeScene will assign
+    let cleanupFn: (() => void) | null = null
+
+    // Defer Three.js initialisation until the container has real pixel dimensions.
+    // When BrainModal uses flex:1 the clientHeight can be 0 on the first render.
+    const startInit = () => {
+      const w = container.clientWidth
+      const h = typeof height === "number" ? (height as number) : container.clientHeight
+      if ((w === 0 || h === 0) && !isDisposed) {
+        retryRafId = requestAnimationFrame(startInit)
+        return
+      }
+      if (!isDisposed) initThreeScene()
+    }
+    retryRafId = requestAnimationFrame(startInit)
+
+    function initThreeScene() {
+    // container is guaranteed non-null (checked before startInit was called)
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const c = container!
+
+    // Setup initial dimensions (guaranteed > 0 at this point)
+    const width = Math.max(c.clientWidth || 800, 320)
+    const rawHeight = typeof height === "number" ? height : c.clientHeight || 640
+    const heightPx = Math.max(rawHeight as number, 400)
+
 
     // 1. Scene, Camera, Renderer
     const scene = new THREE.Scene()
@@ -223,10 +246,10 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
     renderer.domElement.style.width = "100%"
     renderer.domElement.style.height = "100%"
 
-    while (container.firstChild) {
-      container.removeChild(container.firstChild)
+    while (c.firstChild) {
+      c.removeChild(c.firstChild)
     }
-    container.appendChild(renderer.domElement)
+    c.appendChild(renderer.domElement)
 
     // Glow texture for bright point sprites
     const glowTexture = createGlowTexture()
@@ -545,10 +568,10 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
     }
 
     if (interactive) {
-      container.addEventListener("mousedown", onMouseDown)
+      c.addEventListener("mousedown", onMouseDown)
       window.addEventListener("mousemove", onMouseMove)
       window.addEventListener("mouseup", onMouseUp)
-      container.addEventListener("wheel", onWheel, { passive: false })
+      c.addEventListener("wheel", onWheel, { passive: false })
     }
 
     // 10. Ultra-Responsive Animation & Smooth Camera Tween Loop
@@ -631,9 +654,9 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
 
     // 11. Dynamic Resize Observer for robust viewport fitting
     const handleResize = () => {
-      if (!container || !renderer) return
-      const w = Math.max(container.clientWidth || 800, 320)
-      const h = Math.max(typeof height === "number" ? height : container.clientHeight || 640, 400)
+      if (!c || !renderer) return
+      const w = Math.max(c.clientWidth || 800, 320)
+      const h = Math.max(typeof height === "number" ? height : c.clientHeight || 640, 400)
       camera.aspect = w / h
       camera.updateProjectionMatrix()
       renderer.setSize(w, h)
@@ -642,29 +665,37 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
     const ro = new ResizeObserver(() => {
       if (!isDisposed) handleResize()
     })
-    ro.observe(container)
+    ro.observe(c)
     window.addEventListener("resize", handleResize)
 
-    return () => {
-      isDisposed = true
-      cancelAnimationFrame(animationFrameId)
+    // Store full cleanup into outer-scope ref for the useEffect return
+    cleanupFn = () => {
       ro.disconnect()
       window.removeEventListener("resize", handleResize)
       if (interactive) {
-        container.removeEventListener("mousedown", onMouseDown)
+        c.removeEventListener("mousedown", onMouseDown)
         window.removeEventListener("mousemove", onMouseMove)
         window.removeEventListener("mouseup", onMouseUp)
-        container.removeEventListener("wheel", onWheel)
+        c.removeEventListener("wheel", onWheel)
       }
+      cancelAnimationFrame(animationFrameId)
       if (renderer) {
         renderer.dispose()
-        if (container && renderer.domElement && container.contains(renderer.domElement)) {
-          container.removeChild(renderer.domElement)
+        if (renderer.domElement && c.contains(renderer.domElement)) {
+          c.removeChild(renderer.domElement)
         }
       }
       glowTexture.dispose()
       brainGeo.dispose()
       brainMaterial.dispose()
+    }
+
+    } // end initThreeScene
+
+    return () => {
+      isDisposed = true
+      cancelAnimationFrame(retryRafId)
+      if (cleanupFn) cleanupFn()
     }
   }, [interactive, height])
 
