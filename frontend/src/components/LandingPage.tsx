@@ -5,8 +5,6 @@ import React, {
   useState,
 } from 'react'
 import { ConversationPanel } from './ConversationPanel'
-import { EngineBrain3D } from './EngineBrain3D'
-import { ErrorBoundary } from './ErrorBoundary'
 import s from './LandingPage.module.css'
 
 // ── Types ─────────────────────────────────────────────────────
@@ -317,6 +315,55 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   return (
     <div className={s.root}>
 
+      {/* ── TOP PERMANENT NAV (Always visible before scrolling) ── */}
+      <header className={s.topNav} aria-label="Główne menu YourQuantum">
+        <span className={s.stickyNavLogo} aria-label="YourQuantum">
+          YourQuantum
+        </span>
+        <div className={s.topNavActions}>
+          {onOpenBrain && (
+            <button
+              onClick={onOpenBrain}
+              type="button"
+              className={s.navBrainBtn}
+              title="Otwórz interaktywną prezentację 3D mózgu projektu"
+            >
+              <span style={{ fontSize: '1.0625rem' }}>🧠</span>
+              <span>Mózg Silnika 3D</span>
+            </button>
+          )}
+          {onOpenHelp && (
+            <button
+              onClick={onOpenHelp}
+              type="button"
+              className={s.navHelpBtn}
+              title="Otwórz przewodnik i pomoc dla laików"
+            >
+              <span style={{
+                width: '18px',
+                height: '18px',
+                borderRadius: '50%',
+                background: 'oklch(75% 0.12 80 / 0.2)',
+                color: 'oklch(75% 0.12 80)',
+                fontSize: '0.6875rem',
+                fontWeight: 900,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>?</span>
+              <span>Pomoc</span>
+            </button>
+          )}
+          <button
+            className={s.stickyNavCta}
+            onClick={scrollToTop}
+            type="button"
+          >
+            Opisz problem →
+          </button>
+        </div>
+      </header>
+
       {/* ── STICKY NAV ──────────────────────────────────────── */}
       <nav
         className={`${s.stickyNav} ${navVisible ? s.stickyNavVisible : ''}`}
@@ -325,41 +372,40 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         <span className={s.stickyNavLogo} aria-label="YourQuantum">
           YourQuantum
         </span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
           {onOpenBrain && (
             <button
               onClick={onOpenBrain}
               type="button"
-              style={{
-                background: 'oklch(18% 0.03 250)',
-                border: '1px solid oklch(30% 0.04 250)',
-                color: 'oklch(90% 0.02 250)',
-                padding: '0.4rem 0.75rem',
-                borderRadius: '6px',
-                fontSize: '0.8125rem',
-                fontWeight: 700,
-                cursor: 'pointer',
-              }}
+              className={s.navBrainBtn}
+              style={{ padding: '0.4rem 0.85rem', fontSize: '0.8125rem' }}
+              title="Otwórz interaktywną prezentację 3D mózgu projektu"
             >
-              ⚡ Mózg 3D
+              <span>🧠</span>
+              <span>Mózg Silnika 3D</span>
             </button>
           )}
           {onOpenHelp && (
             <button
               onClick={onOpenHelp}
               type="button"
-              style={{
-                background: 'oklch(18% 0.03 250)',
-                border: '1px solid oklch(30% 0.04 250)',
-                color: 'oklch(90% 0.02 250)',
-                padding: '0.4rem 0.75rem',
-                borderRadius: '6px',
-                fontSize: '0.8125rem',
-                fontWeight: 700,
-                cursor: 'pointer',
-              }}
+              className={s.navHelpBtn}
+              style={{ padding: '0.4rem 0.85rem', fontSize: '0.8125rem' }}
+              title="Otwórz pomoc dla laików"
             >
-              ? Pomoc
+              <span style={{
+                width: '16px',
+                height: '16px',
+                borderRadius: '50%',
+                background: 'oklch(75% 0.12 80 / 0.2)',
+                color: 'oklch(75% 0.12 80)',
+                fontSize: '0.625rem',
+                fontWeight: 900,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>?</span>
+              <span>Pomoc</span>
             </button>
           )}
           <button
@@ -367,7 +413,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             onClick={scrollToTop}
             type="button"
           >
-            Opisz swój problem →
+            Opisz problem →
           </button>
         </div>
       </nav>
@@ -484,19 +530,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             >
               Jak to działa? ↓
             </button>
-          </div>
-
-          {/* Right: Live Interactive 3D Cognitive Brain */}
-          <div className={s.heroRight}>
-            <ErrorBoundary>
-              <EngineBrain3D
-                height={430}
-                compact={true}
-                interactive={true}
-                onExpand={onOpenBrain}
-                onGoToDilemma={scrollToTop}
-              />
-            </ErrorBoundary>
           </div>
         </div>
 
@@ -711,39 +744,35 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 type="button"
                 onClick={onOpenBrain}
                 style={{
-                  background: 'oklch(18% 0.03 250)',
-                  border: '1px solid oklch(30% 0.04 250)',
+                  background: 'oklch(16% 0.035 240)',
+                  border: '1px solid oklch(35% 0.08 240)',
                   borderRadius: '10px',
-                  padding: '0.75rem 1.25rem',
+                  padding: '0.75rem 1.4rem',
                   fontSize: '0.9375rem',
                   fontWeight: 700,
-                  color: 'oklch(92% 0.01 250)',
+                  color: 'oklch(95% 0.02 240)',
                   cursor: 'pointer',
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '0.5rem',
+                  boxShadow: '0 0 16px oklch(62% 0.18 240 / 0.25)',
                   transition: 'all 200ms ease',
                 }}
               >
-                <span>Powiększ na cały ekran</span>
+                <span>🧠 Otwórz Mózg Silnika 3D</span>
                 <span style={{ fontSize: '1rem' }}>↗</span>
               </button>
             )}
           </div>
         </div>
 
-        <div className={s.machineImgRight} aria-label="Interaktywny model kognitywny 3D">
-          <div style={{ width: '100%', maxWidth: '640px' }}>
-            <ErrorBoundary>
-              <EngineBrain3D
-                height={500}
-                compact={false}
-                interactive={true}
-                onExpand={onOpenBrain}
-                onGoToDilemma={scrollToTop}
-              />
-            </ErrorBoundary>
-          </div>
+        <div className={s.machineImgRight} aria-hidden="true">
+          <img
+            src="/images/datacenter.jpg"
+            alt=""
+            className={s.machineImgRightImg}
+            loading="lazy"
+          />
         </div>
       </section>
 
