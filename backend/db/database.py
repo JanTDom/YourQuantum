@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -27,9 +28,14 @@ else:
         raw_url = base_part + ("?" + "&".join(params) if params else "")
     DATABASE_URL = raw_url
 
-connect_args = {}
+connect_args: dict[str, Any] = {}
 if DATABASE_URL.startswith("sqlite"):
     connect_args = {"check_same_thread": False}
+elif "postgresql" in DATABASE_URL:
+    connect_args = {
+        "statement_cache_size": 0,
+        "prepared_statement_cache_size": 0,
+    }
 
 engine = create_async_engine(DATABASE_URL, echo=False, connect_args=connect_args)
 async_session_factory = async_sessionmaker(engine, expire_on_commit=False)
