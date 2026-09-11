@@ -66,14 +66,35 @@ All 20 external audit deficiencies have been addressed, refactored, and verified
    - **Punkt Zwrotny do Negocjacji (Break-Even Box)**: Actionable analysis in plain Polish explaining what specific parameters (salary, remote work, price) would need to shift for the losing option to become optimal.
    - **1-Click Executive Print Report (A4 / PDF)**: Dedicated `@media print` stylesheet with official verification seal, dilemma overview, timestamp, and audit trail, stripping all dark web chrome for a crisp printable document.
 
-8. **Empirical Test Suite**:
-   - Pytest suite: **52/52 PASS** across domain, verifier, quantum solvers, and formalizer tests.
-   - TypeScript build: **0 errors, 0 warnings** (`tsc -b && vite build`).
-   - End-to-end browser execution verified with Puppeteer on real-world dilemmas.
+8. **Production Cloud Deployment & Custom Domain**:
+   - Deployed on Vercel (`macieto/yourquantum`) with Supabase PostgreSQL integration (`aws-1-eu-west-1.pooler.supabase.com:6543/postgres`).
+   - Configured `statement_cache_size=0` for asyncpg to resolve PgBouncer transaction pooling collisions.
+   - Connected custom domain `https://yourquantum.pl` and `https://www.yourquantum.pl` with live A records (`76.76.21.21`) configured on nazwa.pl DNS.
+   - SSL certificates active, HTTP/2 200 on all endpoints.
+
+9. **Dynamic Auto-Updating Layperson Help System (`backend/api/help_service.py`, `frontend/src/components/HelpCenterModal.tsx`)**:
+   - Dynamic engine introspection via `GET /api/v1/help` and `GET /api/v1/help/snapshot`.
+   - Automatically reflects registered solvers (`SOLVER_REGISTRY`), version, and supported dilemma domains without hardcoding.
+   - 5 structured tabs: Przewodnik krok po kroku, Gotowe przykłady z życia (one-click prefill), Pytania i odpowiedzi (FAQ), Słowniczek pojęć, Stan Silnika Live.
+   - Context-aware stage awareness (Intake -> Workspace -> Approval -> Recommendation).
+
+10. **3D Interactive Cognitive Brain (`frontend/src/components/EngineBrain3D.tsx`, `frontend/src/components/BrainModal.tsx`)**:
+    - Built with Three.js (WebGL hardware-accelerated 60 FPS).
+    - Features 24-node cognitive hypergraph with pulsing icosahedrons and glowing additive bezier synapses.
+    - Continuous undulating QUBO / Hamiltonian energy manifold with central gravity well (Global Optimum ground state).
+    - Triple concentric phase interference gyroscope rings.
+    - 360° mouse drag orbit controls and scroll zoom.
+    - Dynamic layer switcher (Wszystko / Topologia / Krajobraz QUBO / Faza i Fale) and interactive shockwave trigger ("Wyślij impuls kwantowy ⚡").
+    - Strict know-how protection: communicates scientific rigor via abstract topological and physical metrics (phase coherence, synergy vector, boundary margins) with zero proprietary code or formula leaks.
+
+11. **Empirical Test Suite**:
+    - Pytest suite: **54/54 PASS** across domain, verifier, quantum solvers, help service, and formalizer tests.
+    - TypeScript build: **0 errors, 0 warnings** (`tsc -b && vite build`).
+    - Synced to GitHub repository `https://github.com/JanTDom/YourQuantum`.
 
 ---
 
 ## Next Step
 
-Observe user interactions and continue expanding solver adaptors for multi-objective Pareto frontiers.
+Gather early user feedback on live domain `yourquantum.pl` and test additional edge-case life dilemmas.
 

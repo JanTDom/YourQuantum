@@ -236,7 +236,38 @@ Delivers an accessible, dignified product experience for everyday human problem-
 4. **Bilans Decyzyjny (2-Column Comparison)**: Provide side-by-side comparative clarity on why the winning option prevailed over the runner-up.
 5. **Executive Print Report (A4 / PDF)**: Provide 1-click clean printable output with official verification seal, hiding web navigation and ambient dark effects.
 
+
+---
+
+## DEC-016 — Dynamic Self-Synchronizing Layperson Help System
+
+**Date:** 2026-09-11
+**Status:** ACTIVE
+
+**Decision:**
+Implement an introspective knowledge base (`backend/api/help_service.py`) exposed via `GET /api/v1/help` and `GET /api/v1/help/snapshot`.
+- Introspects live engine solver registry (`SOLVER_REGISTRY`), version, and supported dilemma domains dynamically.
+- Formats guidance in crystal-clear layperson language (real-life examples, why the AI asks questions, slider trade-offs, independent verification, and common dilemmas).
+- Syncs automatically whenever new solvers or capabilities are registered.
+
 **Rationale:**
-Allows non-technical decision-makers to obtain executive-level clarity, practical negotiation leverage, and formal mathematical certitude without needing quantum physics knowledge or mathematical modeling training.
+Prevents documentation rot. A changing solver or verification suite updates the help center instantly without manual copywriting edits.
+
+---
+
+## DEC-017 — 3D Cognitive Brain Architecture with Protected Know-How
+
+**Date:** 2026-09-11
+**Status:** ACTIVE
+
+**Decision:**
+Implement a WebGL 3D interactive cognitive brain (`EngineBrain3D.tsx`, `BrainModal.tsx`) using Three.js with three synchronized layers:
+1. **Cognitive Hypergraph**: Multi-criteria nodes connected by additive glowing synaptic curves.
+2. **QUBO / Hamiltonian Energy Landscape**: Continuous undulating wave surface converging to a deep gravitational well (Global Optimum ground state).
+3. **Interference Gyroscope Rings**: Orthogonal concentric rings visualizing phase coherence and quantum tunneling.
+4. **Strict Know-How Protection**: Visualizes topological energy landscapes and multi-criteria balance as abstract physical metaphors (coherence, synergy vector, boundary margins) without exposing private proprietary formulas, penalty multipliers, or source code.
+
+**Rationale:**
+Delivers an Awwwards/FWA-grade presentation that inspires trust and awe in the engine's scientific depth while guarding intellectual property.
 
 
