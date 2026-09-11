@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/api.ts","./src/main.tsx","./src/vite-env.d.ts","./src/components/appheader.tsx","./src/components/caseworkspace.tsx","./src/components/conversationpanel.tsx","./src/components/evidencedrawer.tsx","./src/components/landingpage.tsx","./src/components/modelapprovalgate.tsx","./src/components/recommendationview.tsx"],"version":"5.8.3"}

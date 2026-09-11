@@ -1,0 +1,322 @@
+/**
+ * YourQuantum — API Client
+ * Typed wrappers around the FastAPI backend.
+ * All inputs validated client-side before sending.
+ */
+
+const BASE_URL = '/api/v1'
+
+export interface ComputeBudget {
+  wall_time_seconds?: number
+  memory_mb?: number
+  quantum_shots?: number
+}
+
+export interface ProblemCreateRequest {
+  description: string
+  binary_variables: string[]
+  objective_coefficients: Record<string, number>
+  objective_direction: 'minimize' | 'maximize'
+  equality_constraints: Array<{ lhs: Record<string, number>; rhs: number }>
+  budget?: ComputeBudget
+}
+
+export interface ProblemResponse {
+  problem_id: string
+  description_formalised: string
+  n_variables: number
+  n_constraints: number
+  n_objectives: number
+  approved: boolean
+  missing_blocking: number
+  ir_summary: {
+    variables: string[]
+    objective_direction: string
+    n_equality_constraints: number
+  }
+}
+
+export interface JobCreateRequest {
+  problem_id: string
+  solver: 'cp_sat' | 'qaoa_aer'
+  budget?: ComputeBudget
+}
+
+export interface JobStatus {
+  job_id: string
+  problem_id: string
+  solver_name: string
+  execution_status: 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'TIMED_OUT' | 'CANCELLED' | 'FAILED'
+  math_status: string | null
+  source: string | null
+  publication_status?: string
+  created_at: string
+  started_at: string | null
+  completed_at: string | null
+  solve_time_seconds: number | null
+  objective_value: number | null
+  error_message: string | null
+}
+
+export interface CaseFact {
+  id: string
+  label: string
+  value: unknown
+  unit?: string | null
+  source_text?: string | null
+  confidence: number
+}
+
+export interface CaseOption {
+  id: string
+  title: string
+  description: string
+  pros: string[]
+  cons: string[]
+  attributes: Record<string, unknown>
+}
+
+export interface CaseCriterion {
+  id: string
+  name: string
+  direction: 'maximize' | 'minimize'
+  weight: number
+  unit?: string | null
+  is_mandatory: boolean
+  threshold?: number | null
+}
+
+export interface CaseUnknown {
+  id: string
+  question: string
+  impact_description: string
+  default_assumption?: string | null
+  answer?: string | null
+  is_resolved: boolean
+}
+
+export interface CaseTradeoff {
+  option_a_id: string
+  option_b_id: string
+  description: string
+  gain: string
+  sacrifice: string
+}
+
+export interface DecisionCase {
+  id: string
+  title: string
+  context: string
+  status: 'intake' | 'clarification' | 'ready_for_modeling' | 'modeled' | 'evaluated'
+  facts: CaseFact[]
+  options: CaseOption[]
+  criteria: CaseCriterion[]
+  unknowns: CaseUnknown[]
+  tradeoffs: CaseTradeoff[]
+  priority_tokens?: string[]
+  selected_priority_tokens?: string[]
+  break_even_point?: string | null
+  created_at: string
+  updated_at: string
+  problem_ir_id?: string | null
+}
+
+export interface ConstraintResult {
+  constraint_id: string
+  satisfied: boolean
+  hard: boolean
+  violation_magnitude: number | null
+  note: string | null
+}
+
+export interface VerificationReport {
+  verdict: 'PASS' | 'FAIL' | 'PARTIAL' | 'UNKNOWN'
+  verdict_reason: string
+  feasible: boolean
+  objective_value: number | null
+  objective_recomputed: boolean
+  solver_claimed_objective: number | null
+  constraint_results: ConstraintResult[]
+  domain_violations: string[]
+  numerical_residual: number | null
+  limitations: string[]
+}
+
+export interface QAOARunRecord {
+  run_id: string
+  problem_id: string
+  encoding_id: string
+  backend_name: string
+  execution_mode: string
+  n_qubits: number
+  p_layers: number
+  circuit_depth: number | null
+  circuit_gate_count: number | null
+  shots: number
+  seed: number
+  n_evaluations: number
+  final_params: number[]
+  final_energy: number | null
+  converged: boolean
+  optimiser: string
+  sample_distribution: Record<string, number>
+  top_k_bitstrings: string[]
+  top_k_energies: number[]
+  compile_time_seconds: number
+  optimise_time_seconds: number
+  sample_time_seconds: number
+  total_time_seconds: number
+  amplification_factor?: number | null
+  ground_state_prob?: number | null
+  random_guess_prob?: number | null
+  two_qubit_gate_count?: number
+  single_qubit_gate_count?: number
+  multi_start_attempts?: number
+  notes: string[]
+}
+
+export interface ProblemPreset {
+  id: string
+  title: string
+  category: string
+  description: string
+  human_explanation: string
+  human_rules: string[]
+  variable_labels: Record<string, string>
+  binary_variables: string[]
+  objective_coefficients: Record<string, number>
+  objective_direction: 'minimize' | 'maximize'
+  equality_constraints: Array<{ lhs: Record<string, number>; rhs: number }>
+  time_limit: number
+  shots: number
+  recommended_solver: 'cp_sat' | 'qaoa_aer'
+  quantum_ready: boolean
+  tags: string[]
+  image_slug: string
+}
+
+export interface FormalizeResponse {
+  description_raw: string
+  description_formalised: string
+  binary_variables: string[]
+  objective_direction: 'minimize' | 'maximize'
+  objective_coefficients: Record<string, number>
+  equality_constraints: Array<{ lhs: Record<string, number>; rhs: number }>
+  inequality_constraints: Array<{ lhs: Record<string, number>; rhs: number }>
+  assumptions: string[]
+  missing_information: string[]
+  identified_archetype: string
+  break_even_point?: string | null
+}
+
+export interface BenchmarkResponse {
+  problem_id: string
+  cp_sat_job_id: string
+  qaoa_job_id: string
+  status: string
+}
+
+export interface JobResult {
+  job_id: string
+  problem_id: string
+  execution_status: string
+  math_status: string | null
+  source: string | null
+  publication_status?: string
+  is_verified_recommendation?: boolean
+  objective_value: number | null
+  solve_time_seconds: number | null
+  solver_result: {
+    assignment?: Record<string, number>
+    metadata?: {
+      qaoa_run_record?: QAOARunRecord
+    }
+  } | null
+  verification: VerificationReport | null
+  error_message: string | null
+}
+
+async function request<T>(
+  path: string,
+  options?: RequestInit,
+): Promise<T> {
+  const resp = await fetch(`${BASE_URL}${path}`, {
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    ...options,
+  })
+  if (!resp.ok) {
+    const text = await resp.text()
+    throw new Error(`API ${resp.status}: ${text}`)
+  }
+  return resp.json() as Promise<T>
+}
+
+export const api = {
+  createProblem: (req: ProblemCreateRequest & { approved?: boolean }) =>
+    request<ProblemResponse>('/problems', {
+      method: 'POST',
+      body: JSON.stringify(req),
+    }),
+
+  approveProblem: (id: string) =>
+    request<ProblemResponse>(`/problems/${id}/approve`, {
+      method: 'POST',
+    }),
+
+  getProblem: (id: string) =>
+    request<Record<string, unknown>>(`/problems/${id}`),
+
+  createJob: (req: JobCreateRequest) =>
+    request<{ job_id: string; status: string }>('/jobs', {
+      method: 'POST',
+      body: JSON.stringify(req),
+    }),
+
+  getJobStatus: (id: string) =>
+    request<JobStatus>(`/jobs/${id}`),
+
+  getJobResult: (id: string) =>
+    request<JobResult>(`/jobs/${id}/result`),
+
+  getSolvers: () =>
+    request<{ solvers: Array<{ name: string; version: string }> }>(
+      '/health/solvers',
+    ),
+
+  getPresets: () =>
+    request<ProblemPreset[]>('/presets'),
+
+  formalizeProblem: (text: string) =>
+    request<FormalizeResponse>('/problems/formalize', {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    }),
+
+  formalizeCase: (caseData: DecisionCase) =>
+    request<FormalizeResponse>('/cases/formalize', {
+      method: 'POST',
+      body: JSON.stringify(caseData),
+    }),
+
+  analyzeCase: (text: string) =>
+    request<DecisionCase>('/cases/analyze', {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    }),
+
+  saveCase: (caseData: DecisionCase) =>
+    request<DecisionCase>('/cases', {
+      method: 'POST',
+      body: JSON.stringify(caseData),
+    }),
+
+  getCase: (id: string) =>
+    request<DecisionCase>(`/cases/${id}`),
+
+  createBenchmark: (req: { problem_id: string; budget?: ComputeBudget }) =>
+    request<BenchmarkResponse>('/benchmarks', {
+      method: 'POST',
+      body: JSON.stringify(req),
+    }),
+}
+

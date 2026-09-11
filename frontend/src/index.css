@@ -1,0 +1,127 @@
+/* YourQuantum — Design System */
+@import './tokens.css';
+
+:root {
+  --yq-bg:          #f8fafc;
+  --yq-surface:     #ffffff;
+  --yq-surface-alt: #f1f5f9;
+  --yq-border:      rgba(15, 23, 42, 0.12);
+  --yq-text:        #0f172a;
+  --yq-text-muted:  #475569;
+  --yq-violet:      #7c3aed;
+  --yq-cyan:        #0284c7;
+  --yq-accent:      #0284c7;
+  --yq-success:     #059669;
+  --yq-warn:        #d97706;
+  --yq-fail:        #dc2626;
+  --yq-radius:      0.75rem;
+  --yq-radius-lg:   1.25rem;
+  --yq-shadow:      0 10px 30px -5px rgba(15, 23, 42, 0.06);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  color-scheme: light;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #root {
+  min-height: 100%;
+  background-color: var(--yq-bg);
+  color: var(--yq-text);
+}
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+input, textarea, select {
+  font-family: inherit;
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid rgba(15, 23, 42, 0.16);
+  border-radius: var(--yq-radius);
+  padding: 0.75rem 1rem;
+  font-size: 0.9375rem;
+  width: 100%;
+  outline: none;
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+
+input::placeholder, textarea::placeholder {
+  color: #94a3b8;
+}
+
+input:focus, textarea:focus, select:focus {
+  border-color: var(--yq-accent);
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+}
+
+/* ── Print / Export Styles ─────────────────────────────────── */
+.print-only {
+  display: none !important;
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm 15mm;
+  }
+
+  *, *::before, *::after {
+    background: transparent !important;
+    color: #0f172a !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    filter: none !important;
+  }
+
+  html, body, #root {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    font-size: 11pt !important;
+    line-height: 1.45 !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  /* Force clean visible borders for cards in print */
+  div[style*="background: oklch"],
+  div[style*="background: linear-gradient"] {
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 6px !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  h1, h2, h3, h4 {
+    color: #0f172a !important;
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+
+  p, li, span, strong {
+    color: #1e293b !important;
+  }
+
+  strong {
+    font-weight: 700 !important;
+  }
+
+  ul {
+    padding-left: 1.5rem !important;
+  }
+}
+

@@ -1,0 +1,110 @@
+/* YourQuantum — Design Tokens: Dark Quantum System */
+
+:root {
+  /* ── Canvas & Surface ─────────────────────────────────────── */
+  --bg-canvas:  oklch(6%  0.01  250);   /* near-black — page background    */
+  --bg-surface: oklch(10% 0.02  250);   /* cards, panels                   */
+  --bg-subtle:  oklch(13% 0.022 250);   /* inset wells, code blocks        */
+  --bg-muted:   oklch(17% 0.025 250);   /* hover states                    */
+
+  /* ── Borders ──────────────────────────────────────────────── */
+  --border-subtle: oklch(22% 0.025 250);
+  --border-strong: oklch(30% 0.028 250);
+  --border-focus:  oklch(62% 0.18  240);   /* electric blue ring             */
+
+  /* ── Text ─────────────────────────────────────────────────── */
+  --text-primary:   oklch(96% 0.008 250);   /* near-white                   */
+  --text-secondary: oklch(78% 0.020 250);   /* readable secondary           */
+  --text-muted:     oklch(54% 0.018 250);   /* hints, labels                */
+  --text-inverse:   oklch(6%  0.01  250);   /* text on gold buttons         */
+
+  /* ── Accents ──────────────────────────────────────────────── */
+  --accent-primary: oklch(75% 0.12 80);     /* quantum gold — main CTA      */
+  --accent-hover:   oklch(83% 0.14 80);     /* gold hover                   */
+  --accent-blue:    oklch(62% 0.18 240);    /* electric blue — links/focus  */
+
+  /* ── Status: Verified (green → quantum teal) ─────────────── */
+  --status-verified-bg:     oklch(16% 0.04 170);
+  --status-verified-text:   oklch(78% 0.14 168);
+  --status-verified-border: oklch(35% 0.08 168);
+
+  /* ── Status: Unverified / Pending (amber) ─────────────────── */
+  --status-unverified-bg:     oklch(16% 0.04 70);
+  --status-unverified-text:   oklch(80% 0.14 72);
+  --status-unverified-border: oklch(36% 0.09 72);
+
+  /* ── Status: Rejected / Error (red) ──────────────────────── */
+  --status-rejected-bg:     oklch(14% 0.04 25);
+  --status-rejected-text:   oklch(72% 0.18 25);
+  --status-rejected-border: oklch(34% 0.10 25);
+
+  /* ── Typography ───────────────────────────────────────────── */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+               "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+               monospace;
+
+  /* ── Shadows (glow, not box-shadow flats) ─────────────────── */
+  --shadow-sm: 0 1px 3px  oklch(0% 0 0 / 0.35),
+               0 0  10px  oklch(62% 0.18 240 / 0.04);
+  --shadow-md: 0 4px 16px oklch(0% 0 0 / 0.45),
+               0 0  30px  oklch(62% 0.18 240 / 0.05);
+  --shadow-lg: 0 10px 35px oklch(0% 0 0 / 0.55),
+               0 0   60px  oklch(62% 0.18 240 / 0.07);
+
+  /* ── Border Radius ────────────────────────────────────────── */
+  --radius-sm:   6px;
+  --radius-md:   10px;
+  --radius-lg:   14px;
+  --radius-full: 9999px;
+
+  /* ── Transitions ──────────────────────────────────────────── */
+  --transition-fast:   150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Global resets for dark bg ─────────────────────────────── */
+body {
+  background: var(--bg-canvas);
+  color:       var(--text-primary);
+}
+
+/* ── Form controls inherit dark theme ─────────────────────── */
+input,
+textarea,
+select {
+  background:   var(--bg-subtle);
+  color:        var(--text-primary);
+  border:       1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-family:  var(--font-sans);
+  font-size:    0.9375rem;
+  padding:      0.5625rem 0.75rem;
+  transition:   border-color var(--transition-fast),
+                box-shadow   var(--transition-fast);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline:      none;
+  border-color: var(--border-focus);
+  box-shadow:   0 0 0 3px oklch(62% 0.18 240 / 0.15);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-muted);
+}
+
+/* ── Reduced motion ────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration:       0.01ms !important;
+    animation-iteration-count: 1     !important;
+    transition-duration:      0.01ms !important;
+    scroll-behavior:          auto   !important;
+  }
+}
