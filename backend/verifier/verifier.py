@@ -141,18 +141,18 @@ class IndependentVerifier:
             and abs((objective_value or 0.0) - candidate.claimed_objective)
             > self.NUMERIC_TOLERANCE
         ):
-            hard_violations.append(
-                ConstraintResult(
-                    constraint_id="__objective_check__",
-                    satisfied=False,
-                    hard=True,
-                    note=(
-                        f"Objective mismatch: solver claimed "
-                        f"{candidate.claimed_objective}, "
-                        f"verifier computed {objective_value}"
-                    ),
-                )
+            obj_violation = ConstraintResult(
+                constraint_id="__objective_check__",
+                satisfied=False,
+                hard=True,
+                note=(
+                    f"Objective mismatch: solver claimed "
+                    f"{candidate.claimed_objective}, "
+                    f"verifier computed {objective_value}"
+                ),
             )
+            constraint_results.append(obj_violation)
+            hard_violations.append(obj_violation)
             feasible = False
 
         # 7. Verdict

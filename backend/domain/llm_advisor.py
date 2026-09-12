@@ -305,7 +305,7 @@ class LLMAdvisor:
 
         # 3. Missing numbers in financial / numerical context
         financial_keywords = re.search(
-            r"\b(inwestycj[aei]|bud[zż]et|koszt|zarob|kredyt|cena|kwot|oszcz[eę]dn|kapita[łl]|pensj[aei])\b",
+            r"\b(inwest\w*|bud[zż]et\w*|koszt\w*|zarob\w*|kredyt\w*|cen\w*|kwot\w*|oszcz[eę]dn\w*|kapita[łl]\w*|pensj\w*|pieni[aą]dz\w*)\b",
             lower,
         )
         has_numbers = bool(re.search(r"\d+", text))
