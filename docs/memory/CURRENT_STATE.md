@@ -1,9 +1,9 @@
 # YourQuantum — CURRENT STATE
 _Last updated: 2026-09-12_
 
-## Status: PRODUKCJA STABILNA — SAFARI FIX + JAKOŚĆ WIP
+## Status: PRODUKCJA STABILNA — QUANTUM TERMINAL + SAFARI FIX LIVE
 
-Projekt jest wdrożony na `https://yourquantum.pl` (Vercel, commit `d3e063a`).
+Projekt jest wdrożony na `https://yourquantum.pl` (Vercel, commit `f49f0e3`).
 
 ---
 
