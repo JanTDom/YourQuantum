@@ -589,7 +589,8 @@ async def verify_api_access(req: ApiAccessVerifyRequest) -> dict[str, Any]:
 @router.get("/sdk/download")
 async def download_sdk(
     request: Request,
-    sdk_type: str = "python",
+    sdk_type: str | None = None,
+    lang: str | None = None,
     key: str | None = None,
 ):
     """Download official zero-dependency Python or TypeScript SDK."""
@@ -604,7 +605,8 @@ async def download_sdk(
         )
 
     base_dir = os.path.dirname(os.path.dirname(__file__))
-    if sdk_type == "typescript":
+    target_type = (sdk_type or lang or "python").lower()
+    if target_type in ("typescript", "ts"):
         filepath = os.path.join(base_dir, "sdk", "yourquantum_client.ts")
         filename = "yourquantum_client.ts"
         media_type = "application/typescript"
