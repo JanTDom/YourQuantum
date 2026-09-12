@@ -5,11 +5,12 @@ No business logic in route handlers.
 """
 from __future__ import annotations
 
+import os
 import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,6 +22,7 @@ from backend.domain.problem_ir import (
     Constraint, ConstraintType, Assumption, ExprNode,
 )
 from backend.worker.runner import SOLVER_REGISTRY, enqueue_job
+from backend.api.universal_engine import UniversalComputeRequest
 
 router = APIRouter()
 
@@ -555,4 +557,99 @@ async def get_help_knowledge():
 async def get_engine_snapshot():
     from backend.api.help_service import get_dynamic_engine_snapshot
     return get_dynamic_engine_snapshot()
+
+
+# ---------------------------------------------------------------------------
+# Universal Multi-Domain Compute API & SDK Portal (Password Protected)
+# ---------------------------------------------------------------------------
+
+class ApiAccessVerifyRequest(BaseModel):
+    password: str
+
+
+@router.post("/auth/verify-api-access")
+async def verify_api_access(req: ApiAccessVerifyRequest) -> dict[str, Any]:
+    """Verify master password A132a132! and issue bearer token."""
+    import hashlib
+    from backend.api.universal_engine import MASTER_API_SECRET, verify_master_secret
+    if not verify_master_secret(req.password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Nieprawidłowe hasło dostępu do Kwantowego API i SDK.",
+        )
+    token = "yq_live_master_" + hashlib.sha256(MASTER_API_SECRET.encode()).hexdigest()[:24]
+    return {
+        "valid": True,
+        "token": token,
+        "message": "Dostęp do uniwersalnego API i SDK został autoryzowany.",
+        "expires_in_hours": 24,
+    }
+
+
+@router.get("/sdk/download")
+async def download_sdk(
+    request: Request,
+    sdk_type: str = "python",
+    key: str | None = None,
+):
+    """Download official zero-dependency Python or TypeScript SDK."""
+    from fastapi import Response
+    from backend.api.universal_engine import verify_master_secret
+
+    auth_candidate = key or request.headers.get("authorization") or request.headers.get("x-api-key") or ""
+    if not verify_master_secret(auth_candidate):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Brak uprawnień. Wymagane hasło lub klucz API do pobrania SDK.",
+        )
+
+    base_dir = os.path.dirname(os.path.dirname(__file__))
+    if sdk_type == "typescript":
+        filepath = os.path.join(base_dir, "sdk", "yourquantum_client.ts")
+        filename = "yourquantum_client.ts"
+        media_type = "application/typescript"
+    else:
+        filepath = os.path.join(base_dir, "sdk", "yourquantum_sdk.py")
+        filename = "yourquantum_sdk.py"
+        media_type = "text/x-python"
+
+    if not os.path.exists(filepath):
+        raise HTTPException(status_code=404, detail="Plik SDK nie został znaleziony.")
+
+    with open(filepath, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post("/universal/compute")
+async def universal_compute(
+    req: UniversalComputeRequest,
+    request: Request,
+) -> dict[str, Any]:
+    """
+    Universal multi-domain optimization endpoint for external projects and systems.
+    Solves portfolio, logistics, staffing, scheduling, and custom mathematical dilemmas.
+    """
+    from backend.api.universal_engine import (
+        UniversalEngine,
+        verify_master_secret,
+    )
+
+    auth_val = request.headers.get("authorization") or request.headers.get("x-api-key") or ""
+    if not verify_master_secret(auth_val):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Nieprawidłowy lub brakujący klucz API (nagłówek Authorization: Bearer <key> lub X-API-Key).",
+        )
+
+    engine = UniversalEngine()
+    result = engine.execute(req)
+    return result.model_dump()
+
+
 

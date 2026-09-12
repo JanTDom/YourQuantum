@@ -5,7 +5,7 @@ import React, {
   useState,
 } from 'react'
 import { ConversationPanel } from './ConversationPanel'
-import { QuantumHero3D } from './QuantumHero3D'
+import { QuantumEntanglementCanvas } from './QuantumEntanglementCanvas'
 import s from './LandingPage.module.css'
 
 // ── Types ─────────────────────────────────────────────────────
@@ -15,131 +15,11 @@ interface LandingPageProps {
   isLoading: boolean
   onOpenHelp?: () => void
   onOpenBrain?: () => void
-}
-
-interface ParticleData {
-  x: number
-  y: number
-  vx: number
-  vy: number
-  radius: number
-  alpha: number
-  colorIdx: number
-}
-
-// ── Particle canvas hook ───────────────────────────────────────
-
-const PARTICLE_COLORS = [
-  '100,165,255',  // electric blue
-  '188,152,70',   // quantum gold
-  '200,225,255',  // pale ice
-  '130,210,185',  // teal
-]
-
-function useParticleCanvas(
-  canvasRef: React.RefObject<HTMLCanvasElement | null>
-): void {
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-
-    let animId: number
-    const particles: ParticleData[] = []
-
-    const setSize = (): void => {
-      canvas.width = canvas.clientWidth
-      canvas.height = canvas.clientHeight
-    }
-
-    const init = (): void => {
-      particles.length = 0
-      const count = Math.min(Math.floor(canvas.width / 9), 130)
-      for (let i = 0; i < count; i++) {
-        particles.push({
-          x: Math.random() * canvas.width,
-          y: Math.random() * canvas.height,
-          vx: (Math.random() - 0.5) * 0.38,
-          vy: (Math.random() - 0.5) * 0.22 - 0.04,
-          radius: Math.random() * 1.6 + 0.3,
-          alpha: Math.random() * 0.65 + 0.15,
-          colorIdx: Math.floor(Math.random() * PARTICLE_COLORS.length),
-        })
-      }
-    }
-
-    const tick = (): void => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
-
-      // Connections between nearby particles
-      for (let i = 0; i < particles.length; i++) {
-        for (let j = i + 1; j < particles.length; j++) {
-          const dx = particles[i].x - particles[j].x
-          const dy = particles[i].y - particles[j].y
-          const dist = Math.hypot(dx, dy)
-          if (dist < 125) {
-            const lineAlpha = 0.13 * (1 - dist / 125)
-            ctx.strokeStyle = `rgba(100,165,255,${lineAlpha})`
-            ctx.lineWidth = 0.45
-            ctx.beginPath()
-            ctx.moveTo(particles[i].x, particles[i].y)
-            ctx.lineTo(particles[j].x, particles[j].y)
-            ctx.stroke()
-          }
-        }
-      }
-
-      // Particles with glow halo
-      for (const p of particles) {
-        const c = PARTICLE_COLORS[p.colorIdx]
-        const glowR = ctx.createRadialGradient(
-          p.x, p.y, 0,
-          p.x, p.y, p.radius * 5.5
-        )
-        glowR.addColorStop(0, `rgba(${c},${p.alpha * 0.55})`)
-        glowR.addColorStop(1, `rgba(${c},0)`)
-        ctx.beginPath()
-        ctx.arc(p.x, p.y, p.radius * 5.5, 0, Math.PI * 2)
-        ctx.fillStyle = glowR
-        ctx.fill()
-
-        // Core dot
-        ctx.beginPath()
-        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2)
-        ctx.fillStyle = `rgba(${c},${p.alpha})`
-        ctx.fill()
-
-        // Update position and wrap
-        p.x += p.vx
-        p.y += p.vy
-        if (p.x < 0) p.x = canvas.width
-        if (p.x > canvas.width) p.x = 0
-        if (p.y < 0) p.y = canvas.height
-        if (p.y > canvas.height) p.y = 0
-      }
-
-      animId = requestAnimationFrame(tick)
-    }
-
-    setSize()
-    init()
-    tick()
-
-    const ro = new ResizeObserver(() => {
-      setSize()
-      init()
-    })
-    ro.observe(canvas)
-
-    return () => {
-      cancelAnimationFrame(animId)
-      ro.disconnect()
-    }
-  }, [canvasRef])
+  onOpenApiPortal?: () => void
 }
 
 // ── 3D Tilt Card ──────────────────────────────────────────────
+
 
 interface TiltCardProps {
   children: React.ReactNode
@@ -275,15 +155,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   isLoading,
   onOpenHelp,
   onOpenBrain,
+  onOpenApiPortal,
 }) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
   const inputSectionRef = useRef<HTMLDivElement>(null)
   const heroRef = useRef<HTMLElement>(null)
   const heroTextareaRef = useRef<HTMLTextAreaElement>(null)
   const [navVisible, setNavVisible] = useState(false)
   const [heroText, setHeroText] = useState('')
-
-  useParticleCanvas(canvasRef)
 
   // Show sticky nav after scrolling past hero
   useEffect(() => {
@@ -322,6 +200,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           YourQuantum
         </span>
         <div className={s.topNavActions}>
+          {onOpenApiPortal && (
+            <button
+              onClick={onOpenApiPortal}
+              type="button"
+              className={s.navApiBtn}
+              title="Otwórz Portal API & Pobierz SDK (zabezpieczone hasłem A132a132!)"
+            >
+              <span>⚡</span>
+              <span>API & SDK</span>
+            </button>
+          )}
           {onOpenBrain && (
             <button
               onClick={onOpenBrain}
@@ -374,6 +263,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           YourQuantum
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+          {onOpenApiPortal && (
+            <button
+              onClick={onOpenApiPortal}
+              type="button"
+              className={s.navApiBtn}
+              style={{ padding: '0.4rem 0.85rem', fontSize: '0.8125rem' }}
+              title="Otwórz Portal API & Pobierz SDK (zabezpieczone hasłem A132a132!)"
+            >
+              <span>⚡</span>
+              <span>API & SDK</span>
+            </button>
+          )}
           {onOpenBrain && (
             <button
               onClick={onOpenBrain}
@@ -434,11 +335,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           fetchPriority="high"
         />
         <div className={s.heroOverlay} aria-hidden="true" />
-        <canvas
-          ref={canvasRef}
-          className={s.particles}
-          aria-hidden="true"
-        />
+        <QuantumEntanglementCanvas className={s.particles} />
 
         <div className={s.heroContent}>
           {/* Left: Logo + Headline + CTA */}
@@ -546,9 +443,40 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </button>
           </div>
 
-          {/* Right: Premium 3D Quantum State Field */}
+          {/* Right: Transparent living quantum photo with unobtrusive floating HUD */}
           <div className={s.heroRight}>
-            <QuantumHero3D onOpenBrain={onOpenBrain} />
+            <div className={s.heroFloatingHud}>
+              <div className={s.hudLiveIndicator}>
+                <span className={s.hudLiveDot} />
+                <span className={s.hudLiveText}>KOHERENCJA KWANTOWA: 99.98% · 0% HALUCYNACJI</span>
+              </div>
+              <div className={s.hudBtnGroup}>
+                {onOpenBrain && (
+                  <button
+                    onClick={onOpenBrain}
+                    type="button"
+                    className={s.hudBrainBtn}
+                    title="Otwórz interaktywny Mózg Silnika 3D"
+                  >
+                    <span>🧠</span>
+                    <span>Mózg Silnika 3D</span>
+                    <span style={{ opacity: 0.6 }}>↗</span>
+                  </button>
+                )}
+                {onOpenApiPortal && (
+                  <button
+                    onClick={onOpenApiPortal}
+                    type="button"
+                    className={s.hudApiBtn}
+                    title="Otwórz Portal API & Pobierz SDK (hasło A132a132!)"
+                  >
+                    <span>⚡</span>
+                    <span>Portal API & SDK</span>
+                    <span style={{ opacity: 0.6 }}>↗</span>
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -882,6 +810,30 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <span className={s.footerColItem}>Jak to działa</span>
             <span className={s.footerColItem}>Metoda kwantowa</span>
             <span className={s.footerColItem}>Niezależna weryfikacja</span>
+            {onOpenApiPortal && (
+              <button
+                type="button"
+                onClick={onOpenApiPortal}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  color: 'oklch(78% 0.14 80)',
+                  fontWeight: 700,
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  fontSize: 'inherit',
+                  fontFamily: 'inherit',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  marginTop: '0.25rem',
+                }}
+              >
+                <span>⚡</span>
+                <span>Portal API & SDK (A132a132!)</span>
+              </button>
+            )}
           </div>
           <div className={s.footerCol}>
             <span className={s.footerColHead}>Prawne</span>

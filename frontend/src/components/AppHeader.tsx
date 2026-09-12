@@ -5,9 +5,16 @@ interface AppHeaderProps {
   isBusy: boolean
   onOpenHelp?: () => void
   onOpenBrain?: () => void
+  onOpenApiPortal?: () => void
 }
 
-export const AppHeader: React.FC<AppHeaderProps> = ({ onReset, isBusy, onOpenHelp, onOpenBrain }) => {
+export const AppHeader: React.FC<AppHeaderProps> = ({
+  onReset,
+  isBusy,
+  onOpenHelp,
+  onOpenBrain,
+  onOpenApiPortal,
+}) => {
   return (
     <header
       className="no-print"
@@ -101,6 +108,40 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onReset, isBusy, onOpenHel
 
       {/* Right side */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+        {/* API & SDK Portal Button */}
+        {onOpenApiPortal && (
+          <button
+            onClick={onOpenApiPortal}
+            style={{
+              background: 'linear-gradient(135deg, oklch(18% 0.05 80 / 0.9), oklch(16% 0.04 240 / 0.9))',
+              border: '1px solid oklch(50% 0.12 80 / 0.5)',
+              borderRadius: 'var(--radius-sm)',
+              padding: '0.45rem 0.875rem',
+              fontSize: '0.8125rem',
+              color: 'oklch(90% 0.12 80)',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              transition: 'all 200ms ease',
+              boxShadow: '0 0 14px oklch(75% 0.12 80 / 0.15)',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'linear-gradient(135deg, oklch(24% 0.08 80), oklch(22% 0.07 240))'
+              e.currentTarget.style.borderColor = 'oklch(70% 0.16 80)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'linear-gradient(135deg, oklch(18% 0.05 80 / 0.9), oklch(16% 0.04 240 / 0.9))'
+              e.currentTarget.style.borderColor = 'oklch(50% 0.12 80 / 0.5)'
+            }}
+            title="Otwórz Portal API & Pobierz SDK (zabezpieczone hasłem A132a132!)"
+          >
+            <span>⚡</span>
+            <span>API & SDK</span>
+          </button>
+        )}
+
         {/* 3D Brain Button */}
         {onOpenBrain && (
           <button

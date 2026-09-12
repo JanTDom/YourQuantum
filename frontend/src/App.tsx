@@ -12,6 +12,7 @@ import { ModelApprovalGate } from './components/ModelApprovalGate'
 import { RecommendationView } from './components/RecommendationView'
 import { HelpCenterModal } from './components/HelpCenterModal'
 import { BrainModal } from './components/BrainModal'
+import { ApiPortalModal } from './components/ApiPortalModal'
 
 type AppStage = 'INTAKE' | 'CASE_WORKSPACE' | 'MODEL_APPROVAL' | 'RECOMMENDATION'
 
@@ -24,6 +25,7 @@ export const App: React.FC = () => {
   // Modals state
   const [isHelpOpen, setIsHelpOpen] = useState(false)
   const [isBrainOpen, setIsBrainOpen] = useState(false)
+  const [isApiPortalOpen, setIsApiPortalOpen] = useState(false)
 
   // Current session data
   const [userQuery, setUserQuery] = useState('')
@@ -182,6 +184,7 @@ export const App: React.FC = () => {
           isBusy={isLoading}
           onOpenHelp={() => setIsHelpOpen(true)}
           onOpenBrain={() => setIsBrainOpen(true)}
+          onOpenApiPortal={() => setIsApiPortalOpen(true)}
         />
       )}
 
@@ -222,6 +225,7 @@ export const App: React.FC = () => {
             isLoading={isLoading}
             onOpenHelp={() => setIsHelpOpen(true)}
             onOpenBrain={() => setIsBrainOpen(true)}
+            onOpenApiPortal={() => setIsApiPortalOpen(true)}
           />
         )}
 
@@ -271,6 +275,11 @@ export const App: React.FC = () => {
           setIsBrainOpen(false)
           window.scrollTo({ top: 0, behavior: 'smooth' })
         }}
+      />
+
+      <ApiPortalModal
+        isOpen={isApiPortalOpen}
+        onClose={() => setIsApiPortalOpen(false)}
       />
 
       {/* Footer only shown after INTAKE stages */}

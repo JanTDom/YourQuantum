@@ -354,6 +354,89 @@ export const api = {
 
   getEngineSnapshot: () =>
     request<EngineCapabilitySnapshot>('/help/snapshot'),
+
+  verifyApiAccess: (password: string) =>
+    request<{ valid: boolean; token: string; message: string }>('/auth/verify-api-access', {
+      method: 'POST',
+      body: JSON.stringify({ password }),
+    }),
+
+  runUniversalCompute: (req: UniversalComputeRequest, keyOrToken: string) =>
+    request<UniversalComputeResponse>('/universal/compute', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${keyOrToken}`,
+        'X-API-Key': keyOrToken,
+      },
+      body: JSON.stringify(req),
+    }),
+
+  getSdkDownloadUrl: (sdkType: 'python' | 'typescript', key: string) =>
+    `${BASE_URL}/sdk/download?sdk_type=${sdkType}&key=${encodeURIComponent(key)}`,
+}
+
+export interface UniversalVariableItem {
+  id: string
+  name: string
+  cost?: number
+  value?: number
+  attributes?: Record<string, unknown>
+}
+
+export interface UniversalConstraintItem {
+  id?: string
+  name?: string
+  type: 'budget' | 'cardinality_exact' | 'cardinality_max' | 'cardinality_min' | 'incompatible' | 'dependency' | 'linear'
+  attribute?: string
+  limit?: number
+  count?: number
+  var_ids?: string[]
+  linear_lhs?: Record<string, number>
+  linear_op?: '<=' | '>=' | '=='
+  linear_rhs?: number
+}
+
+export interface UniversalComputeRequest {
+  domain?: string
+  title: string
+  variables: UniversalVariableItem[]
+  objective_direction?: 'maximize' | 'minimize'
+  objective_attribute?: string
+  objective_coefficients?: Record<string, number>
+  constraints?: UniversalConstraintItem[]
+  solver?: 'auto' | 'hybrid_benders' | 'qaoa' | 'cpsat'
+  include_stress_test?: boolean
+}
+
+export interface UniversalComputeResponse {
+  status: 'SUCCESS' | 'INFEASIBLE' | 'ERROR'
+  title: string
+  domain: string
+  solver_used: string
+  compute_time_ms: number
+  optimal_assignment: Record<string, number>
+  optimal_selection: Array<{
+    id: string
+    name: string
+    cost?: number
+    value?: number
+    attributes?: Record<string, unknown>
+  }>
+  total_objective_value: number
+  dual_bound: number | null
+  optimality_gap_percent: number | null
+  optimality_proven: boolean
+  sha256_passport: string
+  verification: {
+    feasible: boolean
+    verdict: string
+    residual: number
+  }
+  sensitivity_report?: {
+    robustness_score: number
+    verdict: string
+    summary_pl: string
+  }
 }
 
 export interface HelpTopic {
@@ -383,5 +466,6 @@ export interface HelpResponse {
   faq: Array<{ q: string; a: string }>
   glossary: Array<{ term: string; meaning: string }>
 }
+
 
 

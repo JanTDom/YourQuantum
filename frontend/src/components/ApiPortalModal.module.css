@@ -1,0 +1,486 @@
+/* ApiPortalModal.module.css */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: oklch(5% 0.02 240 / 0.82);
+  backdrop-filter: blur(14px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal {
+  background: oklch(13% 0.025 245);
+  border: 1px solid oklch(28% 0.04 245);
+  border-radius: 20px;
+  width: 100%;
+  max-width: 960px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 30px 80px oklch(0% 0 0 / 0.7), 0 0 1px 1px oklch(75% 0.12 80 / 0.2);
+  overflow: hidden;
+  color: oklch(95% 0.01 240);
+  animation: modalScale 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalScale {
+  from { transform: scale(0.96) translateY(8px); opacity: 0; }
+  to { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+/* Header */
+.header {
+  padding: 1.25rem 1.75rem;
+  border-bottom: 1px solid oklch(22% 0.03 245);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: oklch(15% 0.03 245 / 0.7);
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.headerBadge {
+  font-size: 0.6875rem;
+  font-family: var(--font-mono, monospace);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 0.25rem 0.65rem;
+  border-radius: 9999px;
+  background: oklch(75% 0.12 80 / 0.15);
+  color: oklch(78% 0.14 80);
+  border: 1px solid oklch(75% 0.12 80 / 0.3);
+}
+
+.title {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: oklch(98% 0.01 240);
+}
+
+.closeBtn {
+  background: transparent;
+  border: 1px solid oklch(26% 0.03 245);
+  border-radius: 8px;
+  color: oklch(70% 0.02 240);
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-size: 1.1rem;
+}
+
+.closeBtn:hover {
+  background: oklch(22% 0.03 245);
+  color: oklch(98% 0.01 240);
+  border-color: oklch(36% 0.04 245);
+}
+
+/* Scrollable Body */
+.body {
+  padding: 1.75rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Password Gate */
+.gateContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 3rem 1.5rem;
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+.gateIconWrap {
+  width: 68px;
+  height: 68px;
+  border-radius: 20px;
+  background: oklch(75% 0.12 80 / 0.12);
+  border: 1px solid oklch(75% 0.12 80 / 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 0 35px oklch(75% 0.12 80 / 0.15);
+}
+
+.gateHeading {
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin: 0 0 0.75rem 0;
+  color: oklch(98% 0.01 240);
+}
+
+.gateDesc {
+  font-size: 0.9375rem;
+  color: oklch(68% 0.02 240);
+  line-height: 1.55;
+  margin: 0 0 1.75rem 0;
+}
+
+.gateForm {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.inputGroup {
+  position: relative;
+  width: 100%;
+}
+
+.passwordInput {
+  width: 100%;
+  box-sizing: border-box;
+  background: oklch(10% 0.02 245);
+  border: 1px solid oklch(28% 0.04 245);
+  border-radius: 12px;
+  padding: 0.85rem 1.1rem;
+  font-size: 1rem;
+  color: oklch(98% 0.01 240);
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.passwordInput:focus {
+  border-color: oklch(75% 0.12 80);
+  box-shadow: 0 0 0 3px oklch(75% 0.12 80 / 0.18);
+}
+
+.gateBtn {
+  background: linear-gradient(135deg, oklch(78% 0.14 80), oklch(68% 0.12 75));
+  color: oklch(12% 0.03 240);
+  border: none;
+  border-radius: 12px;
+  padding: 0.9rem 1.5rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+  box-shadow: 0 8px 24px oklch(75% 0.12 80 / 0.25);
+}
+
+.gateBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 28px oklch(75% 0.12 80 / 0.35);
+}
+
+.gateBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.errorBox {
+  background: oklch(25% 0.08 25 / 0.4);
+  border: 1px solid oklch(55% 0.18 25 / 0.5);
+  color: oklch(85% 0.12 25);
+  padding: 0.65rem 0.9rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+}
+
+/* Unlocked Developer Content */
+.keyBanner {
+  background: oklch(11% 0.02 245);
+  border: 1px solid oklch(25% 0.04 245);
+  border-radius: 14px;
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.keyLabel {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  font-family: var(--font-mono, monospace);
+  color: oklch(65% 0.02 240);
+  font-weight: 700;
+}
+
+.keyValue {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.9375rem;
+  color: oklch(82% 0.14 80);
+  letter-spacing: 0.02em;
+}
+
+.copyBtn {
+  background: oklch(20% 0.03 245);
+  border: 1px solid oklch(30% 0.04 245);
+  color: oklch(90% 0.01 240);
+  padding: 0.45rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.copyBtn:hover {
+  background: oklch(26% 0.04 245);
+  border-color: oklch(40% 0.05 245);
+}
+
+/* SDK Download Cards */
+.sectionTitle {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: oklch(98% 0.01 240);
+  margin: 0.5rem 0 0 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sdkGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1rem;
+}
+
+.sdkCard {
+  background: oklch(15% 0.025 245);
+  border: 1px solid oklch(26% 0.04 245);
+  border-radius: 14px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1rem;
+  transition: border-color 0.2s, transform 0.2s;
+}
+
+.sdkCard:hover {
+  border-color: oklch(75% 0.12 80 / 0.5);
+  transform: translateY(-2px);
+}
+
+.sdkCardTop {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.sdkName {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: oklch(98% 0.01 240);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sdkBadge {
+  font-size: 0.6875rem;
+  font-family: var(--font-mono, monospace);
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  background: oklch(65% 0.15 150 / 0.18);
+  color: oklch(78% 0.16 150);
+  border: 1px solid oklch(65% 0.15 150 / 0.3);
+}
+
+.sdkDesc {
+  font-size: 0.8125rem;
+  color: oklch(65% 0.02 240);
+  line-height: 1.45;
+}
+
+.downloadBtn {
+  background: oklch(22% 0.04 245);
+  border: 1px solid oklch(35% 0.06 245);
+  color: oklch(95% 0.01 240);
+  padding: 0.65rem 1rem;
+  border-radius: 9px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.15s;
+  text-decoration: none;
+}
+
+.downloadBtn:hover {
+  background: oklch(75% 0.12 80);
+  color: oklch(12% 0.03 240);
+  border-color: oklch(75% 0.12 80);
+}
+
+/* Multi-domain code tabs */
+.tabNav {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 1px solid oklch(24% 0.03 245);
+  padding-bottom: 0.5rem;
+  overflow-x: auto;
+}
+
+.tabBtn {
+  background: transparent;
+  border: none;
+  color: oklch(65% 0.02 240);
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.5rem 0.85rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.tabBtn:hover {
+  color: oklch(95% 0.01 240);
+  background: oklch(20% 0.03 245);
+}
+
+.tabBtnActive {
+  color: oklch(12% 0.03 240);
+  background: oklch(78% 0.14 80);
+  font-weight: 700;
+}
+
+.langToggle {
+  display: flex;
+  gap: 0.35rem;
+  align-self: flex-end;
+  margin-bottom: 0.35rem;
+}
+
+.langBtn {
+  background: oklch(16% 0.03 245);
+  border: 1px solid oklch(26% 0.03 245);
+  color: oklch(70% 0.02 240);
+  font-size: 0.75rem;
+  font-family: var(--font-mono, monospace);
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.langBtnActive {
+  background: oklch(28% 0.05 245);
+  color: oklch(95% 0.01 240);
+  border-color: oklch(75% 0.12 80 / 0.5);
+}
+
+.codeBlock {
+  background: oklch(9% 0.02 245);
+  border: 1px solid oklch(22% 0.03 245);
+  border-radius: 12px;
+  padding: 1.1rem;
+  overflow-x: auto;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.8125rem;
+  color: oklch(88% 0.03 240);
+  line-height: 1.5;
+  margin: 0;
+  position: relative;
+}
+
+/* Interactive Tester */
+.testerCard {
+  background: oklch(11% 0.02 245);
+  border: 1px solid oklch(26% 0.04 245);
+  border-radius: 14px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.testerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.testerActionBtn {
+  background: linear-gradient(135deg, oklch(78% 0.14 80), oklch(68% 0.12 75));
+  color: oklch(12% 0.03 240);
+  border: none;
+  padding: 0.65rem 1.2rem;
+  border-radius: 9px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.testerActionBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px oklch(75% 0.12 80 / 0.3);
+}
+
+.testerResultBox {
+  background: oklch(8% 0.02 245);
+  border: 1px solid oklch(22% 0.04 245);
+  border-radius: 10px;
+  padding: 1rem;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.8125rem;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.metricsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.metricBadge {
+  background: oklch(16% 0.03 245);
+  border: 1px solid oklch(28% 0.04 245);
+  padding: 0.5rem 0.85rem;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.metricBadgeTitle {
+  font-size: 0.6875rem;
+  color: oklch(65% 0.02 240);
+  text-transform: uppercase;
+}
+
+.metricBadgeVal {
+  font-size: 1rem;
+  font-weight: 700;
+  color: oklch(80% 0.14 80);
+}
