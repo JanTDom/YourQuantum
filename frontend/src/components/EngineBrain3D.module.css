@@ -1,0 +1,373 @@
+/* EngineBrain3D.module.css — Responsive Dark Quantum Visualizer */
+
+.container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(ellipse at 50% 35%, oklch(14% 0.025 250) 0%, oklch(4% 0.01 250) 80%);
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid oklch(24% 0.035 250);
+  display: flex;
+  flex-direction: row;
+}
+
+.canvasWrapper {
+  flex: 1;
+  height: 100%;
+  min-width: 0;
+  position: relative;
+  cursor: grab;
+  touch-action: none;
+}
+
+.canvasWrapper:active {
+  cursor: grabbing;
+}
+
+/* ── Top Telemetry HUD Strip ── */
+.telemetryHud {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  right: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  pointer-events: none;
+  z-index: 10;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.titleBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: oklch(12% 0.025 250 / 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid oklch(30% 0.05 250);
+  border-radius: 10px;
+  padding: 0.4rem 0.85rem;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  color: oklch(95% 0.01 250);
+}
+
+.liveTag {
+  font-size: 0.6875rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  background: oklch(22% 0.05 170);
+  color: oklch(80% 0.16 168);
+  font-weight: 700;
+}
+
+.simButton {
+  border: none;
+  color: oklch(8% 0.01 250);
+  padding: 0.45rem 1.1rem;
+  border-radius: 10px;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  box-shadow: 0 0 20px oklch(75% 0.12 80 / 0.4);
+  transition: all 150ms ease;
+  pointer-events: auto;
+  white-space: nowrap;
+}
+
+.simStepPill {
+  pointer-events: auto;
+  background: oklch(14% 0.05 170 / 0.95);
+  border: 1px solid oklch(45% 0.12 168);
+  border-radius: 10px;
+  padding: 0.4rem 1rem;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  color: oklch(95% 0.1 168);
+  box-shadow: 0 0 24px oklch(78% 0.16 168 / 0.6);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* ── Interactive 4-Lobe Navigation Pills ── */
+.lobeNav {
+  position: absolute;
+  top: 4.25rem;
+  left: 1rem;
+  display: flex;
+  gap: 0.45rem;
+  z-index: 10;
+  flex-wrap: wrap;
+}
+
+.lobePill {
+  border-radius: 8px;
+  padding: 0.4rem 0.85rem;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  transition: all 120ms ease;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+.lobeDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ── Explanatory Narrative Card / Sidebar ── */
+.detailSheet {
+  width: 360px;
+  background: oklch(10% 0.015 250 / 0.95);
+  border-left: 1px solid oklch(20% 0.025 250);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  padding: 1.75rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  z-index: 10;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.lobeBadge {
+  font-size: 0.6875rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  display: inline-block;
+  margin-bottom: 0.375rem;
+}
+
+.lobeTitle {
+  margin: 0 0 0.25rem 0;
+  font-size: 1.125rem;
+  font-weight: 900;
+  color: oklch(97% 0.008 250);
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.lobeSubtitle {
+  font-size: 0.78125rem;
+  color: oklch(68% 0.02 250);
+  font-weight: 600;
+}
+
+.lobeExplanation {
+  margin: 0;
+  font-size: 0.84375rem;
+  color: oklch(82% 0.015 250);
+  line-height: 1.65;
+}
+
+.bulletsBox {
+  background: oklch(13% 0.02 250);
+  border: 1px solid oklch(22% 0.025 250);
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.bulletsHeader {
+  font-size: 0.6875rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: oklch(60% 0.02 250);
+  margin-bottom: 0.625rem;
+}
+
+.bulletsList {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.78125rem;
+  color: oklch(75% 0.015 250);
+  line-height: 1.6;
+}
+
+.bulletItem {
+  margin-bottom: 0.375rem;
+}
+
+.bulletItem:last-child {
+  margin-bottom: 0;
+}
+
+.telemetryGrid {
+  background: oklch(12% 0.02 250);
+  border: 1px solid oklch(20% 0.025 250);
+  border-radius: 10px;
+  padding: 0.875rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.625rem;
+}
+
+.telemetryLabel {
+  font-size: 0.6875rem;
+  color: oklch(55% 0.01 250);
+  display: block;
+}
+
+.ctaBtn {
+  width: 100%;
+  background: linear-gradient(135deg, oklch(75% 0.12 80), oklch(62% 0.18 240));
+  border: none;
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  color: oklch(8% 0.01 250);
+  font-size: 0.875rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 0 20px oklch(75% 0.12 80 / 0.4);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+.ctaBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 26px oklch(75% 0.12 80 / 0.6);
+}
+
+.disclaimer {
+  font-size: 0.6875rem;
+  color: oklch(50% 0.01 250);
+  line-height: 1.45;
+}
+
+.desktopOnly {
+  display: inline;
+}
+
+.mobileOnly {
+  display: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE RESPONSIVE BREAKPOINT (<= 768px)
+   ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .desktopOnly {
+    display: none !important;
+  }
+
+  .mobileOnly {
+    display: inline !important;
+  }
+
+  .container {
+    flex-direction: column;
+    border-radius: 0;
+    border: none;
+    height: 100%;
+  }
+
+  /* 3D Canvas takes the top portion */
+  .canvasWrapper {
+    height: clamp(230px, 34vh, 300px);
+    flex-shrink: 0;
+    width: 100%;
+  }
+
+  /* Top HUD on mobile is compact and doesn't overlap brain */
+  .telemetryHud {
+    top: 0.5rem;
+    left: 0.5rem;
+    right: 0.5rem;
+    gap: 0.35rem;
+  }
+
+  .titleBadge {
+    display: none; /* Already in modal header on mobile */
+  }
+
+  .simButton {
+    padding: 0.35rem 0.75rem;
+    font-size: 0.75rem;
+    border-radius: 8px;
+  }
+
+  .simStepPill {
+    padding: 0.35rem 0.75rem;
+    font-size: 0.75rem;
+  }
+
+  /* Lobe selector becomes a sleek docked horizontal tab bar */
+  .lobeNav {
+    position: relative;
+    top: auto;
+    left: auto;
+    width: 100%;
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 0.5rem 0.75rem;
+    gap: 0.4rem;
+    background: oklch(11% 0.015 250);
+    border-top: 1px solid oklch(18% 0.02 250);
+    border-bottom: 1px solid oklch(18% 0.02 250);
+    flex-shrink: 0;
+    scrollbar-width: none;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .lobeNav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .lobePill {
+    padding: 0.35rem 0.65rem;
+    font-size: 0.75rem;
+    flex-shrink: 0;
+    scroll-snap-align: start;
+  }
+
+  /* Detail sheet fills remaining space with smooth scrolling */
+  .detailSheet {
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+    border-left: none;
+    padding: 1rem 1rem 1.5rem 1rem;
+    gap: 1rem;
+    background: oklch(8% 0.012 250);
+  }
+
+  .lobeTitle {
+    font-size: 1rem;
+  }
+
+  .lobeExplanation {
+    font-size: 0.8125rem;
+  }
+
+  .bulletsBox {
+    padding: 0.75rem 0.875rem;
+  }
+
+  .bulletsList {
+    font-size: 0.75rem;
+  }
+
+  .telemetryGrid {
+    padding: 0.75rem;
+    gap: 0.5rem;
+  }
+}

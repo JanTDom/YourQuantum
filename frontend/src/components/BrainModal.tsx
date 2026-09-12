@@ -77,6 +77,7 @@ export const BrainModal: React.FC<BrainModalProps> = ({
       role="dialog"
       aria-modal="true"
       aria-label="Prezentacja Mózgu Silnika 3D"
+      className="brain-modal-overlay"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}
@@ -84,7 +85,7 @@ export const BrainModal: React.FC<BrainModalProps> = ({
         position: "fixed",
         inset: 0,
         zIndex: 9999,
-        background: "rgba(3, 5, 10, 0.92)",
+        background: "rgba(3, 5, 10, 0.94)",
         backdropFilter: "blur(22px)",
         WebkitBackdropFilter: "blur(22px)",
         display: "flex",
@@ -95,10 +96,12 @@ export const BrainModal: React.FC<BrainModalProps> = ({
     >
       {/* Inner panel */}
       <div
+        className="brain-modal-panel"
         style={{
           width: "100%",
           maxWidth: "1460px",
           height: "min(930px, 94vh)",
+          maxHeight: "96dvh",
           background: "oklch(8% 0.015 250)",
           border: "1px solid oklch(24% 0.035 250)",
           borderRadius: "20px",
@@ -107,7 +110,6 @@ export const BrainModal: React.FC<BrainModalProps> = ({
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
-          // Entrance animation
           animation: "brainModalIn 160ms cubic-bezier(0.16, 1, 0.3, 1) forwards",
         }}
       >
@@ -119,10 +121,48 @@ export const BrainModal: React.FC<BrainModalProps> = ({
           @media (prefers-reduced-motion: reduce) {
             .brain-modal-panel { animation: none !important; }
           }
+          .brain-modal-mobile-title { display: none; }
+          .brain-modal-desktop-title { display: inline; }
+          @media (max-width: 768px) {
+            .brain-modal-mobile-title { display: inline !important; }
+            .brain-modal-desktop-title { display: none !important; }
+            .brain-modal-overlay {
+              padding: 0 !important;
+              align-items: stretch !important;
+              justify-content: stretch !important;
+            }
+            .brain-modal-panel {
+              width: 100vw !important;
+              max-width: 100vw !important;
+              height: 100dvh !important;
+              max-height: 100dvh !important;
+              border-radius: 0 !important;
+              border: none !important;
+            }
+            .brain-modal-header {
+              padding: max(env(safe-area-inset-top, 0px), 0.75rem) 0.875rem 0.625rem 0.875rem !important;
+              gap: 0.5rem !important;
+            }
+            .brain-modal-desc {
+              display: none !important;
+            }
+            .brain-modal-title {
+              font-size: 1rem !important;
+            }
+            .brain-modal-btn-dilemma {
+              padding: 0.35rem 0.65rem !important;
+              font-size: 0.75rem !important;
+            }
+            .brain-modal-btn-close {
+              padding: 0.35rem 0.65rem !important;
+              font-size: 0.75rem !important;
+            }
+          }
         `}</style>
 
         {/* ── Header bar ── */}
         <div
+          className="brain-modal-header"
           style={{
             padding: "0.875rem 1.5rem",
             borderBottom: "1px solid oklch(18% 0.02 250)",
@@ -130,54 +170,57 @@ export const BrainModal: React.FC<BrainModalProps> = ({
             alignItems: "center",
             justifyContent: "space-between",
             background: "oklch(10% 0.02 250)",
-            flexWrap: "wrap",
+            flexWrap: "nowrap",
             gap: "0.75rem",
             flexShrink: 0,
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "0.875rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.625rem", minWidth: 0 }}>
             <div
               style={{
-                width: "40px",
-                height: "40px",
-                borderRadius: "10px",
+                width: "36px",
+                height: "36px",
+                borderRadius: "9px",
                 background:
                   "linear-gradient(135deg, oklch(75% 0.12 80), oklch(62% 0.18 240))",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: "1.25rem",
+                fontSize: "1.125rem",
                 flexShrink: 0,
-                boxShadow: "0 0 18px oklch(75% 0.12 80 / 0.4)",
+                boxShadow: "0 0 16px oklch(75% 0.12 80 / 0.4)",
               }}
             >
               🧠
             </div>
-            <div>
+            <div style={{ minWidth: 0 }}>
               <div
                 style={{
                   display: "flex",
                   alignItems: "center",
                   gap: "0.5rem",
-                  flexWrap: "wrap",
+                  flexWrap: "nowrap",
                 }}
               >
                 <h2
+                  className="brain-modal-title"
                   style={{
-                    fontSize: "clamp(1rem, 2vw, 1.2rem)",
+                    fontSize: "clamp(0.9375rem, 2vw, 1.15rem)",
                     fontWeight: 900,
                     margin: 0,
                     color: "oklch(97% 0.008 250)",
                     letterSpacing: "-0.02em",
+                    whiteSpace: "nowrap",
                   }}
                 >
-                  Mózg Silnika Decyzyjnego YourQuantum
+                  <span className="brain-modal-mobile-title">Mózg 3D</span>
+                  <span className="brain-modal-desktop-title">Mózg Silnika 3D</span>
                 </h2>
                 <span
                   style={{
-                    fontSize: "0.6875rem",
-                    fontWeight: 700,
-                    padding: "0.15rem 0.5rem",
+                    fontSize: "0.625rem",
+                    fontWeight: 800,
+                    padding: "0.15rem 0.45rem",
                     borderRadius: "100px",
                     background: "oklch(22% 0.05 170)",
                     color: "oklch(80% 0.16 168)",
@@ -185,12 +228,14 @@ export const BrainModal: React.FC<BrainModalProps> = ({
                     letterSpacing: "0.05em",
                     textTransform: "uppercase",
                     whiteSpace: "nowrap",
+                    flexShrink: 0,
                   }}
                 >
-                  Volumetric 3D • 60 FPS
+                  60 FPS
                 </span>
               </div>
               <p
+                className="brain-modal-desc"
                 style={{
                   margin: "2px 0 0 0",
                   fontSize: "0.8125rem",
@@ -203,45 +248,48 @@ export const BrainModal: React.FC<BrainModalProps> = ({
             </div>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "0.625rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexShrink: 0 }}>
             <button
               onClick={handleReturnToDilemma}
               type="button"
+              className="brain-modal-btn-dilemma"
               style={{
                 background:
                   "linear-gradient(135deg, oklch(75% 0.12 80), oklch(62% 0.18 240))",
                 border: "none",
                 color: "oklch(10% 0.02 250)",
-                padding: "0.45rem 1.1rem",
-                borderRadius: "9px",
+                padding: "0.45rem 1rem",
+                borderRadius: "8px",
                 fontWeight: 800,
-                fontSize: "0.84375rem",
+                fontSize: "0.8125rem",
                 cursor: "pointer",
                 display: "inline-flex",
                 alignItems: "center",
-                gap: "0.4rem",
-                boxShadow: "0 0 18px oklch(75% 0.12 80 / 0.35)",
+                gap: "0.35rem",
+                boxShadow: "0 0 16px oklch(75% 0.12 80 / 0.35)",
                 whiteSpace: "nowrap",
               }}
             >
-              <span>← Opisz dylemat</span>
+              <span>← Dylemat</span>
             </button>
 
             <button
               onClick={onClose}
               type="button"
+              className="brain-modal-btn-close"
               style={{
                 background: "oklch(16% 0.02 250)",
                 border: "1px solid oklch(28% 0.03 250)",
                 color: "oklch(85% 0.01 250)",
-                padding: "0.45rem 0.9rem",
-                borderRadius: "9px",
+                padding: "0.45rem 0.8rem",
+                borderRadius: "8px",
                 display: "inline-flex",
                 alignItems: "center",
                 gap: "0.35rem",
                 cursor: "pointer",
-                fontSize: "0.84375rem",
+                fontSize: "0.8125rem",
                 fontWeight: 700,
+                whiteSpace: "nowrap",
               }}
               title="Zamknij (ESC)"
             >

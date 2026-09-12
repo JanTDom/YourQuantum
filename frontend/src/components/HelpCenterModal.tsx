@@ -87,6 +87,7 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
 
   return (
     <div
+      className="help-modal-overlay"
       style={{
         position: 'fixed',
         inset: 0,
@@ -107,10 +108,12 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
       aria-label="Centrum Pomocy YourQuantum"
     >
       <div
+        className="help-modal-panel"
         style={{
           width: '100%',
           maxWidth: '1100px',
           height: 'min(880px, 92vh)',
+          maxHeight: '96dvh',
           background: 'oklch(11% 0.015 250)',
           border: '1px solid oklch(26% 0.03 250)',
           borderRadius: '20px',
@@ -120,8 +123,54 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
           overflow: 'hidden',
         }}
       >
+        <style>{`
+          @media (max-width: 768px) {
+            .help-modal-overlay {
+              padding: 0 !important;
+              align-items: stretch !important;
+              justify-content: stretch !important;
+            }
+            .help-modal-panel {
+              width: 100vw !important;
+              max-width: 100vw !important;
+              height: 100dvh !important;
+              max-height: 100dvh !important;
+              border-radius: 0 !important;
+              border: none !important;
+            }
+            .help-modal-header {
+              padding: max(env(safe-area-inset-top, 0px), 0.75rem) 1rem 0.625rem 1rem !important;
+            }
+            .help-modal-desc {
+              display: none !important;
+            }
+            .help-modal-tabs {
+              padding: 0.5rem 0.75rem 0 !important;
+              overflow-x: auto !important;
+              scrollbar-width: none !important;
+              -webkit-overflow-scrolling: touch !important;
+            }
+            .help-modal-tabs button {
+              white-space: nowrap !important;
+              flex-shrink: 0 !important;
+              font-size: 0.75rem !important;
+              padding: 0.5rem 0.75rem !important;
+            }
+            .help-modal-split {
+              flex-direction: column !important;
+            }
+            .help-modal-sidebar {
+              width: 100% !important;
+              max-height: 38vh !important;
+              border-right: none !important;
+              border-bottom: 1px solid oklch(20% 0.02 250) !important;
+            }
+          }
+        `}</style>
+
         {/* Top Header */}
         <div
+          className="help-modal-header"
           style={{
             padding: '1.25rem 1.75rem',
             borderBottom: '1px solid oklch(20% 0.025 250)',
@@ -170,7 +219,7 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
                   </span>
                 )}
               </div>
-              <p style={{ margin: '2px 0 0 0', fontSize: '0.8125rem', color: 'oklch(65% 0.02 250)' }}>
+              <p className="help-modal-desc" style={{ margin: '2px 0 0 0', fontSize: '0.8125rem', color: 'oklch(65% 0.02 250)' }}>
                 Wszystko, co musisz wiedzieć o rozwiązywaniu dylematów — prostym, ludzkim językiem.
               </p>
             </div>
@@ -234,6 +283,7 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
 
         {/* Tab Navigation */}
         <div
+          className="help-modal-tabs"
           style={{
             display: 'flex',
             gap: '0.5rem',
@@ -270,7 +320,7 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
         </div>
 
         {/* Main Content Area */}
-        <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+        <div className="help-modal-split" style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
           {isLoading && (
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'oklch(75% 0.12 80)' }}>
               Ładowanie bazy wiedzy...
@@ -281,6 +331,7 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
             <>
               {/* Sidebar list */}
               <div
+                className="help-modal-sidebar"
                 style={{
                   width: '340px',
                   borderRight: '1px solid oklch(20% 0.02 250)',

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react"
 import * as THREE from "three"
+import s from "./EngineBrain3D.module.css"
 
 export type BrainLobeId = "FRONTAL_INTAKE" | "LEFT_CONSTRAINTS" | "RIGHT_QUANTUM" | "CORE_OPTIMUM"
 
@@ -222,9 +223,9 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
     const c = container!
 
     // Setup initial dimensions (guaranteed > 0 at this point)
-    const width = Math.max(c.clientWidth || 800, 320)
-    const rawHeight = typeof height === "number" ? height : c.clientHeight || 640
-    const heightPx = Math.max(rawHeight as number, 400)
+    const width = c.clientWidth > 50 ? c.clientWidth : 320
+    const rawHeight = typeof height === "number" ? height : (c.clientHeight || 300)
+    const heightPx = rawHeight > 50 ? (rawHeight as number) : 300
 
 
     // 1. Scene, Camera, Renderer
@@ -576,11 +577,41 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
       camTargetRef.current.z = Math.max(10, Math.min(36, camTargetRef.current.z + e.deltaY * 0.025))
     }
 
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 1) {
+        isDragging = true
+        prevMouse = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+      }
+    }
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (!isDragging || e.touches.length !== 1) return
+      if (e.cancelable) e.preventDefault()
+      const dx = e.touches[0].clientX - prevMouse.x
+      const dy = e.touches[0].clientY - prevMouse.y
+
+      mainBrainGroup.rotation.y += dx * 0.0055
+      mainBrainGroup.rotation.x += dy * 0.0055
+      axonCurvesGroup.rotation.y += dx * 0.0055
+      axonCurvesGroup.rotation.x += dy * 0.0055
+      photonsGroup.rotation.y += dx * 0.0055
+      photonsGroup.rotation.x += dy * 0.0055
+
+      prevMouse = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+    }
+
+    const onTouchEnd = () => {
+      isDragging = false
+    }
+
     if (interactive) {
       c.addEventListener("mousedown", onMouseDown)
       window.addEventListener("mousemove", onMouseMove)
       window.addEventListener("mouseup", onMouseUp)
       c.addEventListener("wheel", onWheel, { passive: false })
+      c.addEventListener("touchstart", onTouchStart, { passive: true })
+      window.addEventListener("touchmove", onTouchMove, { passive: false })
+      window.addEventListener("touchend", onTouchEnd)
     }
 
     // 10. Ultra-Responsive Animation & Smooth Camera Tween Loop
@@ -664,8 +695,8 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
     // 11. Dynamic Resize Observer for robust viewport fitting
     const handleResize = () => {
       if (!c || !renderer) return
-      const w = Math.max(c.clientWidth || 800, 320)
-      const h = Math.max(typeof height === "number" ? height : c.clientHeight || 640, 400)
+      const w = c.clientWidth || 320
+      const h = c.clientHeight || 300
       camera.aspect = w / h
       camera.updateProjectionMatrix()
       renderer.setSize(w, h)
@@ -686,6 +717,9 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
         window.removeEventListener("mousemove", onMouseMove)
         window.removeEventListener("mouseup", onMouseUp)
         c.removeEventListener("wheel", onWheel)
+        c.removeEventListener("touchstart", onTouchStart)
+        window.removeEventListener("touchmove", onTouchMove)
+        window.removeEventListener("touchend", onTouchEnd)
       }
       cancelAnimationFrame(animationFrameId)
       if (renderer) {
@@ -711,77 +745,18 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
   const activeInfo = BRAIN_LOBES[activeLobe]
 
   return (
-    <div
-      style={{
-        position: "relative",
-        width: "100%",
-        height: height,
-        background: "radial-gradient(ellipse at 50% 35%, oklch(14% 0.025 250) 0%, oklch(4% 0.01 250) 80%)",
-        borderRadius: "20px",
-        overflow: "hidden",
-        border: "1px solid oklch(24% 0.035 250)",
-        display: "flex",
-      }}
-    >
+    <div className={s.container} style={{ height: height }}>
       {/* 3D WebGL Canvas Viewport */}
-      <div
-        ref={containerRef}
-        style={{
-          flex: 1,
-          height: "100%",
-          cursor: interactive ? "grab" : "default",
-          minWidth: 0,
-          position: "relative",
-        }}
-      />
+      <div ref={containerRef} className={s.canvasWrapper} />
 
       {/* Top Telemetry HUD Strip */}
-      <div
-        style={{
-          position: "absolute",
-          top: "1rem",
-          left: "1rem",
-          right: "1rem",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          pointerEvents: "none",
-          zIndex: 10,
-          flexWrap: "wrap",
-          gap: "0.5rem",
-        }}
-      >
-        <div style={{ pointerEvents: "auto", display: "flex", alignItems: "center", gap: "0.625rem", flexWrap: "wrap" }}>
-          {/* Main Title Badge */}
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              background: "oklch(12% 0.025 250 / 0.92)",
-              backdropFilter: "blur(12px)",
-              border: "1px solid oklch(30% 0.05 250)",
-              borderRadius: "10px",
-              padding: "0.4rem 0.85rem",
-              fontSize: "0.8125rem",
-              fontWeight: 800,
-              color: "oklch(95% 0.01 250)",
-            }}
-          >
+      <div className={s.telemetryHud}>
+        <div style={{ pointerEvents: "auto", display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+          {/* Main Title Badge (Desktop only, hidden on mobile via CSS) */}
+          <div className={s.titleBadge}>
             <span style={{ fontSize: "1.0625rem" }}>🧠</span>
             <span>Mózg Silnika YourQuantum</span>
-            <span
-              style={{
-                fontSize: "0.6875rem",
-                padding: "0.15rem 0.45rem",
-                borderRadius: "4px",
-                background: "oklch(22% 0.05 170)",
-                color: "oklch(80% 0.16 168)",
-                fontWeight: 700,
-              }}
-            >
-              LIVE 3D
-            </span>
+            <span className={s.liveTag}>LIVE 3D</span>
           </div>
 
           {/* Simulation Action Button */}
@@ -789,61 +764,35 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
             onClick={runSimulation}
             disabled={isSimulating}
             type="button"
+            className={s.simButton}
             style={{
               background: isSimulating
                 ? "linear-gradient(135deg, oklch(40% 0.1 170), oklch(35% 0.1 240))"
                 : "linear-gradient(135deg, oklch(75% 0.12 80), oklch(62% 0.18 240))",
-              border: "none",
-              color: "oklch(8% 0.01 250)",
-              padding: "0.42rem 1.1rem",
-              borderRadius: "10px",
-              fontSize: "0.8125rem",
-              fontWeight: 800,
               cursor: isSimulating ? "wait" : "pointer",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "0.45rem",
-              boxShadow: "0 0 20px oklch(75% 0.12 80 / 0.4)",
-              transition: "all 150ms ease",
             }}
           >
-            <span>{isSimulating ? "⚡ Symulacja w toku..." : "▶ Uruchom Proces Decyzyjny 3D"}</span>
+            {isSimulating ? (
+              <span>⚡ Symulacja...</span>
+            ) : (
+              <>
+                <span className={s.desktopOnly}>▶ Uruchom Proces Decyzyjny 3D</span>
+                <span className={s.mobileOnly}>▶ Symuluj proces</span>
+              </>
+            )}
           </button>
         </div>
 
         {/* Live Simulation Step Pill if running */}
         {simStep && (
-          <div
-            style={{
-              pointerEvents: "auto",
-              background: "oklch(14% 0.05 170 / 0.95)",
-              border: "1px solid oklch(45% 0.12 168)",
-              borderRadius: "10px",
-              padding: "0.4rem 1rem",
-              fontSize: "0.8125rem",
-              fontWeight: 800,
-              color: "oklch(95% 0.1 168)",
-              boxShadow: "0 0 24px oklch(78% 0.16 168 / 0.6)",
-              animation: "pulse 1.5s ease-in-out infinite",
-            }}
-          >
+          <div className={s.simStepPill}>
             {simStep}
           </div>
         )}
       </div>
 
-      {/* Interactive 4-Lobe Navigation Pills (Top-Center) */}
-      <div
-        style={{
-          position: "absolute",
-          top: "4.25rem",
-          left: "1rem",
-          display: "flex",
-          gap: "0.45rem",
-          zIndex: 10,
-          flexWrap: "wrap",
-        }}
-      >
+      {/* Interactive 4-Lobe Navigation Pills (Desktop: Top-Center overlay; Mobile: Docked tab bar) */}
+      <div className={s.lobeNav}>
         {(Object.keys(BRAIN_LOBES) as BrainLobeId[]).map((lobeKey) => {
           const l = BRAIN_LOBES[lobeKey]
           const isSelected = activeLobe === lobeKey
@@ -852,142 +801,72 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
               key={l.id}
               onClick={() => focusLobe(l.id)}
               type="button"
+              className={s.lobePill}
               style={{
                 background: isSelected ? "oklch(25% 0.05 250 / 0.98)" : "oklch(12% 0.02 250 / 0.85)",
-                border: isSelected ? `2px solid ${l.color}` : "1px solid oklch(24% 0.03 250)",
-                borderRadius: "8px",
-                padding: "0.4rem 0.85rem",
-                fontSize: "0.8125rem",
-                fontWeight: isSelected ? 800 : 600,
+                borderColor: isSelected ? l.color : "oklch(24% 0.03 250)",
+                borderWidth: isSelected ? "2px" : "1px",
                 color: isSelected ? "#ffffff" : "oklch(75% 0.015 250)",
-                cursor: "pointer",
-                backdropFilter: "blur(10px)",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "0.45rem",
-                boxShadow: isSelected ? `0 0 20px ${l.color}60` : "none",
-                transform: isSelected ? "scale(1.04)" : "scale(1)",
-                transition: "all 120ms ease",
+                fontWeight: isSelected ? 800 : 600,
+                boxShadow: isSelected ? `0 0 16px ${l.color}60` : "none",
+                transform: isSelected ? "scale(1.03)" : "scale(1)",
               }}
             >
-              <span style={{ width: "9px", height: "9px", borderRadius: "50%", background: l.color, boxShadow: `0 0 8px ${l.color}` }} />
+              <span className={s.lobeDot} style={{ background: l.color, boxShadow: `0 0 8px ${l.color}` }} />
               <span>{l.name.split(":")[0]}</span>
             </button>
           )
         })}
       </div>
 
-      {/* Explanatory Narrative Card (Right Sidebar) */}
-      <div
-        style={{
-          width: "360px",
-          background: "oklch(10% 0.015 250 / 0.95)",
-          borderLeft: "1px solid oklch(20% 0.025 250)",
-          backdropFilter: "blur(18px)",
-          padding: "1.75rem 1.5rem",
-          display: "flex",
-          flexDirection: "column",
-          gap: "1.25rem",
-          zIndex: 10,
-          overflowY: "auto",
-        }}
-      >
+      {/* Explanatory Narrative Card (Desktop: Right Sidebar; Mobile: Bottom Scrollable Sheet) */}
+      <div className={s.detailSheet}>
         {/* Lobe Header */}
         <div>
-          <span
-            style={{
-              fontSize: "0.6875rem",
-              fontWeight: 800,
-              textTransform: "uppercase",
-              letterSpacing: "0.08em",
-              color: activeInfo.color,
-              display: "inline-block",
-              marginBottom: "0.375rem",
-            }}
-          >
+          <span className={s.lobeBadge} style={{ color: activeInfo.color }}>
             {activeInfo.badge}
           </span>
-          <h3
-            style={{
-              margin: "0 0 0.25rem 0",
-              fontSize: "1.125rem",
-              fontWeight: 900,
-              color: "oklch(97% 0.008 250)",
-              letterSpacing: "-0.02em",
-            }}
-          >
+          <h3 className={s.lobeTitle}>
             {activeInfo.name}
           </h3>
-          <div style={{ fontSize: "0.78125rem", color: "oklch(68% 0.02 250)", fontWeight: 600 }}>
+          <div className={s.lobeSubtitle}>
             {activeInfo.subtitle}
           </div>
         </div>
 
         {/* Lobe Description in Plain Polish */}
-        <p style={{ margin: 0, fontSize: "0.84375rem", color: "oklch(82% 0.015 250)", lineHeight: 1.65 }}>
+        <p className={s.lobeExplanation}>
           {activeInfo.explanation}
         </p>
 
         {/* Lobe Key Mechanism Bullets */}
-        <div
-          style={{
-            background: "oklch(13% 0.02 250)",
-            border: "1px solid oklch(22% 0.025 250)",
-            borderRadius: "12px",
-            padding: "1rem",
-          }}
-        >
-          <div
-            style={{
-              fontSize: "0.6875rem",
-              fontWeight: 800,
-              textTransform: "uppercase",
-              letterSpacing: "0.06em",
-              color: "oklch(60% 0.02 250)",
-              marginBottom: "0.625rem",
-            }}
-          >
+        <div className={s.bulletsBox}>
+          <div className={s.bulletsHeader}>
             Zasada Działania w Twoim Dylemacie
           </div>
-          <ul style={{ margin: 0, paddingLeft: "1.1rem", fontSize: "0.78125rem", color: "oklch(75% 0.015 250)", lineHeight: 1.6 }}>
+          <ul className={s.bulletsList}>
             {activeInfo.bulletPoints.map((pt, idx) => (
-              <li key={idx} style={{ marginBottom: "0.375rem" }}>{pt}</li>
+              <li key={idx} className={s.bulletItem}>{pt}</li>
             ))}
           </ul>
         </div>
 
         {/* Live Engine Telemetry Block */}
-        <div
-          style={{
-            background: "oklch(12% 0.02 250)",
-            border: "1px solid oklch(20% 0.025 250)",
-            borderRadius: "10px",
-            padding: "0.875rem",
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: "0.625rem",
-          }}
-        >
+        <div className={s.telemetryGrid}>
           <div>
-            <span style={{ fontSize: "0.6875rem", color: "oklch(55% 0.01 250)", display: "block" }}>
-              Neurony sieci
-            </span>
+            <span className={s.telemetryLabel}>Neurony sieci</span>
             <strong style={{ fontSize: "0.875rem", color: "oklch(92% 0.01 250)" }}>
               {telemetry.activeNeurons} punktów
             </strong>
           </div>
           <div>
-            <span style={{ fontSize: "0.6875rem", color: "oklch(55% 0.01 250)", display: "block" }}>
-              Koherencja
-            </span>
+            <span className={s.telemetryLabel}>Koherencja</span>
             <strong style={{ fontSize: "0.875rem", color: "oklch(78% 0.16 168)" }}>
               {telemetry.coherence}
             </strong>
           </div>
           <div style={{ gridColumn: "span 2" }}>
-            <span style={{ fontSize: "0.6875rem", color: "oklch(55% 0.01 250)", display: "block" }}>
-              Aktywne Solwery
-            </span>
+            <span className={s.telemetryLabel}>Aktywne Solwery</span>
             <strong style={{ fontSize: "0.8125rem", color: "oklch(75% 0.12 80)" }}>
               {telemetry.mode}
             </strong>
@@ -1000,22 +879,7 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
             <button
               onClick={onGoToDilemma}
               type="button"
-              style={{
-                width: "100%",
-                background: "linear-gradient(135deg, oklch(75% 0.12 80), oklch(62% 0.18 240))",
-                border: "none",
-                borderRadius: "10px",
-                padding: "0.75rem 1rem",
-                color: "oklch(8% 0.01 250)",
-                fontSize: "0.875rem",
-                fontWeight: 800,
-                cursor: "pointer",
-                boxShadow: "0 0 20px oklch(75% 0.12 80 / 0.4)",
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "0.5rem",
-              }}
+              className={s.ctaBtn}
             >
               <span>✍️ Rozwiąż swój dylemat</span>
               <span style={{ fontSize: "1rem" }}>→</span>
@@ -1024,7 +888,7 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
         )}
 
         {/* Know-how Protection Disclaimer */}
-        <div style={{ fontSize: "0.6875rem", color: "oklch(50% 0.01 250)", lineHeight: 1.45 }}>
+        <div className={s.disclaimer}>
           🔒 <strong>Ochrona know-how:</strong> Model wizualizuje architekturę topologiczną. Algorytmy dekompozycji i funkcje strat pozostają chronione w zamkniętym silniku.
         </div>
       </div>

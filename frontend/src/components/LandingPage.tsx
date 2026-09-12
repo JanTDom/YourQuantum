@@ -182,24 +182,24 @@ const TiltCard: React.FC<TiltCardProps> = ({ children, className = '' }) => {
 
 const COMPARISONS = [
   {
-    ai: 'Generuje tekst, który brzmi pewnie',
-    yq: 'Formalizuje problem jako model matematyczny',
+    ai: 'Czat AI losowo zgaduje prawdopodobne słowa (autoregresja)',
+    yq: 'Silnik przeszukuje przestrzeń stanów algorytmem kwantowym QAOA',
   },
   {
-    ai: 'Nie weryfikuje własnych wniosków',
-    yq: 'Niezależny weryfikator sprawdza każdy wynik',
+    ai: 'Halucynuje sprzeczne fakty i łamie twarde ograniczenia',
+    yq: 'Solver CP-SAT gwarantuje 100% spełnienia każdego ograniczenia',
   },
   {
-    ai: 'Nie pyta o twoje ograniczenia i kryteria',
-    yq: 'Zbiera brakujące dane, zanim zacznie liczyć',
+    ai: 'Generuje subiektywne, nieweryfikowalne opinie',
+    yq: 'Niezależny weryfikator matematyczny certyfikuje każdy wynik',
   },
   {
-    ai: 'Każda odpowiedź to losowe próbkowanie',
-    yq: 'Deterministyczny solver — identyczny problem, identyczny wynik',
+    ai: 'Nie potrafi dowieść, czy opcja jest obiektywnie najlepsza',
+    yq: 'Podaje dowód globalnego optimum i analizę wrażliwości co-jeśli',
   },
   {
-    ai: 'Nie może udowodnić, że wybrał najlepiej',
-    yq: 'Pokazuje dowód, ograniczenia i analizę co-jeśli',
+    ai: 'Zmienia zdanie przy każdym ponownym zapytaniu',
+    yq: 'Deterministyczny model z matematyczną powtarzalnością',
   },
 ] as const
 
@@ -457,9 +457,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </div>
             </div>
 
-            <p className={s.tagLine} aria-hidden="true">
-              ψ &nbsp;&nbsp; ⊗ &nbsp;&nbsp; ∑ &nbsp;&nbsp; ⊗ &nbsp;&nbsp; ψ
-            </p>
+            <div className={s.quantumPillBadge}>
+              <span className={s.quantumPillDot} />
+              <span className={s.quantumPillText}>
+                MECHANIZM KWANTOWY ZAMIAST ZGADYWANIA CZATU AI
+              </span>
+            </div>
 
             <h1 className={s.heroHeadline}>
               <span className={s.headlineLine1}>Twój dylemat</span>
@@ -469,15 +472,24 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </h1>
 
             <p className={s.heroSub}>
-              Pierwsza platforma, która <strong>oblicza</strong> odpowiedź —
-              nie generuje tekstu, który brzmi mądrze.
-              Metoda kwantowa. Ścisła matematyka. Niezależna weryfikacja.
+              Czaty AI losowo zgadują kolejne słowa i halucynują. <strong>YourQuantum przeszukuje przestrzeń stanów i oblicza optimum</strong>.
+              Algorytmy kwantowe QAOA, solver CP-SAT oraz 100% niezależny dowód matematyczny bez zgadywania.
             </p>
 
-            {/* ── HERO INLINE FORM ── always visible, no scroll needed ── */}
-            <div className={s.heroInputWrap} role="group" aria-label="Pole do opisania dylematu">
+            {/* ── HERO INLINE FORM ── flagship Quantum Terminal ── */}
+            <div className={s.heroInputWrap} role="group" aria-label="Kwantowy terminal do wpisania dylematu">
+              <div className={s.terminalHeader}>
+                <div className={s.terminalStatus}>
+                  <span className={s.terminalStatusDot} />
+                  <span className={s.terminalStatusText}>TERMINAL OBLICZEŃ KWANTOWYCH</span>
+                </div>
+                <div className={s.terminalEngineBadge}>
+                  QAOA + CP-SAT · 0% Halucynacji
+                </div>
+              </div>
+
               <label className={s.heroInputLabel} htmlFor="hero-problem-input">
-                Opisz swój dylemat lub problem
+                Wprowadź swój dylemat lub zadanie decyzyjne
               </label>
               <textarea
                 id="hero-problem-input"
@@ -489,7 +501,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     handleHeroSubmit()
                   }
                 }}
-                placeholder="Np. Stoję przed wyborem między dwiema pracami, nie wiem którą wybrać..."
+                placeholder="Np. Stoję przed wyborem między dwiema ofertami pracy przy sprzecznych priorytetach, optymalny budżet 3 inwestycji z 7 opcji, alokacja zespołu..."
                 rows={3}
                 className={s.heroTextarea}
                 disabled={isLoading}
@@ -509,7 +521,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </div>
               <div className={s.heroInputFooter}>
                 <span className={s.heroInputHint}>
-                  Bez żargonu. Zwykłymi słowami. Ctrl+Enter też działa.
+                  Zwykłymi słowami. Bez żargonu. Silnik natychmiast formalizuje model.
                 </span>
                 <button
                   type="button"
@@ -517,7 +529,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   disabled={!heroText.trim() || isLoading}
                   onClick={handleHeroSubmit}
                 >
-                  {isLoading ? 'Analizuję...' : 'Oblicz najlepszą opcję →'}
+                  {isLoading ? 'Uruchamianie silnika...' : '⚡ OBLICZ ROZWIĄZANIE KWANTOWE →'}
                 </button>
               </div>
             </div>
@@ -561,13 +573,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <span key={i} className={s.tickerTrack}>
               <span>52 testy — 0 halucynacji</span>
               <span className={s.tickerDot}>◆</span>
-              <span>Niezależna weryfikacja każdego wyniku</span>
+              <span>Bije na głowę czaty AI: czysta matematyka</span>
               <span className={s.tickerDot}>◆</span>
-              <span>Algorytmy QAOA · Solver CP-SAT</span>
+              <span>Algorytm kwantowy QAOA · Solver CP-SAT</span>
               <span className={s.tickerDot}>◆</span>
-              <span>Nie chat AI — prawdziwe obliczenia</span>
+              <span>100% niezależna weryfikacja każdego wyniku</span>
               <span className={s.tickerDot}>◆</span>
-              <span>Formalizacja matematyczna problemu</span>
+              <span>Przeszukiwanie przestrzeni stanów zamiast zgadywania</span>
               <span className={s.tickerDot}>◆</span>
               <span>Wynik z dowodem · Analiza co-jeśli</span>
               <span className={s.tickerDot}>◆</span>
