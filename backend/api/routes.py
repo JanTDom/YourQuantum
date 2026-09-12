@@ -649,9 +649,16 @@ async def universal_compute(
             detail="Nieprawidłowy lub brakujący klucz API (nagłówek Authorization: Bearer <key> lub X-API-Key).",
         )
 
-    engine = UniversalEngine()
-    result = engine.execute(req)
-    return result.model_dump()
+    try:
+        engine = UniversalEngine()
+        result = engine.execute(req)
+        return result.model_dump()
+    except Exception as e:
+        logger.exception("Błąd silnika obliczeniowego universal_compute")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Błąd silnika YourQuantum: {str(e)}",
+        )
 
 
 

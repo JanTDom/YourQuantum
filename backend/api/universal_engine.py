@@ -394,8 +394,7 @@ class UniversalEngine:
             math_status=MathStatus.OPTIMAL,
             assignment=best_assignment,
             objective_value=best_obj,
-            optimality_proven=True,
-            dual_bound=best_obj,
+            lower_bound=best_obj,
             optimality_gap=0.0,
             source=ComputeSource.QUANTUM_CIRCUIT_SIMULATION,
         )
