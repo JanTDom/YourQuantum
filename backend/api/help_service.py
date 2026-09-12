@@ -160,8 +160,31 @@ W Twojej aktualnej konfiguracji silnik dysponuje solverami: **{solver_names_read
 """
         ),
         HelpTopic(
+            id="przewaga-nad-ai",
+            title="Dlaczego YourQuantum bije na głowę czaty AI (ChatGPT, Claude)",
+            short_desc="Twarda matematyka zamiast autoregresyjnego zgadywania słów i halucynacji.",
+            category="Nauka i Technologia",
+            read_time_minutes=3,
+            badge="Przewaga",
+            target_stages=["INTAKE", "MODEL_APPROVAL", "RECOMMENDATION"],
+            content_markdown="""
+### Fundamentalna różnica między modelem językowym a silnikiem obliczeniowym
+
+Czaty AI (takie jak ChatGPT, Claude czy Gemini) to **maszyny statystyczne**. Ich jedynym zadaniem jest przewidywanie kolejnego najbardziej prawdopodobnego słowa na podstawie przeczytanych tekstów z internetu. 
+Oznacza to, że:
+* **Nie potrafią ściśle liczyć**: Nie wykonują rzeczywistej algebry dyskretnej ani optymalizacji kombinatorycznej.
+* **Notorycznie łamią ograniczenia**: Potrafią z pełną pewnością siebie zarekomendować opcję, która przekracza Twój budżet lub harmonogram.
+* **Zmieniają zdanie**: Zadaj to samo pytanie 5 razy, a otrzymasz 5 sprzecznych ze sobą opinii.
+
+#### Jak działa YourQuantum:
+1. **Model, a nie esej**: Twój dylemat zostaje sformalizowany w ścisły układ równań i wag decyzyjnych (Problem IR).
+2. **Eksploracja przestrzeni 2^N stanów**: Zamiast pytać sieć neuronową o opinię, silnik uruchamia algorytmy kwantowe (Warm-Started QAOA) i solwery ścisłe (CP-SAT), które przeszukują całą przestrzeń wariantów.
+3. **Kryptograficzny Certyfikat SHA-256**: Wynik nie opiera się na zaufaniu — jest niezależnie sprawdzony pod kątem residuum błędu (0.0000) i luki optymalności.
+"""
+        ),
+        HelpTopic(
             id="gwarancja-weryfikacji",
-            title="Niezależna weryfikacja: zero halucynacji",
+            title="Niezależna weryfikacja i paszport SHA-256: zero halucynacji",
             short_desc="Dlaczego wynikowi YourQuantum możesz zaufać w 100%.",
             category="Bezpieczeństwo",
             read_time_minutes=2,
@@ -175,10 +198,30 @@ Wiele narzędzi AI generuje rozwiązania, które brzmią mądrze, ale w rzeczywi
 #### Standard YourQuantum:
 1. **Rozwiązanie kandydata**: Silnik matematyczny lub kwantowy generuje optymalny wariant.
 2. **Niezależny weryfikator (Audytor)**: Zanim zobaczysz wynik na ekranie, oddzielny moduł sprawdza linijka po linijce:
-   - Czy ani jedno twarde ograniczenie nie zostało naruszone?
-   - Jaki jest dokładny bilans zysków i strat?
-   - Czy wynik jest stabilny przy małych wahaniach Twoich preferencji?
+   - Czy ani jedno twarde ograniczenie nie zostało naruszone (dokładne residuum równe 0.0000)?
+   - Jaka jest matematycznie dowiedziona granica luki optymalności (Dual Bound Gap)?
+   - Czy wygenerowano unikalny kryptograficzny hash SHA-256 gwarantujący powtarzalność?
 3. Tylko po przejściu 100% testów wynik trafia do Ciebie z certyfikatem weryfikacji.
+"""
+        ),
+        HelpTopic(
+            id="odpornosc-na-szok",
+            title="Analiza Odporności na Szok (Stress-Testing ±25%)",
+            short_desc="Dowiedz się, czy Twoja decyzja przetrwa zmiany rynkowe, inflację lub nieprzewidziane koszty.",
+            category="Bezpieczeństwo",
+            read_time_minutes=3,
+            badge="Nowość",
+            target_stages=["RECOMMENDATION"],
+            content_markdown="""
+### Czy Twoja decyzja nie rozpadnie się przy pierwszym wstrząsie?
+
+W życiu i biznesie warunki rzadko są w 100% stałe. Ceny rosną, terminy się przesuwają, pojawiają się nieoczekiwane wydatki.
+
+#### Standard Testu Szoku YourQuantum:
+Dla każdego obliczonego rozwiązania silnik przeprowadza **symulację wstrząsów zewnętrznych**:
+* Sprawdza, co stanie się z Twoją decyzją przy odchyleniu kosztów i ograniczeń o **±5%, ±15% oraz ±25%**.
+* Klasyfikuje rozwiązanie jako **Wysoce Odporne** (decyzja leży w szerokiej dolinie energetycznej i nie boi się wahań) lub **Kruche** (nawet mała fluktuacja łamie ograniczenia).
+* Żaden czat AI nie jest w stanie przeprowadzić takiego testu — to unikalna cecha silnika optymalizacji opartego na stanach kwantowych.
 """
         ),
         HelpTopic(

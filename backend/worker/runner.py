@@ -24,6 +24,7 @@ from backend.db.models import JobRecord, ProblemRecord
 from backend.domain.problem_ir import ComputeBudget, ProblemIR
 from backend.solvers.base import ExecutionStatus, SolverAdapter, SolverResult
 from backend.solvers.cpsat import CPSATAdapter
+from backend.solvers.hybrid_benders import HybridBendersAdapter
 from backend.solvers.quantum.qaoa import QAOAAdapter
 from backend.verifier.verifier import IndependentVerifier, SolverCandidate
 
@@ -33,6 +34,7 @@ logger = logging.getLogger(__name__)
 SOLVER_REGISTRY: list[SolverAdapter] = [
     CPSATAdapter(),
     QAOAAdapter(),
+    HybridBendersAdapter(),
 ]
 
 
@@ -156,6 +158,17 @@ async def _run_job(job_id: str) -> None:
             verification_json = report.model_dump(mode="json")
             if report.verdict.value.upper() == "PASS":
                 publication_status = "PUBLISHED_VERIFIED"
+                try:
+                    from backend.domain.sensitivity import SensitivityEngine
+                    sens_engine = SensitivityEngine(problem)
+                    rob_report = sens_engine.analyze(
+                        candidate.candidate_id,
+                        candidate.assignment,
+                        report.objective_value,
+                    )
+                    verification_json["robustness"] = rob_report.model_dump(mode="json")
+                except Exception as sens_err:
+                    logger.warning(f"Sensitivity analysis failed for job {job_id}: {sens_err}")
             else:
                 publication_status = "REJECTED_UNVERIFIED"
         except Exception as e:

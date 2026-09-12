@@ -97,6 +97,24 @@ export const EvidenceDrawer: React.FC<EvidenceDrawerProps> = ({ result, comparis
                 {result.objective_value !== null ? result.objective_value : '—'}
               </div>
             </div>
+
+            {verification?.optimality_gap_percent !== undefined && verification.optimality_gap_percent !== null && (
+              <div style={{ background: 'var(--bg-surface)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Luka optymalności (Dual Gap)</div>
+                <div style={{ fontWeight: 700, fontSize: '0.9375rem', color: 'oklch(75% 0.15 80)', marginTop: '0.25rem' }}>
+                  ≤ {verification.optimality_gap_percent}%
+                </div>
+              </div>
+            )}
+
+            {verification?.sha256_hash && (
+              <div style={{ background: 'var(--bg-surface)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Certyfikat SHA-256</div>
+                <div style={{ fontWeight: 600, fontSize: '0.75rem', fontFamily: 'ui-monospace, monospace', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+                  {verification.sha256_hash.slice(0, 16)}...
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Quantum Circuit & Physics analysis if QAOA was run */}

@@ -71,6 +71,9 @@ class QAOARunRecord:
     multi_start_attempts: int = 1
 
     # Quantum Physics & Amplification Metrics
+    warm_started: bool = True
+    relaxation_energy: float | None = None
+    initial_thetas: list[float] = field(default_factory=list)
     ground_state_prob: float | None = None
     random_guess_prob: float | None = None
     amplification_factor: float | None = None
@@ -220,19 +223,26 @@ class QAOAAdapter(SolverAdapter):
 
         record.compile_time_seconds = time.monotonic() - t0
 
-        # Step 2: Build and run QAOA circuit
+        # Step 2: Continuous Relaxation & Warm-Start Preparation
         t1 = time.monotonic()
         n = encoding.n_qubits
         p = self.DEFAULT_P_LAYERS
 
+        x_star, relaxed_energy = self._compute_continuous_relaxation(encoding)
+        record.relaxation_energy = relaxed_energy
+        initial_thetas = [float(2.0 * math.asin(math.sqrt(float(xi)))) for xi in x_star]
+        record.initial_thetas = initial_thetas
+
         gamma_params = ParameterVector("γ", p)
         beta_params = ParameterVector("β", p)
-        circuit = self._build_qaoa_circuit(encoding, gamma_params, beta_params, p)
+        circuit = self._build_qaoa_circuit(
+            encoding, gamma_params, beta_params, p, initial_thetas=initial_thetas
+        )
         ops = circuit.count_ops()
         record.circuit_depth = circuit.depth()
         record.circuit_gate_count = circuit.size()
         record.two_qubit_gate_count = ops.get("cx", 0)
-        record.single_qubit_gate_count = ops.get("rz", 0) + ops.get("rx", 0) + ops.get("h", 0)
+        record.single_qubit_gate_count = ops.get("rz", 0) + ops.get("rx", 0) + ops.get("ry", 0) + ops.get("h", 0)
         record.p_layers = p
 
         # Step 3: Optimise parameters
@@ -440,6 +450,8 @@ class QAOAAdapter(SolverAdapter):
             result.metadata["qubo_energy"] = best_candidate["qubo_energy"]
             result.metadata["evaluated_unique_samples"] = len(candidates_evaluated)
             result.metadata["feasible_samples_found"] = len(feasible_pool)
+            result.metadata["warm_started"] = record.warm_started
+            result.metadata["relaxation_energy"] = record.relaxation_energy
             result.metadata["ground_state_prob"] = record.ground_state_prob
             result.metadata["random_guess_prob"] = record.random_guess_prob
             result.metadata["amplification_factor"] = record.amplification_factor
@@ -468,17 +480,23 @@ class QAOAAdapter(SolverAdapter):
         gamma: Any,
         beta: Any,
         p: int,
+        initial_thetas: list[float] | None = None,
     ) -> "QuantumCircuit":
         """
         Build the QAOA parametric circuit.
+        Uses warm-start Ry rotations when available, or uniform superposition (Hadamard).
         Uses the Ising cost Hamiltonian for the phase operator.
         Uses RX gates for the mixing operator.
         """
         n = encoding.n_qubits
         qc = QuantumCircuit(n)
 
-        # Initial state: uniform superposition
-        qc.h(range(n))
+        # Initial state: Warm-Start Ry rotations or uniform superposition
+        if initial_thetas and len(initial_thetas) == n:
+            for i in range(n):
+                qc.ry(initial_thetas[i], i)
+        else:
+            qc.h(range(n))
 
         for layer in range(p):
             # Cost operator: e^{-i*gamma*H_C}
@@ -504,6 +522,45 @@ class QAOAAdapter(SolverAdapter):
                 qc.rx(2 * b, i)
 
         return qc
+
+    def _compute_continuous_relaxation(
+        self, encoding: QUBOEncoding
+    ) -> tuple[np.ndarray, float]:
+        """
+        Compute continuous quadratic relaxation in [0, 1]^n to warm-start QAOA.
+        Maps optimal continuous fractions to initial single-qubit rotations Ry(theta).
+        """
+        n = encoding.n_qubits
+        Q = encoding.Q
+        if Q is None or n == 0:
+            return np.full(n, 0.5), 0.0
+
+        Q_sym = 0.5 * (Q + Q.T)
+
+        def fun(x: np.ndarray) -> float:
+            return float(x @ Q_sym @ x)
+
+        def jac(x: np.ndarray) -> np.ndarray:
+            return 2.0 * (Q_sym @ x)
+
+        x0 = np.full(n, 0.5)
+        bounds = [(0.0, 1.0) for _ in range(n)]
+
+        try:
+            opt_res = scipy_minimize(
+                fun,
+                x0,
+                jac=jac,
+                method="L-BFGS-B",
+                bounds=bounds,
+                options={"maxiter": 100},
+            )
+            # Clip between [0.05, 0.95] to retain quantum superposition & tunneling
+            x_star = np.clip(opt_res.x, 0.05, 0.95)
+            relaxed_energy = float(opt_res.fun) + encoding.constant_energy
+            return x_star, relaxed_energy
+        except Exception:
+            return np.full(n, 0.5), 0.0
 
     @staticmethod
     def _bitstring_to_array(bitstring: str, n: int) -> np.ndarray:

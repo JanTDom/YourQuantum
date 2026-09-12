@@ -103,6 +103,12 @@ export interface CaseTradeoff {
   sacrifice: string
 }
 
+export interface InputQuality {
+  level: 'sufficient' | 'too_vague' | 'needs_options' | 'needs_numbers'
+  reason: string
+  suggestions: string[]
+}
+
 export interface DecisionCase {
   id: string
   title: string
@@ -116,6 +122,7 @@ export interface DecisionCase {
   priority_tokens?: string[]
   selected_priority_tokens?: string[]
   break_even_point?: string | null
+  input_quality?: InputQuality
   created_at: string
   updated_at: string
   problem_ir_id?: string | null
@@ -129,6 +136,24 @@ export interface ConstraintResult {
   note: string | null
 }
 
+export interface RobustnessShockLevel {
+  shock_percent: number
+  retained_feasibility: boolean
+  objective_value: number | null
+  objective_change_percent: number
+  max_residual: number
+}
+
+export interface RobustnessReport {
+  candidate_id: string
+  robustness_score: number
+  verdict: 'HIGHLY_ROBUST' | 'MODERATELY_ROBUST' | 'FRAGILE'
+  stress_test_survived_pct: number
+  elasticity: number
+  shock_levels: RobustnessShockLevel[]
+  summary_pl: string
+}
+
 export interface VerificationReport {
   verdict: 'PASS' | 'FAIL' | 'PARTIAL' | 'UNKNOWN'
   verdict_reason: string
@@ -140,6 +165,11 @@ export interface VerificationReport {
   domain_violations: string[]
   numerical_residual: number | null
   limitations: string[]
+  sha256_hash?: string
+  optimality_proven?: boolean
+  dual_bound?: number | null
+  optimality_gap_percent?: number | null
+  robustness?: RobustnessReport | null
 }
 
 export interface QAOARunRecord {

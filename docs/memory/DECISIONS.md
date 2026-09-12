@@ -270,4 +270,40 @@ Implement a WebGL 3D interactive cognitive brain (`EngineBrain3D.tsx`, `BrainMod
 **Rationale:**
 Delivers an Awwwards/FWA-grade presentation that inspires trust and awe in the engine's scientific depth while guarding intellectual property.
 
+---
+
+## DEC-018 — Total Quantum Supremacy Engine (Warm-Start QAOA, Exact Slack, Dual Bound Certificate & Shock Testing)
+
+**Date:** 2026-09-12
+**Status:** ACTIVE
+
+**Decision:**
+To cement an indisputable mathematical and algorithmic advantage over autoregressive AI chatbots (ChatGPT/Claude), implement a six-pillar supremacy upgrade across the backend and frontend:
+1. **Algebraic Input Quality Gate**: Automatically detect and flag underspecified inputs (<15 words, lacking concrete alternatives, or missing required quantitative constraints) before entering combinatorial optimization.
+2. **Exact QUBO Binary Slack Expansion**: Map linear inequalities $\sum a_i x_i \le B$ to QUBO without approximate heuristic penalties by computing exact integer slack bounds and binary logarithmic expansions with dynamically calibrated quadratic penalties.
+3. **Warm-Started QAOA**: Continuous quadratic relaxation via L-BFGS-B in $[0, 1]^n$ mapped to single-qubit $R_y(\theta_i)$ angles ($\theta_i = 2 \arcsin(\sqrt{x_i^*})$), seeding the initial quantum state and cutting variational parameter convergence time.
+4. **Independent Dual Bound Gap & SHA-256 Audit Passport**: Independent LP continuous relaxation via HiGHS to establish rigorous dual lower bounds, computing proven optimality gap percentages, alongside a cryptographic SHA-256 hash sealing the verified decision state.
+5. **Multi-Horizon Stress-Testing Engine**: Systematic sensitivity testing against $\pm 5\%$, $\pm 15\%$, and $\pm 25\%$ parameter and constraint shocks, yielding a definitive robustness index and stability verdict.
+6. **Hybrid Benders Decomposition Solver**: Co-scheduling QAOA master combinatorial solver with CP-SAT constraint feasibility verification and integer cut generation.
+
+**Rationale:**
+LLM chatbots generate plausible probabilistic text but cannot guarantee constraint satisfaction, bounds, or mathematical proofs. YourQuantum produces verifiable, cryptographically sealed, and shock-tested solutions.
+
+---
+
+## DEC-019 — Hardware-Accelerated 3D Quantum Manifold Hero Animation
+
+**Date:** 2026-09-12
+**Status:** ACTIVE
+
+**Decision:**
+Replace the jittery CSS keyframe panning image in the landing page hero with a bespoke WebGL Three.js interactive 3D quantum manifold (`QuantumHero3D.tsx`).
+1. Renders a pulsating quantum nucleus, 18 entangled qubit nodes with Fibonacci spherical distribution, real-time dynamic interference geodesics, and dual counter-rotating QAOA parameter rings.
+2. Supports smooth mouse pointer parallax, dynamic OKLCH/RGB color gradients, a live 60 FPS telemetry badge, and direct modal interaction (`Otwórz mózg 3D`).
+3. Fully protected trade secrets: visualizes abstract state spaces and interference without displaying private algebraic formulas or solver weights.
+
+**Rationale:**
+Eliminates layout shifts and jerky image translations, providing an Awwwards/FWA-grade high-tech instrument aesthetic.
+
+
 

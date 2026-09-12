@@ -5,6 +5,7 @@ import React, {
   useState,
 } from 'react'
 import { ConversationPanel } from './ConversationPanel'
+import { QuantumHero3D } from './QuantumHero3D'
 import s from './LandingPage.module.css'
 
 // ── Types ─────────────────────────────────────────────────────
@@ -543,6 +544,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             >
               Jak to działa? ↓
             </button>
+          </div>
+
+          {/* Right: Premium 3D Quantum State Field */}
+          <div className={s.heroRight}>
+            <QuantumHero3D onOpenBrain={onOpenBrain} />
           </div>
         </div>
 

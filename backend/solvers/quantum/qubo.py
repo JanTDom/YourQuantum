@@ -85,7 +85,11 @@ class QUBOEncoding:
             raise ValueError(
                 f"Bitstring length {len(bits)} != n_qubits {self.n_qubits}"
             )
-        return {vid: bits[i] for i, vid in enumerate(self.variable_order)}
+        return {
+            vid: bits[i]
+            for i, vid in enumerate(self.variable_order)
+            if not vid.startswith("__slack_")
+        }
 
     def eval_qubo_energy(self, x: np.ndarray) -> float:
         """Evaluate E = x^T Q x + constant_energy for binary vector x."""
@@ -243,11 +247,55 @@ class QUBOEncoder:
                             penalty_weights[constraint.id] = penalty
                             penalty_heuristic = True
                 else:
-                    # Multi-variable inequality requires slack expansion or classical solver
-                    raise QUBOEncodingError(
-                        f"Constraint {constraint.id}: Multi-variable inequality ({constraint.type}) "
-                        "cannot be compiled to QUBO without slack variable expansion. Use CP-SAT solver."
-                    )
+                    # Multi-variable linear inequality: sum a_i x_i + a_0 <= 0 <=> sum a_i x_i <= -a_0
+                    # Implemented via exact binary slack variable expansion
+                    B = -a_0
+                    L = sum(a_i[i] for i in non_zeros if a_i[i] < 0)
+                    U = sum(a_i[i] for i in non_zeros if a_i[i] > 0)
+                    if B < L - 1e-9:
+                        raise QUBOEncodingError(
+                            f"Constraint {constraint.id}: Infeasible inequality (minimum LHS sum is {L}, bound is {B})."
+                        )
+                    elif B >= U - 1e-9:
+                        # Trivially satisfied for all binary assignments
+                        continue
+                    else:
+                        max_slack = B - L
+                        slack_coeffs: list[float] = []
+                        rem = max_slack
+                        p = 1.0
+                        while rem > 0:
+                            coeff = min(p, rem)
+                            slack_coeffs.append(coeff)
+                            rem -= coeff
+                            p *= 2.0
+
+                        slack_var_names = [f"__slack_{constraint.id}_{k}" for k in range(len(slack_coeffs))]
+                        old_dim = len(var_order)
+                        num_slack = len(slack_coeffs)
+                        new_dim = old_dim + num_slack
+
+                        new_Q = np.zeros((new_dim, new_dim), dtype=np.float64)
+                        new_Q[:old_dim, :old_dim] = Q
+                        Q = new_Q
+
+                        var_order.extend(slack_var_names)
+
+                        w = np.zeros(new_dim, dtype=np.float64)
+                        for i in non_zeros:
+                            w[i] = a_i[i]
+                        for k, sc in enumerate(slack_coeffs):
+                            w[old_dim + k] = sc
+
+                        constant += penalty * (B ** 2)
+                        for i in range(new_dim):
+                            Q[i, i] += penalty * (w[i] ** 2 - 2 * B * w[i])
+                        for i in range(new_dim):
+                            for j in range(i + 1, new_dim):
+                                Q[i, j] += penalty * 2 * w[i] * w[j]
+
+                        penalty_weights[constraint.id] = penalty
+                        penalty_heuristic = True
             else:
                 raise QUBOEncodingError(
                     f"Constraint {constraint.id}: Unsupported constraint type {constraint.type} for QUBO."
@@ -255,6 +303,7 @@ class QUBOEncoder:
 
         # 4. Symmetrise Q (make upper triangular; Q[i,j] for i<=j)
         # We keep Q upper triangular already; diagonal terms are on Q[i,i].
+        n = len(var_order)
 
         # 5. Build Ising representation
         h, J, ising_const = self._qubo_to_ising(Q, constant, n)
@@ -462,7 +511,11 @@ class QUBOEncoder:
 
         for bits in itertools.product([0, 1], repeat=n):
             x = np.array(bits, dtype=np.float64)
-            assignment = {vid: float(bits[i]) for i, vid in enumerate(var_order)}
+            assignment = {
+                vid: float(bits[i])
+                for i, vid in enumerate(var_order)
+                if not vid.startswith("__slack_")
+            }
 
             # Original objective value
             try:
