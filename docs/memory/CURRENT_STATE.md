@@ -42,13 +42,26 @@ Wszystkie testy backendu (59/59) przechodzą pomyślnie. Build frontendu (TypeSc
 
 ---
 
-## Wyniki weryfikacji
-- **Backend**: `./.venv/bin/pytest` → 59 passed in 3.02s
-- **Frontend Typecheck**: `./frontend/node_modules/.bin/tsc --noEmit -p frontend/tsconfig.app.json` → 0 errors
-- **Frontend Build**: `npm run build --prefix frontend` → dist generated in 2.17s
-
----
-
-## Następny krok
-- Wdrożenie produkcyjne (Vercel deploy) oraz weryfikacja live na `https://yourquantum.pl`.
-
+## Wyniki weryfikacji empirycznej
+- **Backend Test Suite**: `./.venv/bin/pytest` → **72 passed in 3.48s** (zero błędów, zero ostrzeżeń)
+- **Kompleksowa walidacja poprawności**: `tests/test_quantum_supremacy_validation.py` → **13/13 passed**
+  1. Odrzucanie ogólników (<15 słów) → `too_vague`
+  2. Wykrywanie braku alternatyw → `needs_options`
+  3. Wykrywanie braku liczb w kontekście finansowym/budżetowym (z fleksją PL) → `needs_numbers`
+  4. Przepuszczanie dobrze sformułowanych dylematów → `sufficient`
+  5. Matematyczna ścisłość QUBO Exact Slack Expansion na budżecie
+  6. Zbieżność Warm-Start QAOA do ścisłego stanu podstawowego (ground truth)
+  7. Weryfikacja dolnej granicy ciągłej LP (dual bound) i zerowej luki optymalności
+  8. Wykrywanie i bezwzględne odrzucanie sfałszowanych wartości celu przez Weryfikator
+  9. Bezwzględne odrzucanie naruszeń twardych ograniczeń
+  10. Obliczanie odporności na wstrząsy $\pm 5\%$, $\pm 15\%$, $\pm 25\%$ (Sensitivity Engine)
+  11. Zbieżność i generowanie cięć w Hybrid Benders Decomposition
+  12. Zintegrowany potok: Solver → Weryfikator → Paszport SHA-256 → Stress-Testing
+  13. Kontrakt HTTP API `/api/v1/cases/analyze`
+- **Frontend Typecheck & Build**: 0 błędów TypeScript, czysta dystrybucja produkcyjna Vite.
+- **Produkcja Live**:
+  - `curl https://yourquantum.pl/api/v1/health` → `status: ok`
+  - `curl https://yourquantum.pl/api/v1/cases/analyze` (ogólnik) → `too_vague` z podpowiedziami
+  - `curl https://yourquantum.pl/api/v1/cases/analyze` (finanse bez liczb) → `needs_numbers`
+  - `curl https://yourquantum.pl/api/v1/cases/analyze` (pełny dylemat) → `sufficient`, opcje, wagi, pytania
+  - Headless Chrome na `https://yourquantum.pl` → 2x canvas WebGL 3D zainicjalizowany, 0 błędów w konsoli.
