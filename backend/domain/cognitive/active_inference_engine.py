@@ -19,7 +19,7 @@ from backend.domain.cognitive.episodic_memory import EpisodicMemoryRepository
 from backend.domain.cognitive.quality_gate import assess_input_quality
 from backend.domain.cognitive.workspace import EnergyBudget, GlobalWorkspace
 from backend.domain.decision_case import DecisionCase, InputQuality
-from backend.domain.problem_classes import ProblemClass, evaluate_problem_computability
+from backend.domain.problem_classes import NotComputableReport, ProblemClass, evaluate_problem_computability
 from backend.domain.problem_ir import (
     ConstraintType,
     ExprNode,
@@ -186,7 +186,13 @@ async def classify_problem_class_async(query: str, options_count: int = 0) -> Pr
             f"Zapytanie użytkownika:\n\"{query}\"\n"
         )
         try:
-            res = await gateway.complete_async(prompt=prompt, response_schema=schema, temperature=0.1)
+            res = await gateway.generate(
+                system_instruction="Jesteś precyzyjnym klasyfikatorem problemów decyzyjnych. Zwracaj wyłącznie poprawny JSON.",
+                user_content=prompt,
+                purpose="classify_problem",
+                response_schema=schema,
+                temperature=0.1,
+            )
             if res.parsed_json and isinstance(res.parsed_json, dict):
                 p_class = str(res.parsed_json.get("problem_class", "CHOICE")).upper()
                 if p_class in ("CHOICE", "ALLOCATION", "DESIGN", "PARAMETER", "NOT_COMPUTABLE"):
