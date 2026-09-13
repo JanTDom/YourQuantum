@@ -112,9 +112,9 @@ WYNIK KOŃCOWY: 22 BRAMEK CZERWONYCH (FAIL)
 
 ## Wyniki weryfikacji empirycznej (Evidence-First DoD)
 
-- **Backend Pytest Suite**: `.venv/bin/pytest tests/ -v` → **157/157 passed in 39.41s** (zero błędów, zero regresji, 100% zielonych testów).
-- **Frontend E2E Playwright Suite**: `npx playwright test e2e/v2-honest-engine.spec.ts` → **2/2 passed in 8.9s** (ścieżka `CHOICE` z danymi sieciowymi i analitycznym break-even + ścieżka `DESIGN` z frontem Pareto i rankingiem ważności).
-- **Frontend Typecheck & Build**: `npm run build` → 0 błędów TypeScript (`tsc -b`), czysty bundle produkcyjny Vite (`dist/` w 2.25s).
+- **UWAGA (2026-09-13, przy scalaniu V4):** liczby w tej sekcji pochodziły z etapu V2 (157/157 testów, build 2.25s, Playwright 2/2) i po wdrożeniu faz V4 przestały odpowiadać rzeczywistości. Zostały usunięte zamiast zaktualizowane, ponieważ nie wolno wpisywać wyników, których nie zmierzono w tym przebiegu.
+- **Wymagane przed kolejnym raportem:** uruchomić `bash scripts/ci.sh` (pytest + `npm run build` + oba zestawy Playwright) i wpisać tutaj surowy wynik z datą, liczbą testów i czasem.
+- **Ostatni potwierdzony wynik bramek mechanicznych:** `bash scripts/check_v4.sh` na commicie `0bfc771` — wszystkie 23 bramki PASS (pełny wydruk w `docs/REPORT_V4.md`, sekcja 2).
 - **Struktura i spójność projektu**: `bash scripts/validate-structure.sh` → 0 błędów strukturalnych.
 - **Kompletny skrypt CI**: `scripts/ci.sh` uruchamia pełen łańcuch walidacji i raportuje stan sukcesu.
 
