@@ -1,13 +1,18 @@
 # YourQuantum — CURRENT STATE
-_Last updated: 2026-09-13 (Merge V4 do main — Commit 3189d98 & Wdrożenie Produkcyjne Vercel)_
+_Last updated: 2026-09-13 (Commit 71deb27 — Numeric/Quantum Stack in Vercel Function & Live Production)_
 
-## Status: V4 SCALONE DO MAIN I WDROŻONE NA PRODUKCJĘ (100% BRAMEK ZIELONYCH)
+## Status: STOS NUMERYCZNY I KWANTOWY AKTYWNY NA VERCEL PRODUCTION (100% BRAMEK ZIELONYCH)
 
-- **Data merge do `main`**: 2026-09-13
-- **Commit merge**: `3189d98` (`merge: fix/v4-corrections (V4 honest engine corrections R1-R6, N1-N11)`)
-- **Wdrożenie produkcyjne**: Vercel (`https://yourquantum.pl`) — Status: `READY`
+- **Gałąź i commit**: `main` — `71deb27` (`feat(deploy): ship numeric/quantum stack in the Vercel function`)
+- **Wdrożenie produkcyjne**: Vercel (`https://yourquantum.pl`, ID: `dpl_F7Dw4iVHnW7izQ4pu3P2KJZCXPg3`) — Status: `READY`
+- **Dostępność solverów na produkcji (`GET /api/v1/health/solvers`)**:
+  * `cp_sat` (Google OR-Tools 9.15.6755): **available=true**
+  * `qaoa_aer` (Qiskit Aer 0.17.2): **available=true**
+  * `hybrid_benders` (v0.1.0): **available=true**
+  * `scipy_continuous` (SciPy 1.18.1): **available=true**
+  * `qpu_hardware` (disconnected-stub-v1): **available=false** (uczciwy brak sprzętu QPU)
 - **Wszystkie mechaniczne bramki weryfikacyjne w `scripts/check_v4.sh`**: 23/23 ZIELONE (PASS)
-- **Regresje i kompilacja**: 26/26 testów regresyjnych `tests/test_v4_regressions.py` oraz `npm run build` przechodzą w 100% bez błędów.
+- **Regresje i kompilacja**: 100% testów pytest oraz `npm run build` przechodzą bez błędów.
 
 ### Stan przed V4 — Surowy wynik bramek mechanicznych (`scripts/check_v4.sh`):
 
@@ -103,10 +108,10 @@ WYNIK KOŃCOWY: 22 BRAMEK CZERWONYCH (FAIL)
 - **Konteneryzacja silnika**: Utworzono `Dockerfile` (Python 3.11-slim z kompilatorami i bibliotekami numerycznymi) oraz `docker-compose.yml` (Postgres + API + Worker).
 - **Worker service & runner**: Utworzono `backend/worker/service.py` realizujący pętlę pollingu zadań `QUEUED` w dedykowanym kontenerze. Zaktualizowano `backend/worker/runner.py` w celu respektowania trybów `YQ_EXECUTION_MODE` (`queue` vs `inline`).
 - **Frontend**: W `frontend/src/components/ModelApprovalGate.tsx` oraz `frontend/src/api.ts` zaimplementowano sprawdzanie dostępności solverów (`/health/solvers`) przy montowaniu. Solvery niedostępne na platformie serwerowej (`qaoa_aer`, `both`) są wyszarzone/zablokowane z czytelnym wyjaśnieniem `Dostępny w środowisku kontenerowym / self-hosted`.
-- **Wdrożenie produkcyjne Vercel**: Wdrożono na produkcję `https://yourquantum.pl` (Vercel CLI `--prod`, commit merge `3189d98`).
-- **Surowa odpowiedź produkcyjna `GET /api/v1/health/solvers`**:
+- **Wdrożenie produkcyjne Vercel (Commit 71deb27 — Numeric/Quantum Stack)**: Wdrożono na produkcję `https://yourquantum.pl` (Vercel CLI `--prod`, deployment ID: `dpl_F7Dw4iVHnW7izQ4pu3P2KJZCXPg3`, status: `READY`). Pełny stos obliczeniowy (`scipy`, `ortools`, `qiskit`, `qiskit-aer`) zainstalowany i aktywny w środowisku bezserwerowym Vercel (rozmiar pakietu ~499.9 MB).
+- **Surowa odpowiedź produkcyjna `GET /api/v1/health/solvers` (po wdrożeniu commitu 71deb27)**:
 ```json
-{"solvers":[{"name":"cp_sat","version":"unknown","available":false,"import_error":"OR-Tools CP-SAT not available: No module named 'ortools'"},{"name":"qaoa_aer","version":"not_installed","available":false,"import_error":"Qiskit / Aer not installed: No module named 'qiskit'"},{"name":"hybrid_benders","version":"0.1.0","available":false,"import_error":"CP-SAT dependency missing: OR-Tools CP-SAT not available: No module named 'ortools'"},{"name":"scipy_continuous","version":"unknown","available":false,"import_error":"SciPy not available: No module named 'scipy'"},{"name":"qpu_hardware","version":"disconnected-stub-v1","available":false,"import_error":"Brak aktywnego połączenia ze sprzętowym procesorem kwantowym (QPU). Dostępne są wyłącznie symulatory obwodów kwantowych (Aer)."}]}
+{"solvers":[{"name":"cp_sat","version":"9.15.6755","available":true,"import_error":null},{"name":"qaoa_aer","version":"qiskit-aer-0.17.2","available":true,"import_error":null},{"name":"hybrid_benders","version":"0.1.0","available":true,"import_error":null},{"name":"scipy_continuous","version":"1.18.1","available":true,"import_error":null},{"name":"qpu_hardware","version":"disconnected-stub-v1","available":false,"import_error":"Brak aktywnego połączenia ze sprzętowym procesorem kwantowym (QPU). Dostępne są wyłącznie symulatory obwodów kwantowych (Aer)."}]}
 ```
 - **Surowa odpowiedź produkcyjna `GET /api/v1/health`**:
 ```json
@@ -115,13 +120,40 @@ WYNIK KOŃCOWY: 22 BRAMEK CZERWONYCH (FAIL)
 
 ---
 
+## Wyniki pomiarów empirycznych (Trzy zadania o rosnącej wielkości)
+
+Zgodnie z wymaganiami przetestowano trzy zadania optymalizacyjne o rosnącej złożoności dla silnika `UniversalEngine` / `/api/v1/universal/compute`:
+
+1. **Małe zadanie (5 zmiennych, 1 ograniczenie budżetowe)**:
+   - Dziedzina: Finanse (alokacja portfela B+R)
+   - Użyty solver: `cp_sat` (Google OR-Tools 9.15.6755)
+   - Czas obliczeń silnika (`compute_time_ms`): **672.20 ms** (czas całkowity: 672.29 ms)
+   - Status: `SUCCESS`, wartość funkcji celu: `250.0`, optymalność udowodniona: `True`
+   - Czas odpowiedzi HTTP na produkcji: **625.56 ms** (wymaga podania klucza API w nagłówku autoryzacyjnym)
+
+2. **Średnie zadanie (15 zmiennych, 4 ograniczenia: budżet, limit liczności, 2 wykluczenia korytarzy)**:
+   - Dziedzina: Logistyka (optymalizacja tras transportowych)
+   - Użyty solver: `cp_sat` (Google OR-Tools 9.15.6755)
+   - Czas obliczeń silnika (`compute_time_ms`): **820.22 ms** (czas całkowity: 820.30 ms)
+   - Status: `SUCCESS`, wartość funkcji celu: `455.0`, optymalność udowodniona: `True`
+   - Czas odpowiedzi HTTP na produkcji: **203.99 ms**
+
+3. **Duże zadanie (30 zmiennych, 6 ograniczeń: budżet operacyjny, minimalne i maksymalne obsadzenie, 3 wykluczenia kolizji)**:
+   - Dziedzina: Operacje (przydział zadań produkcyjnych)
+   - Użyty solver: `cp_sat` (Google OR-Tools 9.15.6755)
+   - Czas obliczeń silnika (`compute_time_ms`): **16.91 ms** (czas całkowity: 17.00 ms)
+   - Status: `SUCCESS`, wartość funkcji celu: `1528.0`, optymalność udowodniona: `False` (heurystyka CP-SAT w limicie czasu)
+   - Czas odpowiedzi HTTP na produkcji: **199.16 ms**
+
+---
+
 ## Wyniki weryfikacji empirycznej na gałęzi `main` (Evidence-First DoD)
 
-- **Potwierdzony wynik bramek mechanicznych:** `bash scripts/check_v4.sh` na commicie `3189d98` (gałąź `main`) — wszystkie 23 bramki PASS:
+- **Potwierdzony wynik bramek mechanicznych:** `bash scripts/check_v4.sh` na commicie `71deb27` (gałąź `main`) — wszystkie 23 bramki PASS:
 ```text
 === YOURQUANTUM V4 MECHANICAL GATES CHECK ===
-Date: 2026-09-13T19:18:07Z
-Commit: 3189d98
+Date: 2026-09-13T20:03:19Z
+Commit: 71deb27
 Branch: main
 ----------------------------------------------
 [G-R1a] PASS: 0 trafień domen w frontend/src

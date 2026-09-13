@@ -353,6 +353,18 @@ Dedykowany kontener roboczy (Worker Container) eliminuje limity rozmiaru pamięc
 **Consequences:**
 - Obliczenia backendowe działają asynchronicznie (`JobRecord` ze statusem `QUEUED` -> `RUNNING` -> `COMPLETED`/`FAILED`).
 - Dedykowany kontener obliczeniowy zdefiniowany przez specyfikację Dockerfile (tworzoną i wdrażaną w N1).
+
+### SUPERSEDED BY (2026-09-13 — Ship Numeric/Quantum Stack in Vercel Function)
+Uzasadnienie dotyczące twardego limitu 250 MB dla funkcji Pythona na platformie Vercel uległo dezaktualizacji:
+- 29 czerwca 2026 r. Vercel ogłosił wsparcie dla "Large Functions" do 5 GB (wymagające Fluid compute z włączonym Active CPU; włączane zmienną środowiskową `VERCEL_SUPPORT_LARGE_FUNCTIONS=1`).
+- Standardowy limit nieskompresowanej paczki dla funkcji Python został oficjalnie podniesiony z 250 MB do 500 MB.
+- Źródła oficjalne (odnotowane w `docs/SOURCES.md`):
+  * https://vercel.com/docs/functions/limitations (aktualizacja 2026-08-24) — limit 500 MB dla Pythona oraz do 5 GB dla Large Functions.
+  * https://vercel.com/changelog/vercel-functions-can-now-be-up-to-5-gb-in-package-size (2026-06-29).
+  * https://vercel.com/changelog/python-vercel-functions-bundle-size-limit-increased-to-500mb.
+- W rezultacie pełny stos obliczeniowy (`scipy`, `ortools`, `qiskit`, `qiskit-aer`) o zoptymalizowanym rozmiarze pakietu ~499.9 MB został przywrócony bezpośrednio do `api/requirements.txt` (commit `71deb27`) i z sukcesem wdrożony na produkcję `https://yourquantum.pl`.
+- Endpoint `GET /api/v1/health/solvers` potwierdza `available=true` dla solverów `cp_sat`, `qaoa_aer`, `hybrid_benders` oraz `scipy_continuous`.
+- Architektura kontenerowa (`Dockerfile`, `docker-compose.yml`, `requirements-worker.txt`) pozostaje w repozytorium jako wariant alternatywny/zapasowy, na wypadek zadań wymagających wielominutowego czasu procesora przekraczającego limity funkcji (300 s / 800 s) lub ze względów optymalizacji kosztowej Active CPU.
 ---
 
 ## DEC-023 — Rozszerzenie Problem IR o 5 klas problemów (Taxonomy v0.3)
