@@ -27,11 +27,16 @@ class ResearchPlanner:
 
     def __init__(
         self,
-        evidence_port: EvidenceSourcePort,
+        evidence_port: EvidenceSourcePort | None = None,
         extractor: EvidenceExtractor | None = None,
     ) -> None:
+        if evidence_port is None:
+            from backend.infrastructure.web_research.search_adapter import WebResearchAdapter
+            evidence_port = WebResearchAdapter(api_key=None)
         self.port = evidence_port
+
         self.extractor = extractor or EvidenceExtractor()
+
 
     def identify_missing_parameters(self, case: DecisionCase) -> list[ResearchQuery]:
         """

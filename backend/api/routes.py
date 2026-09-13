@@ -307,6 +307,7 @@ class JobCreateRequest(BaseModel):
     problem_id: str
     solver: str = "cp_sat"
     budget: ComputeBudget = Field(default_factory=ComputeBudget)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class JobStatusResponse(BaseModel):
@@ -347,8 +348,9 @@ async def create_job(
     if not rec.approved:
         raise HTTPException(status_code=422, detail="Problem must be approved before solving.")
 
-    job_id = await enqueue_job(req.problem_id, req.solver, req.budget)
+    job_id = await enqueue_job(req.problem_id, req.solver, req.budget, metadata=req.metadata)
     return {"job_id": job_id, "status": "QUEUED"}
+
 
 
 @router.get("/jobs/{job_id}", response_model=JobStatusResponse)

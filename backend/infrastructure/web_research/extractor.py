@@ -46,13 +46,19 @@ class EvidenceExtractor:
         extracted_data: dict[str, Any] | None = None
 
         if self.gateway.is_available:
-            extracted_data = await self._extract_via_llm(
-                safe_page_text, target_param, expected_unit, parameter_description
-            )
-        else:
+            try:
+                extracted_data = await self._extract_via_llm(
+                    safe_page_text, target_param, expected_unit, parameter_description
+                )
+            except Exception as e:
+                logger.warning(f"LLM extraction error: {e}")
+                extracted_data = None
+
+        if not extracted_data:
             extracted_data = self._extract_via_deterministic_heuristics(
                 safe_page_text, target_param, expected_unit
             )
+
 
         if not extracted_data:
             return None
@@ -163,7 +169,8 @@ class EvidenceExtractor:
         clean_param = re.sub(r"[_\.\-]+", " ", target_param).strip()
         keywords = [w.lower() for w in clean_param.split() if len(w) > 2]
 
-        sentences = re.split(r"[.!?\n]+", text)
+        sentences = re.split(r"(?<!\d)[.!?\n]+(?!\d)", text)
+
         for sentence in sentences:
             s_clean = sentence.strip()
             if not s_clean or len(s_clean) < 15 or len(s_clean) > 300:
@@ -172,21 +179,31 @@ class EvidenceExtractor:
             s_lower = s_clean.lower()
             # Match keywords
             if any(k in s_lower for k in keywords):
-                # Search for numbers: e.g. "120", "45.5", "10,000", "25%"
-                num_match = re.search(r"(\d+(?:[.,]\d+)?)", s_clean)
-                if num_match:
-                    num_str = num_match.group(1).replace(",", ".")
+                # Search for numbers: prefer numbers with decimals or followed by units/magnitudes over calendar years (e.g. 2025 roku)
+                candidates: list[tuple[float, bool]] = []
+                for m in re.finditer(r"(\d+(?:[.,]\d+)?)\s*([a-zA-Z%]+)?", s_clean):
+                    raw_n = m.group(1).replace(",", ".")
+                    suffix = (m.group(2) or "").lower()
+                    if suffix in ("roku", "r", "lat", "latach"):
+                        continue  # skip calendar years
                     try:
-                        val = float(num_str)
-                        return {
-                            "claim": s_clean,
-                            "value": val,
-                            "unit": expected_unit or "",
-                            "quote": s_clean,
-                            "confidence": 0.8,
-                        }
+                        v = float(raw_n)
+                        is_decimal = "." in raw_n
+                        candidates.append((v, is_decimal))
                     except ValueError:
                         continue
+
+                if candidates:
+                    # Prefer decimal or non-year numbers
+                    chosen = next((c[0] for c in candidates if c[1]), candidates[0][0])
+                    return {
+                        "claim": s_clean,
+                        "value": chosen,
+                        "unit": expected_unit or "",
+                        "quote": s_clean,
+                        "confidence": 0.8,
+                    }
+
 
         return None
 

@@ -60,13 +60,18 @@ def _solver_result_to_json(result: SolverResult) -> dict:
 
 
 def get_adapter_by_name(name: str) -> SolverAdapter | None:
-    return next((a for a in SOLVER_REGISTRY if a.name == name), None)
+    norm = name.lower().replace("-", "_")
+    if norm in ("cpsat", "cp_sat"):
+        norm = "cp_sat"
+    return next((a for a in SOLVER_REGISTRY if a.name == norm or a.name == name), None)
+
 
 
 async def enqueue_job(
     problem_id: str,
     solver_name: str,
     budget: ComputeBudget,
+    metadata: dict[str, Any] | None = None,
 ) -> str:
     """Create a job record and schedule it for background execution."""
     job_id = str(uuid.uuid4())
@@ -77,9 +82,11 @@ async def enqueue_job(
             solver_name=solver_name,
             execution_status=ExecutionStatus.QUEUED.value,
             budget_json=budget.model_dump(),
+            metadata_json=metadata or {},
         )
         session.add(job)
         await session.commit()
+
 
     # Schedule as background task (fire-and-forget from caller's perspective)
     asyncio.create_task(_run_job(job_id), name=f"job-{job_id[:8]}")
@@ -153,9 +160,41 @@ async def _run_job(job_id: str) -> None:
             await _fail_job(session, job, f"Solver raised: {e}")
         return
 
-    # Independent verification
+    # Persist result and execute active inference feedback
+    async with async_session_factory() as session:
+        job = await session.get(JobRecord, job_id)
+        if job is None:
+            return
+        await _process_job_completion(
+            session=session,
+            job=job,
+            problem=problem,
+            budget=budget,
+            result=result,
+            target_solver=target_solver,
+            routing_record=routing_record,
+        )
+        await session.commit()
+
+    logger.info(
+        f"Job {job_id} completed: {result.execution_status.value} / "
+        f"{result.math_status.value}"
+    )
+
+
+
+async def _process_job_completion(
+    session: AsyncSession,
+    job: JobRecord,
+    problem: ProblemIR,
+    budget: ComputeBudget,
+    result: SolverResult,
+    target_solver: str,
+    routing_record: dict[str, Any],
+) -> None:
     verification_json: dict | None = None
     publication_status = "UNVERIFIED"
+    report: VerificationReport | None = None
 
     if result.assignment:
         try:
@@ -187,39 +226,108 @@ async def _run_job(job_id: str) -> None:
                     )
                     verification_json["resolve_sensitivity"] = resolve_report.model_dump(mode="json")
                 except Exception as sens_err:
-                    logger.warning(f"Sensitivity analysis failed for job {job_id}: {sens_err}")
+                    logger.warning(f"Sensitivity analysis failed for job {job.id}: {sens_err}")
             else:
                 publication_status = "REJECTED_UNVERIFIED"
         except Exception as e:
-            logger.warning(f"Verification failed for job {job_id}: {e}")
+            logger.warning(f"Verification failed for job {job.id}: {e}")
             publication_status = "REJECTED_UNVERIFIED"
     elif result.execution_status == ExecutionStatus.FAILED:
         publication_status = "REJECTED_UNVERIFIED"
 
-    # Persist result
-    async with async_session_factory() as session:
-        job = await session.get(JobRecord, job_id)
-        if job is None:
-            return
-        job.execution_status = result.execution_status.value
-        job.math_status = result.math_status.value
-        job.source = result.source.value
-        job.completed_at = datetime.now(timezone.utc)
-        job.solve_time_seconds = result.solve_time_seconds
-        job.objective_value = result.objective_value
-        job.error_message = result.error_message
-        job.publication_status = publication_status
-        job.result_json = _solver_result_to_json(result)
-        job.verification_json = verification_json
-        meta = dict(job.metadata_json or {})
-        meta["routing_record"] = routing_record
-        job.metadata_json = meta
-        await session.commit()
+    active_inference_outcome: dict[str, Any] | None = None
+    revised_problem_id: str | None = None
 
-    logger.info(
-        f"Job {job_id} completed: {result.execution_status.value} / "
-        f"{result.math_status.value}"
-    )
+    # Phase E3: Active inference feedback loop & working memory update
+    if report is not None:
+        try:
+            from backend.domain.cognitive.active_inference_engine import ActiveInferenceOrchestrator
+            from backend.domain.cognitive.workspace import GlobalWorkspace, WorkingMemory, EnergyBudget
+            from backend.infrastructure.gemini_cognitive_adapter import GeminiCognitiveAdapter
+            from backend.db.models import CognitiveSessionRecord
+
+            meta_data = dict(job.metadata_json or {})
+            session_id = meta_data.get("session_id")
+            raw_query = problem.description_raw or problem.problem_id
+
+            sess_rec = await session.get(CognitiveSessionRecord, session_id) if session_id else None
+            ws: GlobalWorkspace | None = None
+            if sess_rec and sess_rec.working_memory_json:
+                try:
+                    mem = WorkingMemory.model_validate(sess_rec.working_memory_json)
+                    budget_obj = EnergyBudget.model_validate(sess_rec.energy_budget_json or {})
+                    ws = GlobalWorkspace(goal=raw_query, memory=mem, budget=budget_obj, session_id=session_id)
+                except Exception as parse_err:
+                    logger.warning(f"Could not restore working memory: {parse_err}")
+
+            if ws is None:
+                ws = GlobalWorkspace(goal=raw_query, session_id=session_id)
+
+            if result.solve_time_seconds:
+                ws.energy_budget.consume_solver_time(result.solve_time_seconds)
+
+            adapter = GeminiCognitiveAdapter()
+            orchestrator = ActiveInferenceOrchestrator(reasoning_port=adapter)
+            outcome = await orchestrator.process_verification_feedback(
+                session=session,
+                workspace=ws,
+                verifier_report=report,
+                raw_query=raw_query,
+                winning_solver=target_solver,
+                consent=False,
+            )
+            active_inference_outcome = outcome.model_dump(mode="json")
+
+            # DEC-002: If verifier fails and a revised hypothesis is generated, save strictly as unapproved!
+            if outcome.status == "FAIL" and outcome.active_problem_ir is not None:
+                revised_ir = outcome.active_problem_ir
+                revised_ir.approved = False
+                revised_ir.approved_at = None
+                revised_problem_id = f"{problem.problem_id}_v{ws.energy_budget.current_cycle}"
+                revised_rec = ProblemRecord(
+                    id=revised_problem_id,
+                    description_raw=revised_ir.description_raw or problem.description_raw or "",
+                    description_formalised=revised_ir.description_formalised or "",
+                    ir_json=revised_ir.model_dump(mode="json"),
+                    approved=False,
+                    approved_at=None,
+                )
+
+                session.add(revised_rec)
+
+            if sess_rec:
+                sess_rec.working_memory_json = ws.memory.model_dump(mode="json")
+                sess_rec.energy_budget_json = ws.energy_budget.model_dump(mode="json")
+                history = list(sess_rec.history_json or [])
+                history.append({
+                    "job_id": job.id,
+                    "solver": target_solver,
+                    "verdict": report.verdict.value,
+                    "active_inference_status": outcome.status,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                })
+                sess_rec.history_json = history
+        except Exception as loop_err:
+            logger.warning(f"Active inference feedback loop error for job {job.id}: {loop_err}")
+
+    job.execution_status = result.execution_status.value
+    job.math_status = result.math_status.value
+    job.source = result.source.value
+    job.completed_at = datetime.now(timezone.utc)
+    job.solve_time_seconds = result.solve_time_seconds
+    job.objective_value = result.objective_value
+    job.error_message = result.error_message
+    job.publication_status = publication_status
+    job.result_json = _solver_result_to_json(result)
+    job.verification_json = verification_json
+    meta = dict(job.metadata_json or {})
+    meta["routing_record"] = routing_record
+    if active_inference_outcome:
+        meta["active_inference_outcome"] = active_inference_outcome
+    if revised_problem_id:
+        meta["revised_problem_id"] = revised_problem_id
+        meta["requires_reapproval"] = True
+    job.metadata_json = meta
 
 
 async def _get_problem_ir_json(problem_id: str) -> dict:
@@ -268,6 +376,7 @@ async def run_job_sync(job_id: str, session: AsyncSession) -> JobRecord:
         await _fail_job(session, job, f"Failed to deserialise problem: {e}")
         return job
 
+
     from backend.domain.router import ProblemRouter
 
     router = ProblemRouter()
@@ -296,61 +405,15 @@ async def run_job_sync(job_id: str, session: AsyncSession) -> JobRecord:
         await _fail_job(session, job, f"Solver raised: {e}")
         return job
 
-    verification_json: dict | None = None
-    publication_status = "UNVERIFIED"
-
-    if result.assignment:
-        try:
-            verifier = IndependentVerifier(problem)
-            candidate = SolverCandidate(
-                candidate_id=result.candidate_id,
-                assignment=result.assignment,
-                claimed_objective=result.objective_value,
-                claimed_status=result.math_status.value.lower(),
-            )
-            report = verifier.verify(candidate)
-            verification_json = report.model_dump(mode="json")
-            if report.verdict.value.upper() == "PASS":
-                publication_status = "PUBLISHED_VERIFIED"
-                try:
-                    from backend.domain.sensitivity import SensitivityEngine
-                    sens_engine = SensitivityEngine(problem)
-                    rob_report = sens_engine.analyze(
-                        candidate.candidate_id,
-                        candidate.assignment,
-                        report.objective_value,
-                    )
-                    verification_json["robustness"] = rob_report.model_dump(mode="json")
-
-                    resolve_report = sens_engine.analyze_resolve(
-                        candidate.candidate_id,
-                        candidate.assignment,
-                        budget,
-                    )
-                    verification_json["resolve_sensitivity"] = resolve_report.model_dump(mode="json")
-                except Exception as sens_err:
-                    logger.warning(f"Sensitivity analysis failed for job {job_id}: {sens_err}")
-            else:
-                publication_status = "REJECTED_UNVERIFIED"
-        except Exception as e:
-            logger.warning(f"Verification failed for job {job_id}: {e}")
-            publication_status = "REJECTED_UNVERIFIED"
-    elif result.execution_status == ExecutionStatus.FAILED:
-        publication_status = "REJECTED_UNVERIFIED"
-
-    job.execution_status = result.execution_status.value
-    job.math_status = result.math_status.value
-    job.source = result.source.value
-    job.completed_at = datetime.now(timezone.utc)
-    job.solve_time_seconds = result.solve_time_seconds
-    job.objective_value = result.objective_value
-    job.error_message = result.error_message
-    job.publication_status = publication_status
-    job.result_json = _solver_result_to_json(result)
-    job.verification_json = verification_json
-    meta = dict(job.metadata_json or {})
-    meta["routing_record"] = routing_record
-    job.metadata_json = meta
+    await _process_job_completion(
+        session=session,
+        job=job,
+        problem=problem,
+        budget=budget,
+        result=result,
+        target_solver=target_solver,
+        routing_record=routing_record,
+    )
     await session.commit()
     await session.refresh(job)
 

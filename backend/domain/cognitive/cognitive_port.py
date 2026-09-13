@@ -12,13 +12,22 @@ from pydantic import BaseModel, Field
 from backend.domain.problem_ir import ProblemIR
 
 
+from backend.domain.decision_case import DecisionCase, InputQuality
+
+
 class FormalizationResult(BaseModel):
     """
     Standardized result of cognitive problem formalization.
     Validated boundary model consumable by frontends, workers, and active inference loops.
     """
-    status: Literal["ready_for_review", "needs_clarification"] = "ready_for_review"
+    status: Literal["ready_for_review", "needs_clarification", "not_computable"] = "ready_for_review"
     problem_ir: ProblemIR | None = None
+    decision_case: DecisionCase | None = None
+    problem_class: str = "CHOICE"
+    input_quality: InputQuality | None = None
+    not_computable_report: dict[str, Any] | None = None
+    research_queries: list[dict[str, Any]] = Field(default_factory=list)
+    break_even_point: str | None = None
     questions: list[str] = Field(default_factory=list)
     explanation: str = ""
     raw_query: str = ""
@@ -26,7 +35,9 @@ class FormalizationResult(BaseModel):
     confidence: float = Field(default=1.0, ge=0.0, le=1.0)
     penalty_multipliers: dict[str, float] = Field(default_factory=dict)
     session_id: str | None = None
+    formalized: dict[str, Any] | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
+
 
 
 class CognitiveReasoningPort(ABC):

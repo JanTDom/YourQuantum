@@ -40,7 +40,9 @@ export interface JobCreateRequest {
   problem_id: string
   solver: 'cp_sat' | 'qaoa_aer'
   budget?: ComputeBudget
+  metadata?: Record<string, unknown>
 }
+
 
 export interface JobStatus {
   job_id: string
@@ -278,8 +280,72 @@ export interface FormalizeResponse {
   break_even_point?: string | null
 }
 
+export interface CognitiveIntakeResponse {
+  status: 'ready_for_review' | 'needs_clarification' | 'not_computable'
+  problem_ir?: Record<string, unknown> | null
+  decision_case?: DecisionCase | null
+  problem_class: string
+  input_quality?: InputQuality | null
+  not_computable_report?: {
+    is_computable: boolean
+    reason: string
+    reframe_suggestions: string[]
+    suggested_computable_class?: string | null
+  } | null
+  research_queries: Array<{
+    query_id?: string
+    target_param?: string
+    search_query?: string
+    expected_unit?: string | null
+    priority?: number
+  }>
+  break_even_point?: string | null
+  questions: string[]
+  explanation: string
+  raw_query: string
+  fingerprint: string
+  session_id?: string | null
+  formalized?: FormalizeResponse | null
+}
+
+export interface CognitiveEnergyBudget {
+  tokens_used: number
+  max_tokens: number
+  search_queries_used: number
+  max_search_queries: number
+  solver_seconds_used: number
+  max_solver_seconds: number
+  daily_tokens_used: number
+  daily_token_limit: number
+  is_exhausted: boolean
+  exhaustion_reason?: string | null
+  simplification_suggestions: string[]
+}
+
+export interface CognitiveSessionTelemetry {
+  session_id: string
+  goal: string
+  current_cycle: number
+  energy_budget: CognitiveEnergyBudget
+  prediction_errors: string[]
+  focus_variables: string[]
+  cycle_history: Array<Record<string, unknown>>
+  has_active_hypothesis: boolean
+  active_problem_id?: string | null
+  interaction_history: Array<Record<string, unknown>>
+  created_at: string
+  updated_at: string
+}
+
+export interface ConsolidateResponse {
+  status: 'consolidated' | 'skipped'
+  trace_id?: string | null
+  message: string
+}
+
 export interface BenchmarkResponse {
   problem_id: string
+
   cp_sat_job_id: string
   qaoa_job_id: string
   status: string
@@ -387,6 +453,32 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(req),
     }),
+
+  cognitiveIntake: (req: {
+    query: string
+    session_id?: string | null
+    owner_id?: string | null
+    workspace_id?: string | null
+  }) =>
+    request<CognitiveIntakeResponse>('/cognitive/intake', {
+      method: 'POST',
+      body: JSON.stringify(req),
+    }),
+
+  getCognitiveSession: (sessionId: string) =>
+    request<CognitiveSessionTelemetry>(`/cognitive/session/${sessionId}`),
+
+  deleteCognitiveSession: (sessionId: string) =>
+    request<{ status: string; session_id: string }>(`/cognitive/session/${sessionId}`, {
+      method: 'DELETE',
+    }),
+
+  consolidateTrace: (sessionId: string, consent: boolean) =>
+    request<ConsolidateResponse>('/cognitive/consolidate', {
+      method: 'POST',
+      body: JSON.stringify({ session_id: sessionId, consent }),
+    }),
+
 
   getHelpKnowledge: () =>
     request<HelpResponse>('/help'),

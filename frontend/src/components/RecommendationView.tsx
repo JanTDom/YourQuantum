@@ -8,6 +8,7 @@ interface RecommendationViewProps {
   comparisonResult?: JobResult | null
   onStartNew: () => void
   breakEvenPoint?: string | null
+  sessionId?: string | null
 }
 
 export const RecommendationView: React.FC<RecommendationViewProps> = ({
@@ -16,6 +17,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
   comparisonResult,
   onStartNew,
   breakEvenPoint,
+  sessionId,
 }) => {
   const isVerified = result.publication_status === 'PUBLISHED_VERIFIED'
   const assignment = result.solver_result?.assignment ?? {}
@@ -781,7 +783,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
 
       {/* ── Evidence Drawer (technical proof, collapsible) ─── */}
       <div className="no-print">
-        <EvidenceDrawer result={result} comparisonResult={comparisonResult} />
+        <EvidenceDrawer result={result} comparisonResult={comparisonResult} sessionId={sessionId} />
       </div>
 
       {/* ── Footer actions ───────────────────────────────────── */}

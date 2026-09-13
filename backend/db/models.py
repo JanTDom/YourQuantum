@@ -115,6 +115,8 @@ class CognitiveSessionRecord(Base):
 
     # Serialized WorkingMemory state
     working_memory_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    # Serialized EnergyBudget state
+    energy_budget_json: Mapped[dict] = mapped_column(JSON, default=dict)
     # List of interaction history turns / formalizations
     history_json: Mapped[list] = mapped_column(JSON, default=list)
 

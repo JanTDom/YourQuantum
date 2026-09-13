@@ -156,14 +156,33 @@ Wszystkie testy backendu (59/59) przechodzą pomyślnie. Build frontendu (TypeSc
    - Zbudowano fixturę `tests/fixtures/design/healthcare_pl.json` (4 dźwignie, 3 kryteria, incompatibilities, synergie).
    - Opracowano zestaw testów `tests/test_phase_d_problem_classes.py` (6/6 testów przechodzi pomyślnie).
 
+### ✅ Faza E: Warstwa mózgowa — Z dekoracji w rdzeń (E1–E7)
+1. **E1 (Jedna ścieżka intake `POST /api/v1/cognitive/intake`)**:
+   - `ActiveInferenceOrchestrator.run_intake` stał się jedynym punktem wejściowym intake.
+   - Orkiestruje: percepcję → sprawdzanie obliczalności (`evaluate_problem_computability`) z uczciwym raportem → tenant-scoped episodic recall → hipotezę `DecisionCase` → bramkę jakości (`assess_input_quality` przeniesione do domeny) → badanie dowodowe → kompilację `ProblemIR` i `formalized`.
+2. **E2 (Trwała pamięć robocza w bazie danych)**:
+   - Tabela `cognitive_sessions` przechowuje stan `GlobalWorkspace`, `WorkingMemory`, `EnergyBudget` oraz historię cykli. Odtwarzana po `session_id` i usuwana na żądanie użytkownika (`DELETE /cognitive/session/{session_id}`).
+3. **E3 (Zamknięcie pętli Active Inference i reguła DEC-002)**:
+   - W `backend/worker/runner.py` weryfikacja przekazuje feedback do orkiestratora (`process_verification_feedback`).
+   - Przy werdykcie `FAIL` i wygenerowaniu poprawionej hipotezy, nowy model otrzymuje `approved = False`, a w metadanych zadania rejestrowana jest flaga `requires_reapproval = True` (żaden solver nie może ruszyć bez ponownej autoryzacji decydenta).
+4. **E4 (Prawdziwy budżet metaboliczny w `EnergyBudget`)**:
+   - Śledzi tokeny LLM (sesyjne i dobowe), zapytania wyszukiwania sieciowego (`max_search_queries`), czas solverów (`max_solver_seconds`). Wyczerpanie generuje czytelną przyczynę i propozycje uproszczeń.
+5. **E5 (Anonimizowana konsolidacja epizodyczna za zgodą)**:
+   - Endpoint `POST /cognitive/consolidate`: odrzuca zapis przy braku zgody (`consent=False`). Przy `consent=True` zapisuje wyłącznie zanonimizowany odcisk problemu, kryteria, liczbę zmiennych i zwycięski solver, bez surowego tekstu.
+6. **E6 (Panel Cognitive Inspector w UI)**:
+   - Zintegrowany w `EvidenceDrawer.tsx`: zakładka z podglądem cykli roboczych, błędów predykcji, zużycia budżetu metabolicznego, historii cykli oraz przyciskiem jawnej zgody na konsolidację.
+7. **E7 (Kompleksowy zestaw testów)**:
+   - Utworzono `tests/test_phase_e_cognitive.py` (8 testów) oraz zaktualizowano testy integracyjne flow kognitywnego (wszystkie zielone).
+
 ---
 
 ## Wyniki weryfikacji empirycznej
-- **Backend Test Suite**: `./.venv/bin/pytest tests/` → **132 passed in 66.51s** (100% zielonych testów, zero błędów, zero regresji).
+- **Backend Test Suite**: `./.venv/bin/pytest tests/` → **140 passed in 25.66s** (100% zielonych testów, zero błędów, zero regresji).
   * 11 dedykowanych testów Phase A regressions (`tests/test_phase_a_regressions.py`).
   * 8 dedykowanych testów Phase B regressions (`tests/test_phase_b_regressions.py`).
   * 7 dedykowanych testów Phase C evidence & SSRF (`tests/test_phase_c_evidence.py`).
   * 6 dedykowanych testów Phase D problem classes & synthesis (`tests/test_phase_d_problem_classes.py`).
+  * 8 dedykowanych testów Phase E cognitive loop & intake (`tests/test_phase_e_cognitive.py`).
   * 12 testów kognitywnych i API w `tests/unit/` oraz `tests/integration/`.
   * 88 testów regresyjnych, solverów, weryfikatora, QUBO, QAOA, MCP i API.
 - **Frontend Typecheck & Build**: `npm run build` → 0 błędów TypeScript (`tsc -b`), czysty build produkcyjny Vite (`dist/`).
@@ -172,12 +191,11 @@ Wszystkie testy backendu (59/59) przechodzą pomyślnie. Build frontendu (TypeSc
 ---
 
 ## Następny krok (Next Step)
-- Rozpoczęcie **Fazy E (Warstwa mózgowa: Z dekoracji w rdzeń, E1–E7)**:
-  * E1: Jedna ścieżka intake `POST /api/v1/cognitive/intake` jako główne wejście; orkiestracja percepcji, klasyfikacji, recallu i bramek jakości.
-  * E2: Trwała pamięć robocza `GlobalWorkspace` z powiązaniem do `session_id`.
-  * E3: Zamknięcie pętli active inference: sprzężenie zwrotne weryfikatora i wymóg ponownego zatwierdzenia modelu przy nowej hipotezie (DEC-002).
-  * E4: Rzeczywisty budżet metaboliczny (tokeny, wyszukiwania, solvery) w `EnergyBudget`.
-  * E5: Anonimizowana konsolidacja epizodyczna wyłącznie za jawną zgodą użytkownika.
-  * E6: Panel Cognitive Inspector w UI.
-  * E7: Zintegrowane testy pętli kognitywnej.
+- Rozpoczęcie **Fazy F (Warstwa kwantowa: Uczciwa i użyteczna, F1–F6)**:
+  * F1: Pole `execution_evidence` w `SolverResult` (shots, n_qubits, depth, seed, distribution) wymagane przy `ComputeSource.QUANTUM_CIRCUIT_SIMULATION`.
+  * F2: Runner benchmarków `benchmarks/run.py` na wspólnych instancjach; zapis do `benchmarks/results/` i wypełnienie `docs/BENCHMARK_PROTOCOL.md` rzeczywistymi wynikami (CP-SAT vs QAOA).
+  * F3: QUBO dla klasy `DESIGN`: one-hot per dźwignia z analitycznie skalowaną karą oraz linearyzacja iloczynów interakcji.
+  * F4: Model szumu NISQ (`noise_simulation` z Aer `NoiseModel`) w `QAOAAdapter`.
+  * F5: Decyzja i ADR dla kontenerowej architektury obliczeń (CP-SAT/QAOA w workerze vs Vercel).
+  * F6: Interfejs QPU stub (`is_available() -> False`) z rzetelną informacją w UI bez udawania połączenia ze sprzętem.
 

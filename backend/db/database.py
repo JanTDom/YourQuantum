@@ -62,6 +62,12 @@ async def init_db() -> None:
             except Exception:
                 pass
 
+        try:
+            await conn.execute(text("ALTER TABLE cognitive_sessions ADD COLUMN energy_budget_json JSON DEFAULT '{}'"))
+        except Exception:
+            pass
+
+
 
 async def get_session() -> AsyncSession:
     async with async_session_factory() as session:
