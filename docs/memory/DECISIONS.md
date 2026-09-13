@@ -328,6 +328,33 @@ Implement a neurobiology-inspired cognitive orchestration layer (Stage 4) using:
 **Rationale:**
 Provides transparent, biologically motivated problem intake and formulation while preserving the core scientific boundary: LLMs only help translate and calibrate hypotheses, while hard solvers compute solutions and independent verifiers certify them.
 
+---
+
+## DEC-022 — Kontenerowa architektura serwisów obliczeniowych (Compute Worker Container)
+
+**Date:** 2026-09-13
+**Status:** ACTIVE
+
+**Decision:**
+Rozdzielić architekturę wdrożeniową YourQuantum na dwie odrębne warstwy:
+1. **Frontend & API Gateway (Vercel / Edge)**: statyczny interfejs React/Vite, lightweight proxy API, intake parsers i routing.
+2. **Dedicated Compute Worker Container (Docker / Cloud Run / Fly.io / Kubernetes)**: asynchroniczny kontener wykonawczy z pełnym stosem obliczeniowym (Python 3.11+, Google OR-Tools C++ extensions, Qiskit Aer C++ simulator, SciPy, HiGHS, Z3). Komunikacja za pośrednictwem kolejki zadań (PostgreSQL jobs table / Redis BullMQ) z pollingiem lub WebSockets/SSE.
+
+**Rationale:**
+Platformy serverless (takie jak Vercel Functions czy AWS Lambda) nakładają twarde ograniczenia:
+- Maksymalny czas wykonania (execution timeout): 10–60 sekund, co uniemożliwia wielominutowe optymalizacje kombinatoryczne, przeszukiwania branch-and-bound czy symulacje obwodów QAOA.
+- Maksymalny rozmiar spakowanego artefaktu (bundle limit): 250 MB (rozpakowane) / 50 MB (zip). Stos obliczeniowy (`ortools`, `qiskit`, `qiskit_aer`, `scipy`, `numpy`) przekracza 650 MB i wymaga natywnych bibliotek C++ (glibc, OpenMP).
+Dedykowany kontener roboczy (Worker Container) eliminuje limity rozmiaru pamięci podręcznej i czasu wykonania, gwarantując determinizm środowiska numerycznego.
+
+**Alternatives considered:**
+- Uruchamianie solverów bezpośrednio w Vercel Serverless Functions: odrzucone z powodu przekroczenia limitu rozmiaru paczki (bundle size > 500MB) oraz timeoutów przy trudnych instancjach NP-trudnych.
+- Client-side WebAssembly (Pyodide): odrzucone, brak pełnej obsługi wielowątkowego Qiskit Aer i OR-Tools CP-SAT w środowisku przeglądarki.
+
+**Consequences:**
+- Obliczenia backendowe działają asynchronicznie (`JobRecord` ze statusem `QUEUED` -> `RUNNING` -> `COMPLETED`/`FAILED`).
+- `Dockerfile` w repozytorium definiuje oficjalny kontener obliczeniowy.
+- Środowisko deweloperskie i testowe lokalnie (`pytest`) uruchamia ten sam kod bezpośrednio w venv lub kontenerze Docker.
+
 
 
 

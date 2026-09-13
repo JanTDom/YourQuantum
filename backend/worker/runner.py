@@ -27,6 +27,7 @@ from backend.solvers.cpsat import CPSATAdapter
 from backend.solvers.continuous import ContinuousSolverAdapter
 from backend.solvers.hybrid_benders import HybridBendersAdapter
 from backend.solvers.quantum.qaoa import QAOAAdapter
+from backend.solvers.quantum.qpu_adapter import QPUAdapter
 from backend.verifier.verifier import IndependentVerifier, SolverCandidate
 
 logger = logging.getLogger(__name__)
@@ -37,6 +38,7 @@ SOLVER_REGISTRY: list[SolverAdapter] = [
     QAOAAdapter(),
     HybridBendersAdapter(),
     ContinuousSolverAdapter(),
+    QPUAdapter(),
 ]
 
 

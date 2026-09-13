@@ -1,0 +1,297 @@
+{
+  "benchmark_id": "bench_20260913_154536",
+  "created_at": "2026-09-13T15:46:46.781792+00:00",
+  "environment": {
+    "platform": "macOS-26.6.2-x86_64-i386-64bit",
+    "processor": "i386",
+    "python_version": "3.12.14"
+  },
+  "budget": {
+    "wall_time_seconds": 10.0,
+    "quantum_shots": 1024,
+    "memory_mb": 512.0
+  },
+  "instances_count": 5,
+  "results": [
+    {
+      "instance_label": "Healthcare Reform (DESIGN)",
+      "n_variables": 10,
+      "n_constraints": 8,
+      "solvers": {
+        "CP-SAT (Classical Exact)": {
+          "solver_name": "cp_sat",
+          "solver_version": "9.15.6755",
+          "execution_status": "COMPLETED",
+          "math_status": "OPTIMAL",
+          "objective_value": 12.5,
+          "solve_time_seconds": 0.8521,
+          "relative_gap_to_cpsat": 0.0,
+          "ground_state_prob": null,
+          "amplification_factor": null,
+          "n_qubits": null,
+          "circuit_depth": null
+        },
+        "QAOA (Ideal Statevector)": {
+          "solver_name": "qaoa_aer",
+          "solver_version": "qiskit-aer-0.17.2",
+          "execution_status": "COMPLETED",
+          "math_status": "FEASIBLE",
+          "objective_value": 12.5,
+          "solve_time_seconds": 0.2722,
+          "relative_gap_to_cpsat": 0.0,
+          "ground_state_prob": 0.0029,
+          "amplification_factor": 96.0,
+          "n_qubits": 15,
+          "circuit_depth": 33,
+          "execution_evidence_summary": {
+            "backend_name": "aer_simulator",
+            "execution_mode": "ideal_statevector",
+            "shots": 1024
+          }
+        },
+        "QAOA (Aer Noise Model)": {
+          "solver_name": "qaoa_aer",
+          "solver_version": "qiskit-aer-0.17.2",
+          "execution_status": "COMPLETED",
+          "math_status": "FEASIBLE",
+          "objective_value": 12.5,
+          "solve_time_seconds": 14.8322,
+          "relative_gap_to_cpsat": 0.0,
+          "ground_state_prob": 0.001,
+          "amplification_factor": 32.0,
+          "n_qubits": 15,
+          "circuit_depth": 33,
+          "execution_evidence_summary": {
+            "backend_name": "aer_simulator",
+            "execution_mode": "noise_simulation",
+            "shots": 1024
+          }
+        }
+      }
+    },
+    {
+      "instance_label": "Allocation N=4",
+      "n_variables": 4,
+      "n_constraints": 1,
+      "solvers": {
+        "CP-SAT (Classical Exact)": {
+          "solver_name": "cp_sat",
+          "solver_version": "9.15.6755",
+          "execution_status": "COMPLETED",
+          "math_status": "OPTIMAL",
+          "objective_value": 44.0,
+          "solve_time_seconds": 0.0089,
+          "relative_gap_to_cpsat": 0.0,
+          "ground_state_prob": null,
+          "amplification_factor": null,
+          "n_qubits": null,
+          "circuit_depth": null
+        },
+        "QAOA (Ideal Statevector)": {
+          "solver_name": "qaoa_aer",
+          "solver_version": "qiskit-aer-0.17.2",
+          "execution_status": "COMPLETED",
+          "math_status": "FEASIBLE",
+          "objective_value": 44.0,
+          "solve_time_seconds": 0.2766,
+          "relative_gap_to_cpsat": 0.0,
+          "ground_state_prob": 0.002,
+          "amplification_factor": 1.0,
+          "n_qubits": 9,
+          "circuit_depth": 48,
+          "execution_evidence_summary": {
+            "backend_name": "aer_simulator",
+            "execution_mode": "ideal_statevector",
+            "shots": 1024
+          }
+        },
+        "QAOA (Aer Noise Model)": {
+          "solver_name": "qaoa_aer",
+          "solver_version": "qiskit-aer-0.17.2",
+          "execution_status": "COMPLETED",
+          "math_status": "FEASIBLE",
+          "objective_value": 44.0,
+          "solve_time_seconds": 1.0971,
+          "relative_gap_to_cpsat": 0.0,
+          "ground_state_prob": 0.001,
+          "amplification_factor": 0.5,
+          "n_qubits": 9,
+          "circuit_depth": 48,
+          "execution_evidence_summary": {
+            "backend_name": "aer_simulator",
+            "execution_mode": "noise_simulation",
+            "shots": 1024
+          }
+        }
+      }
+    },
+    {
+      "instance_label": "Allocation N=6",
+      "n_variables": 6,
+      "n_constraints": 1,
+      "solvers": {
+        "CP-SAT (Classical Exact)": {
+          "solver_name": "cp_sat",
+          "solver_version": "9.15.6755",
+          "execution_status": "COMPLETED",
+          "math_status": "OPTIMAL",
+          "objective_value": 54.0,
+          "solve_time_seconds": 0.0074,
+          "relative_gap_to_cpsat": 0.0,
+          "ground_state_prob": null,
+          "amplification_factor": null,
+          "n_qubits": null,
+          "circuit_depth": null
+        },
+        "QAOA (Ideal Statevector)": {
+          "solver_name": "qaoa_aer",
+          "solver_version": "qiskit-aer-0.17.2",
+          "execution_status": "COMPLETED",
+          "math_status": "FEASIBLE",
+          "objective_value": 54.0,
+          "solve_time_seconds": 0.5546,
+          "relative_gap_to_cpsat": 0.0,
+          "ground_state_prob": 0.001,
+          "amplification_factor": 4.0,
+          "n_qubits": 12,
+          "circuit_depth": 66,
+          "execution_evidence_summary": {
+            "backend_name": "aer_simulator",
+            "execution_mode": "ideal_statevector",
+            "shots": 1024
+          }
+        },
+        "QAOA (Aer Noise Model)": {
+          "solver_name": "qaoa_aer",
+          "solver_version": "qiskit-aer-0.17.2",
+          "execution_status": "COMPLETED",
+          "math_status": "FEASIBLE",
+          "objective_value": 54.0,
+          "solve_time_seconds": 7.3832,
+          "relative_gap_to_cpsat": 0.0,
+          "ground_state_prob": 0.001,
+          "amplification_factor": 4.0,
+          "n_qubits": 12,
+          "circuit_depth": 66,
+          "execution_evidence_summary": {
+            "backend_name": "aer_simulator",
+            "execution_mode": "noise_simulation",
+            "shots": 1024
+          }
+        }
+      }
+    },
+    {
+      "instance_label": "Allocation N=8",
+      "n_variables": 8,
+      "n_constraints": 1,
+      "solvers": {
+        "CP-SAT (Classical Exact)": {
+          "solver_name": "cp_sat",
+          "solver_version": "9.15.6755",
+          "execution_status": "COMPLETED",
+          "math_status": "OPTIMAL",
+          "objective_value": 121.0,
+          "solve_time_seconds": 0.0047,
+          "relative_gap_to_cpsat": 0.0,
+          "ground_state_prob": null,
+          "amplification_factor": null,
+          "n_qubits": null,
+          "circuit_depth": null
+        },
+        "QAOA (Ideal Statevector)": {
+          "solver_name": "qaoa_aer",
+          "solver_version": "qiskit-aer-0.17.2",
+          "execution_status": "COMPLETED",
+          "math_status": "FEASIBLE",
+          "objective_value": 121.0,
+          "solve_time_seconds": 1.4011,
+          "relative_gap_to_cpsat": 0.0,
+          "ground_state_prob": 0.002,
+          "amplification_factor": 32.0,
+          "n_qubits": 14,
+          "circuit_depth": 78,
+          "execution_evidence_summary": {
+            "backend_name": "aer_simulator",
+            "execution_mode": "ideal_statevector",
+            "shots": 1024
+          }
+        },
+        "QAOA (Aer Noise Model)": {
+          "solver_name": "qaoa_aer",
+          "solver_version": "qiskit-aer-0.17.2",
+          "execution_status": "COMPLETED",
+          "math_status": "FEASIBLE",
+          "objective_value": 121.0,
+          "solve_time_seconds": 14.0471,
+          "relative_gap_to_cpsat": 0.0,
+          "ground_state_prob": 0.001,
+          "amplification_factor": 16.0,
+          "n_qubits": 14,
+          "circuit_depth": 78,
+          "execution_evidence_summary": {
+            "backend_name": "aer_simulator",
+            "execution_mode": "noise_simulation",
+            "shots": 1024
+          }
+        }
+      }
+    },
+    {
+      "instance_label": "Allocation N=10",
+      "n_variables": 10,
+      "n_constraints": 1,
+      "solvers": {
+        "CP-SAT (Classical Exact)": {
+          "solver_name": "cp_sat",
+          "solver_version": "9.15.6755",
+          "execution_status": "COMPLETED",
+          "math_status": "OPTIMAL",
+          "objective_value": 130.0,
+          "solve_time_seconds": 0.0056,
+          "relative_gap_to_cpsat": 0.0,
+          "ground_state_prob": null,
+          "amplification_factor": null,
+          "n_qubits": null,
+          "circuit_depth": null
+        },
+        "QAOA (Ideal Statevector)": {
+          "solver_name": "qaoa_aer",
+          "solver_version": "qiskit-aer-0.17.2",
+          "execution_status": "COMPLETED",
+          "math_status": "FEASIBLE",
+          "objective_value": 123.0,
+          "solve_time_seconds": 1.0786,
+          "relative_gap_to_cpsat": 0.0538,
+          "ground_state_prob": 0.001,
+          "amplification_factor": 64.0,
+          "n_qubits": 16,
+          "circuit_depth": 90,
+          "execution_evidence_summary": {
+            "backend_name": "aer_simulator",
+            "execution_mode": "ideal_statevector",
+            "shots": 1024
+          }
+        },
+        "QAOA (Aer Noise Model)": {
+          "solver_name": "qaoa_aer",
+          "solver_version": "qiskit-aer-0.17.2",
+          "execution_status": "COMPLETED",
+          "math_status": "FEASIBLE",
+          "objective_value": 123.0,
+          "solve_time_seconds": 28.2788,
+          "relative_gap_to_cpsat": 0.0538,
+          "ground_state_prob": 0.001,
+          "amplification_factor": 64.0,
+          "n_qubits": 16,
+          "circuit_depth": 90,
+          "execution_evidence_summary": {
+            "backend_name": "aer_simulator",
+            "execution_mode": "noise_simulation",
+            "shots": 1024
+          }
+        }
+      }
+    }
+  ]
+}

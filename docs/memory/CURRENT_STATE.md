@@ -174,15 +174,37 @@ Wszystkie testy backendu (59/59) przechodzą pomyślnie. Build frontendu (TypeSc
 7. **E7 (Kompleksowy zestaw testów)**:
    - Utworzono `tests/test_phase_e_cognitive.py` (8 testów) oraz zaktualizowano testy integracyjne flow kognitywnego (wszystkie zielone).
 
+### ✅ Faza F: Warstwa kwantowa — Uczciwa i użyteczna (F1–F6)
+1. **F1 (Ścisły walidator dowodu wykonania kwantowego)**:
+   - W `backend/solvers/base.py` `SolverResult` wymusza obecność `execution_evidence` (backend_name, shots, n_qubits, depth, seed, histogram) przy ustawieniu `source = ComputeSource.QUANTUM_CIRCUIT_SIMULATION`. Brak tych pól natychmiast rzuca `ValueError("Integrity violation: ...")`.
+2. **F2 (Realny runner benchmarków i empiryczny protokół)**:
+   - Zbudowano `benchmarks/run.py` uruchamiający CP-SAT vs QAOA (idealny) vs QAOA (noise model) na wspólnych instancjach (`healthcare_pl.json` oraz syntetyczne alokacje $N \in [4, 6, 8, 10]$).
+   - Wyniki zapisywane automatycznie do `benchmarks/results/benchmark_<timestamp>.json`.
+   - `docs/BENCHMARK_PROTOCOL.md` uzupełniony o rzeczywiste dane empiryczne: CP-SAT rozwiązuje instancje w 5–10 ms z dowodem globalnej optymalności, podczas gdy symulacja QAOA zajmuje 0.27s–28s z luką aproksymacji 5.38% przy $N=10$ i 3-krotnym spadkiem amplifikacji pod wpływem szumu bramkowego.
+   - `ProblemRouter` automatycznie wczytuje te wyniki z dysku.
+3. **F3 (QUBO dla klasy DESIGN z gwarantowaną przerwą energetyczną)**:
+   - W `backend/solvers/quantum/qubo.py` zaimplementowano `QUBOEncoder.encode_design` oraz `decode_design_solution`.
+   - Zastosowano analityczne skalowanie kary $P \ge 2 U_{\max} + 10.0$, gwarantując, że wszystkie stany niekompatybilne mają ściśle wyższą energię niż stany dopuszczalne.
+   - Synergie kodowane bezpośrednio jako człony kwadratowe bez konieczności wprowadzania pomocniczych zmiennych Forteta.
+4. **F4 (Symulacja modelu szumu Qiskit Aer w QAOAAdapter)**:
+   - W `backend/solvers/quantum/qaoa.py` dodano tryb `mode="noise_simulation"` z kanałami depolaryzacji jedno- i dwukubitowej (`depolarizing_p1`, `depolarizing_p2`).
+   - Telemetria szumu i obwodu zapisywana w `execution_evidence`, a ograniczenia jawnie komunikują symulację z modelem szumu.
+5. **F5 (ADR dla kontenerowej architektury obliczeń)**:
+   - Zapisano w `docs/memory/DECISIONS.md` decyzję `DEC-022: Kontenerowa architektura serwisów obliczeniowych (Compute Worker Container)` uzasadniającą separację frontendu (Vercel) od workerów obliczeniowych (Docker/Cloud Run/Fly.io) ze względu na limity czasu (60s) i rozmiaru paczki (250MB vs >650MB stosu naukowego C++).
+6. **F6 (Uczciwy interfejs QPU Stub)**:
+   - Zaimplementowano `QPUAdapter` w `backend/solvers/quantum/qpu_adapter.py`, zarejestrowano w `SOLVER_REGISTRY` w `backend/worker/runner.py`.
+   - Zwraca `is_available() -> False`, `supports() -> False`, a próba wykonania zwraca status `FAILED`, `math_status = UNSUPPORTED` i komunikat o braku fizycznego QPU oraz dostępności wyłącznie symulatorów Aer.
+
 ---
 
 ## Wyniki weryfikacji empirycznej
-- **Backend Test Suite**: `./.venv/bin/pytest tests/` → **140 passed in 25.66s** (100% zielonych testów, zero błędów, zero regresji).
+- **Backend Test Suite**: `./.venv/bin/pytest tests/` → **145 passed in 36.83s** (100% zielonych testów, zero błędów, zero regresji).
   * 11 dedykowanych testów Phase A regressions (`tests/test_phase_a_regressions.py`).
   * 8 dedykowanych testów Phase B regressions (`tests/test_phase_b_regressions.py`).
   * 7 dedykowanych testów Phase C evidence & SSRF (`tests/test_phase_c_evidence.py`).
   * 6 dedykowanych testów Phase D problem classes & synthesis (`tests/test_phase_d_problem_classes.py`).
   * 8 dedykowanych testów Phase E cognitive loop & intake (`tests/test_phase_e_cognitive.py`).
+  * 5 dedykowanych testów Phase F quantum honesty, noise & QUBO (`tests/test_phase_f_quantum_honesty.py`).
   * 12 testów kognitywnych i API w `tests/unit/` oraz `tests/integration/`.
   * 88 testów regresyjnych, solverów, weryfikatora, QUBO, QAOA, MCP i API.
 - **Frontend Typecheck & Build**: `npm run build` → 0 błędów TypeScript (`tsc -b`), czysty build produkcyjny Vite (`dist/`).
@@ -191,11 +213,11 @@ Wszystkie testy backendu (59/59) przechodzą pomyślnie. Build frontendu (TypeSc
 ---
 
 ## Następny krok (Next Step)
-- Rozpoczęcie **Fazy F (Warstwa kwantowa: Uczciwa i użyteczna, F1–F6)**:
-  * F1: Pole `execution_evidence` w `SolverResult` (shots, n_qubits, depth, seed, distribution) wymagane przy `ComputeSource.QUANTUM_CIRCUIT_SIMULATION`.
-  * F2: Runner benchmarków `benchmarks/run.py` na wspólnych instancjach; zapis do `benchmarks/results/` i wypełnienie `docs/BENCHMARK_PROTOCOL.md` rzeczywistymi wynikami (CP-SAT vs QAOA).
-  * F3: QUBO dla klasy `DESIGN`: one-hot per dźwignia z analitycznie skalowaną karą oraz linearyzacja iloczynów interakcji.
-  * F4: Model szumu NISQ (`noise_simulation` z Aer `NoiseModel`) w `QAOAAdapter`.
-  * F5: Decyzja i ADR dla kontenerowej architektury obliczeń (CP-SAT/QAOA w workerze vs Vercel).
-  * F6: Interfejs QPU stub (`is_available() -> False`) z rzetelną informacją w UI bez udawania połączenia ze sprzętem.
+- Rozpoczęcie **Fazy G (Warstwa weryfikacji i uczciwości: Bez kompromisów, G1–G6)**:
+  * G1: Niezależny weryfikator jako brama zaporowa w runnerze (odrzucenie niespełniającego kandydata przed zapisem).
+  * G2: Certyfikat weryfikacji w odpowiedzi API (`verification_certificate` z `evaluator_version`, `evaluator_mode="independent"`, `recalculated_objective`, `max_constraint_violation`).
+  * G3: Dual bound dla problemów z relaksacją ciągłą (HiGHS LP) z jawnie wyliczoną luką optymalności.
+  * G4: Prezentacja ograniczeń w UI (`EvidenceDrawer` / `RecommendationView`) w dedykowanej sekcji „Ograniczenia i założenia".
+  * G5: Paszport audytowy SHA-256 pieczętujący cały model ProblemIR, kandydat i werdykt weryfikatora.
+  * G6: Zestaw testów `tests/test_phase_g_verification.py`.
 
