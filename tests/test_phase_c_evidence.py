@@ -299,3 +299,18 @@ def test_c7_evidence_api_endpoints():
     # 2. Get evidence record 404 on nonexistent
     resp_404 = client.get("/api/v1/evidence/ev_nonexistent_xyz")
     assert resp_404.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# C8: Gemini Search Provider
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_c8_gemini_search_provider_integration():
+    """Verify WebResearchAdapter defaults to or supports Gemini provider."""
+    adapter = WebResearchAdapter(provider="gemini", api_key="mock_key")
+    assert adapter.provider == "gemini"
+    assert adapter.is_available()
+    status = adapter.get_status()
+    assert status["provider"] == "gemini"
+    assert status["is_available"] is True
