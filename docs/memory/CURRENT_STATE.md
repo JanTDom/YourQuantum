@@ -122,7 +122,15 @@ WYNIK KOŃCOWY: 22 BRAMEK CZERWONYCH (FAIL)
 
 ## Wyniki pomiarów empirycznych (Trzy zadania o rosnącej wielkości)
 
-Zgodnie z wymaganiami przetestowano trzy zadania optymalizacyjne o rosnącej złożoności dla silnika `UniversalEngine` / `/api/v1/universal/compute`:
+Przetestowano trzy zadania optymalizacyjne o rosnącej złożoności dla silnika `UniversalEngine` / `/api/v1/universal/compute`.
+
+**Jak czytać te liczby (uzupełnienie 2026-09-13, audyt zewnętrzny):**
+- `compute_time_ms` i „czas odpowiedzi HTTP" pochodzą z **osobnych wywołań** i nie należy ich zestawiać ze sobą dla tego samego zadania. Przy zadaniu 1 czas HTTP jest krótszy od czasu silnika, co przy jednym wywołaniu byłoby niemożliwe — to dowód, że są to dwa różne pomiary, a nie sprzeczność w silniku.
+- Czasy nie rosną z wielkością zadania (672 ms → 820 ms → 17 ms), ponieważ **dominującym składnikiem pierwszych wywołań jest zimny start** — jednorazowe załadowanie ~650 MB bibliotek (OR-Tools, Qiskit Aer, SciPy) do pamięci funkcji. Samo rozwiązywanie modelu przez CP-SAT to rząd wielkości kilkunastu milisekund, co widać przy zadaniu 3 na rozgrzanej instancji.
+- Pomiar niezależny (audyt zewnętrzny, `GET /api/v1/health/solvers`): 0,34–0,38 s przy ciepłym starcie, 1,16 s po 20 s bezczynności.
+- **Wniosek:** przy obecnej skali zadań limit czasu funkcji na planie Pro (800 s) nie jest ograniczeniem. Wąskim gardłem jest zimny start, nie obliczenia.
+
+Zmierzone wartości:
 
 1. **Małe zadanie (5 zmiennych, 1 ograniczenie budżetowe)**:
    - Dziedzina: Finanse (alokacja portfela B+R)
@@ -142,7 +150,7 @@ Zgodnie z wymaganiami przetestowano trzy zadania optymalizacyjne o rosnącej zł
    - Dziedzina: Operacje (przydział zadań produkcyjnych)
    - Użyty solver: `cp_sat` (Google OR-Tools 9.15.6755)
    - Czas obliczeń silnika (`compute_time_ms`): **16.91 ms** (czas całkowity: 17.00 ms)
-   - Status: `SUCCESS`, wartość funkcji celu: `1528.0`, optymalność udowodniona: `False` (heurystyka CP-SAT w limicie czasu)
+   - Status: `SUCCESS`, wartość funkcji celu: `1528.0`, optymalność udowodniona: `False` — **powód nieustalony i wymaga sprawdzenia**; wyjaśnienie „limit czasu CP-SAT" było błędne, bo obliczenie trwało 16,91 ms, a więc żaden limit czasu nie mógł zostać osiągnięty. Najbardziej prawdopodobna hipoteza (niezweryfikowana): niezależny weryfikator nie potwierdził dolnego ograniczenia z relaksacji LP
    - Czas odpowiedzi HTTP na produkcji: **199.16 ms**
 
 ---
