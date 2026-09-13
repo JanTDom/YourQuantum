@@ -848,6 +848,32 @@ def test_n5_design_offline_decomposition_matrix_filling_and_pareto_synthesis():
     assert len(synthesis.lever_importance_ranking) == len(problem.levers)
 
 
+# ---------------------------------------------------------------------------
+# N6: Unified Model Access Exclusively Through LLMGateway
+# ---------------------------------------------------------------------------
+
+def test_n6_no_direct_httpx_in_backend_domain_and_formalizer_uses_gateway():
+    """
+    N6: Ensure backend/domain has zero direct httpx.(post|Client()) calls,
+    and formalizer._try_llm_formalize uses LLMGateway when available.
+    """
+    import subprocess
+    from pathlib import Path
+
+    repo_root = Path(__file__).parent.parent
+    cmd = 'grep -rnE "httpx\\.(post|Client\\()" backend/domain'
+    res = subprocess.run(cmd, shell=True, cwd=repo_root, capture_output=True, text=True)
+    assert res.returncode != 0, f"Found direct httpx calls in backend/domain:\n{res.stdout}"
+    assert len(res.stdout.strip()) == 0
+
+    from backend.domain.formalizer import ProblemFormalizer
+    # Offline or empty key returns None safely without raising or using httpx
+    formalizer = ProblemFormalizer(gemini_api_key=None)
+    res_formalize = formalizer._try_llm_formalize("Dowolny tekst testowy")
+    assert res_formalize is None
+
+
+
 
 
 

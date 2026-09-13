@@ -24,10 +24,11 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-import httpx
 from dotenv import load_dotenv
 
 load_dotenv()
+
+from backend.infrastructure.llm_gateway import LLMGateway
 
 from backend.domain.decision_case import (
     Criterion,
@@ -467,8 +468,9 @@ class ProblemFormalizer:
         return slug or "wariant"
 
     def _try_llm_formalize(self, text: str) -> FormalizationResult | None:
-        """Call Gemini to create an initial formalization proposal for arbitrary text."""
-        if not self.gemini_api_key:
+        """Call LLMGateway to create an initial formalization proposal for arbitrary text."""
+        gateway = LLMGateway(api_key=self.gemini_api_key)
+        if not gateway.is_available:
             return None
 
         prompt = f"""Jesteś formalizatorem problemów decyzyjnych YourQuantum.
@@ -477,37 +479,65 @@ Jeśli opis dotyczy dylematu wyboru (np. pracy, oferty, zakupu, decyzji życiowe
 
 Opis:
 "{text}"
-
-Zwróć WYŁĄCZNIE poprawny JSON (application/json):
-{{
-  "description_formalised": "Proste podsumowanie po polsku dla laika bez żargonu matematycznego",
-  "binary_variables": ["opcja_1", "opcja_2"],
-  "objective_direction": "maximize",
-  "objective_coefficients": {{"opcja_1": 1.0, "opcja_2": 1.0}},
-  "equality_constraints": [{{"lhs": {{"opcja_1": 1.0, "opcja_2": 1.0}}, "rhs": 1.0}}],
-  "inequality_constraints": [],
-  "assumptions": ["Przyjęto konieczność wyboru dokładnie jednej opcji"]
-}}
 """
-        try:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={self.gemini_api_key}"
-            resp = httpx.post(
-                url,
-                json={
-                    "contents": [{"parts": [{"text": prompt}]}],
-                    "generationConfig": {
-                        "response_mime_type": "application/json",
-                        "temperature": 0.1,
+        schema = {
+            "type": "object",
+            "properties": {
+                "description_formalised": {"type": "string"},
+                "binary_variables": {"type": "array", "items": {"type": "string"}},
+                "objective_direction": {"type": "string", "enum": ["maximize", "minimize"]},
+                "objective_coefficients": {"type": "object", "additionalProperties": {"type": "number"}},
+                "equality_constraints": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "lhs": {"type": "object", "additionalProperties": {"type": "number"}},
+                            "rhs": {"type": "number"},
+                        },
                     },
                 },
-                timeout=20.0,
-            )
-            if resp.status_code != 200:
+                "inequality_constraints": {"type": "array", "items": {"type": "object"}},
+                "assumptions": {"type": "array", "items": {"type": "string"}},
+            },
+            "required": ["description_formalised", "binary_variables", "objective_direction"],
+        }
+
+        try:
+            import asyncio
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+
+            if loop and loop.is_running():
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                    res = pool.submit(
+                        asyncio.run,
+                        gateway.generate(
+                            system_instruction="Jesteś formalizatorem problemów decyzyjnych YourQuantum. Zwracaj wyłącznie poprawny JSON.",
+                            user_content=prompt,
+                            purpose="formalize_text",
+                            response_schema=schema,
+                            temperature=0.1,
+                        ),
+                    ).result()
+            else:
+                res = asyncio.run(
+                    gateway.generate(
+                        system_instruction="Jesteś formalizatorem problemów decyzyjnych YourQuantum. Zwracaj wyłącznie poprawny JSON.",
+                        user_content=prompt,
+                        purpose="formalize_text",
+                        response_schema=schema,
+                        temperature=0.1,
+                    )
+                )
+
+            if not res or not res.parsed_json:
                 return None
 
-            data = resp.json()
-            parsed = json.loads(data["candidates"][0]["content"]["parts"][0]["text"])
-
+            parsed = res.parsed_json
             b_vars = parsed.get("binary_variables") or ["opcja_1", "opcja_2"]
             coeffs = parsed.get("objective_coefficients") or {v: 1.0 for v in b_vars}
             direction = parsed.get("objective_direction", "maximize")
@@ -638,84 +668,3 @@ Zwróć WYŁĄCZNIE poprawny JSON (application/json):
             break_even_point=break_even_point,
         )
 
-    def _try_llm_formalize_case(self, case: DecisionCase) -> FormalizationResult | None:
-        """
-        DEPRECATED (A7): To be replaced in Phase B1 with explicit DecisionMatrix.
-        Violates 'LLM output != solver result' by assigning 1-10 subjective attractiveness.
-        Retained temporarily until B1 decision matrix model is fully operational.
-        """
-        if not self.gemini_api_key or not case.options:
-            return None
-
-        options_summary = [{"id": o.id, "title": o.title, "description": o.description} for o in case.options]
-        qa_summary = {u.question: (u.answer or u.default_assumption or "Brak odpowiedzi") for u in case.unknowns}
-        priorities_summary = case.selected_priority_tokens if case.selected_priority_tokens else ["Brak zaznaczonych priorytetów (równe wagi)"]
-
-        prompt = f"""Jesteś analitykiem decyzyjnym YourQuantum.
-Na podstawie dylematu użytkownika, zdefiniowanych opcji, odpowiedzi na pytania doprecyzowujące oraz zaznaczonych przez użytkownika priorytetów, stwórz model matematyczny dla solvera.
-
-Tytuł dylematu: {case.title}
-Kontekst: {case.context}
-Opcje: {json.dumps(options_summary, ensure_ascii=False)}
-Odpowiedzi użytkownika na pytania: {json.dumps(qa_summary, ensure_ascii=False)}
-Priorytety zaznaczone przez użytkownika: {json.dumps(priorities_summary, ensure_ascii=False)}
-
-Zasady:
-1. Zmienne binarne (binary_variables): utwórz zwięzłe identyfikatory bez polskich znaków odpowiadające opcjom (np. 'pierwsze_wydawnictwo', 'drugie_wydawnictwo').
-2. Współczynniki celu (objective_coefficients): przypisz atrakcyjność/użyteczność każdej opcji na skali 1.0 - 10.0 w oparciu o odpowiedzi użytkownika oraz wybrane priorytety. Jeśli użytkownik wybrał np. wyższe zarobki, faworyzuj opcję finansową. Jeśli wybrał spokój i autonomię, faworyzuj stabilność/kulturę.
-3. Kierunek celu: 'maximize'.
-4. Ograniczenie równościowe: suma zmiennych = 1.0 (wybór dokładnie jednej opcji).
-5. description_formalised: zwięzłe, proste podsumowanie po polsku wyjaśniające, co porównujemy i co wynika z odpowiedzi użytkownika. Bez technicznego żargonu.
-6. break_even_point (Punkt zwrotny do negocjacji): napisz w 1-2 prostych zdaniach po polsku, co musiałoby się konkretnie zmienić w ofercie/opcji przegranej, aby to ona wygrała (np. 'Pierwsze wydawnictwo wygrałoby, gdyby zaoferowało gwarancję autonomii na piśmie lub gdyby różnica w zarobkach przekroczyła 10 000 zł').
-
-Odpowiedz WYŁĄCZNIE jako poprawny JSON (application/json):
-{{
-  "description_formalised": "Zrozumiałe podsumowanie dla użytkownika",
-  "binary_variables": ["opcja_1", "opcja_2"],
-  "objective_coefficients": {{"opcja_1": 7.5, "opcja_2": 8.0}},
-  "assumptions": ["Wybór dokładnie jednej opcji spośród dostępnych", "Uzasadnienie preferencji"],
-  "break_even_point": "Praktyczny punkt zwrotny do negocjacji po polsku"
-}}
-"""
-        try:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={self.gemini_api_key}"
-            resp = httpx.post(
-                url,
-                json={
-                    "contents": [{"parts": [{"text": prompt}]}],
-                    "generationConfig": {
-                        "response_mime_type": "application/json",
-                        "temperature": 0.1,
-                    },
-                },
-                timeout=25.0,
-            )
-            if resp.status_code != 200:
-                logger.warning(f"Gemini API returned {resp.status_code} in formalize_case: {resp.text[:200]}")
-                return None
-
-            data = resp.json()
-            parsed = json.loads(data["candidates"][0]["content"]["parts"][0]["text"])
-
-            b_vars = parsed.get("binary_variables") or [self._slugify(o.title) for o in case.options]
-            coeffs = parsed.get("objective_coefficients") or {v: 1.0 for v in b_vars}
-            desc = parsed.get("description_formalised") or case.title
-            assumptions = parsed.get("assumptions") or ["Wybór dokładnie jednej opcji."]
-            break_even_point = parsed.get("break_even_point") or "Wynik zależy od kluczowych założeń dotyczących warunków współpracy."
-
-            return FormalizationResult(
-                description_raw=case.context or case.title,
-                description_formalised=desc,
-                binary_variables=b_vars,
-                objective_direction="maximize",
-                objective_coefficients=coeffs,
-                equality_constraints=[{"lhs": {v: 1.0 for v in b_vars}, "rhs": 1.0}],
-                inequality_constraints=[],
-                assumptions=assumptions,
-                missing_information=[],
-                identified_archetype="decision_dilemma",
-                break_even_point=break_even_point,
-            )
-        except Exception as e:
-            logger.warning(f"Error calling Gemini in formalize_case: {e}")
-            return None
