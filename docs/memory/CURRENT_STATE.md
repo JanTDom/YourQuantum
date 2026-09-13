@@ -150,8 +150,22 @@ Zmierzone wartości:
    - Dziedzina: Operacje (przydział zadań produkcyjnych)
    - Użyty solver: `cp_sat` (Google OR-Tools 9.15.6755)
    - Czas obliczeń silnika (`compute_time_ms`): **16.91 ms** (czas całkowity: 17.00 ms)
-   - Status: `SUCCESS`, wartość funkcji celu: `1528.0`, optymalność udowodniona: `False` — **powód nieustalony i wymaga sprawdzenia**; wyjaśnienie „limit czasu CP-SAT" było błędne, bo obliczenie trwało 16,91 ms, a więc żaden limit czasu nie mógł zostać osiągnięty. Najbardziej prawdopodobna hipoteza (niezweryfikowana): niezależny weryfikator nie potwierdził dolnego ograniczenia z relaksacji LP
+   - Status: `SUCCESS`, wartość funkcji celu: `1528.0`, optymalność udowodniona: `False` — **powód ustalony przez analizę kodu `backend/verifier/verifier.py::_compute_dual_gap` (2026-09-13)**, wyjaśnienie poniżej. Wcześniejszy zapis „limit czasu CP-SAT" był błędny: obliczenie trwało 16,91 ms, więc żaden limit czasu nie mógł zostać osiągnięty
    - Czas odpowiedzi HTTP na produkcji: **199.16 ms**
+
+
+**Dlaczego przy zadaniu 3 optymalność nie została udowodniona (ustalone, nie zgadywane):**
+
+To nie jest usterka, tylko zamierzone działanie poprawki A3 („kandydat ≠ dowód optymalności"). Weryfikator nie przyjmuje deklaracji solvera i próbuje potwierdzić optymalność samodzielnie, dwiema drogami:
+
+1. **Relaksacja liniowa LP (HiGHS)** — uznaje optymalność za dowiedzioną tylko wtedy, gdy luka między znalezionym rozwiązaniem a ograniczeniem z relaksacji wynosi mniej niż `1e-4` (`opt_proven = gap < 1e-4`). Dla zadań z 30 zmiennymi binarnymi i ograniczeniami typu plecakowego relaksacja prawie zawsze daje ograniczenie ułamkowe, ostro lepsze od optimum całkowitoliczbowego — to klasyczna luka całkowitoliczbowa, a nie błąd.
+2. **Niezależna enumeracja** — uruchamiana tylko gdy wszystkie zmienne są binarne **i `n <= 16`**. Zadanie 3 miało 30 zmiennych, więc ta ścieżka w ogóle się nie włączyła.
+
+W efekcie: rozwiązanie najprawdopodobniej **jest** optymalne (CP-SAT to solver dokładny), ale system świadomie nie twierdzi tego bez własnego dowodu. Zadania 1 i 2 dostały `True`, bo przy ich strukturze relaksacja LP okazała się ciasna.
+
+**Konsekwencja praktyczna do świadomej akceptacji:** przy problemach powyżej 16 zmiennych binarnych użytkownik będzie w większości przypadków widział „optymalność nieudowodniona", nawet gdy wynik jest optymalny. To postawa konserwatywna i zgodna z zasadami projektu, ale warto ją znać.
+
+**Możliwe usprawnienie (niezaimplementowane, wymaga decyzji):** próg enumeracji `n <= 16` pochodzi z czasów, gdy produkcja nie miała mocy obliczeniowej. Po wdrożeniu pełnego stosu podniesienie go do ok. 20–22 (2^22 ≈ 4,2 mln kombinacji) pozwoliłoby certyfikować znacznie więcej zadań. Wymaga pomiaru czasu i kosztu, nie samego podniesienia stałej.
 
 ---
 
