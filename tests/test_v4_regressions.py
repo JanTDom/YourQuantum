@@ -873,6 +873,68 @@ def test_n6_no_direct_httpx_in_backend_domain_and_formalizer_uses_gateway():
     assert res_formalize is None
 
 
+# ---------------------------------------------------------------------------
+# N7: Elimination of Implicit Auto-Approval and ProblemRouter in Universal API
+# ---------------------------------------------------------------------------
+
+def test_n7_universal_engine_approval_gate_and_problem_router():
+    """
+    N7: universal_engine.py does not create ProblemIR with approved=True by default,
+    rejects unapproved requests with status=ERROR, and uses ProblemRouter for solver selection.
+    """
+    import subprocess
+    from pathlib import Path
+    from backend.api.universal_engine import (
+        UniversalEngine,
+        UniversalComputeRequest,
+        VariableDef,
+    )
+
+    repo_root = Path(__file__).parent.parent
+    # Gate mechanical check: zero approved=True in universal_engine.py
+    cmd_app = 'grep -n "approved=True" backend/api/universal_engine.py'
+    res_app = subprocess.run(cmd_app, shell=True, cwd=repo_root, capture_output=True, text=True)
+    assert res_app.returncode != 0, f"Found approved=True in universal_engine.py:\n{res_app.stdout}"
+
+    # Gate mechanical check: ProblemRouter is used in universal_engine.py
+    cmd_router = 'grep -n "ProblemRouter" backend/api/universal_engine.py'
+    res_router = subprocess.run(cmd_router, shell=True, cwd=repo_root, capture_output=True, text=True)
+    assert res_router.returncode == 0, "ProblemRouter is not used in universal_engine.py"
+
+    engine = UniversalEngine()
+    req_unapproved = UniversalComputeRequest(
+        title="Dylemat bez zatwierdzenia",
+        variables=[
+            VariableDef(id="v1", name="Wariant A", value=10.0),
+            VariableDef(id="v2", name="Wariant B", value=20.0),
+        ],
+        approved_by_caller=False,
+    )
+    # Check compile_to_ir produces approved=False
+    ir = engine.compile_to_ir(req_unapproved)
+    assert ir.approved is False
+    assert ir.approved_at is None
+
+    # Check execute rejects unapproved model
+    resp = engine.execute(req_unapproved)
+    assert resp.status == "ERROR"
+    assert resp.verification["verdict"] == "UNAPPROVED_MODEL"
+
+    # When approved_by_caller=True, execution proceeds and selects solver via ProblemRouter
+    req_approved = UniversalComputeRequest(
+        title="Dylemat zatwierdzony",
+        variables=[
+            VariableDef(id="v1", name="Wariant A", value=10.0),
+            VariableDef(id="v2", name="Wariant B", value=20.0),
+        ],
+        approved_by_caller=True,
+    )
+    resp_ok = engine.execute(req_approved)
+    assert resp_ok.status == "SUCCESS"
+    assert resp_ok.verification["feasible"] is True
+
+
+
 
 
 
