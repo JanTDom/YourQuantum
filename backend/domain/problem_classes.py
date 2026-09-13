@@ -478,3 +478,96 @@ def compute_design_pareto_frontier(
             )
 
     return pareto_points
+
+
+def compute_design_synthesis(
+    design: DesignProblem,
+    max_configurations: int = 1000,
+) -> DesignSynthesisResult:
+    """
+    Computes complete design synthesis according to D3:
+    1. Computes non-dominated Pareto frontier points across all criteria.
+    2. Determines optimal configuration based on criterion weights and synergy interactions.
+    3. Computes lever importance ranking (sensitivity spread per lever).
+    4. Gathers assumptions and sources.
+    5. Formulates practical manifestation of the optimal policy/architecture.
+    """
+    pareto_points = compute_design_pareto_frontier(design, max_configurations=max_configurations)
+    total_weight = sum(c.weight for c in design.criteria) or 1.0
+
+    # 1. Lever importance ranking
+    ranking: list[dict[str, Any]] = []
+    for lever in design.levers:
+        scores_per_opt: list[float] = []
+        for opt in lever.options:
+            opt_score = 0.0
+            for crit in design.criteria:
+                w = crit.weight / total_weight
+                cell = design.score_matrix.get(lever.id, {}).get(opt.id, {}).get(crit.id)
+                if cell and cell.value is not None:
+                    val = float(cell.value)
+                    opt_score += (val if crit.direction == "maximize" else -val) * w
+            scores_per_opt.append(opt_score)
+        spread = (max(scores_per_opt) - min(scores_per_opt)) if scores_per_opt else 0.0
+        ranking.append({
+            "lever_id": lever.id,
+            "lever_name": lever.name,
+            "sensitivity_impact": round(spread, 4),
+            "options_count": len(lever.options),
+        })
+
+    ranking.sort(key=lambda x: x["sensitivity_impact"], reverse=True)
+    total_impact = sum(r["sensitivity_impact"] for r in ranking) or 1.0
+    for r in ranking:
+        r["relative_impact_percent"] = round((r["sensitivity_impact"] / total_impact) * 100, 1)
+
+    # 2. Find best configuration (highest weighted score)
+    best_cfg: dict[str, str] = {}
+    best_score = -1e9
+
+    for p in pareto_points:
+        score = sum(
+            (p.objective_values.get(c.id, 0.0) if c.direction == "maximize" else -p.objective_values.get(c.id, 0.0))
+            * (c.weight / total_weight)
+            for c in design.criteria
+        )
+        if score > best_score:
+            best_score = score
+            best_cfg = p.configuration
+
+    if not best_cfg and design.levers:
+        best_cfg = {l.id: l.options[0].id for l in design.levers if l.options}
+
+    # 3. Map chosen option titles
+    optimal_titles: dict[str, str] = {}
+    for lever in design.levers:
+        chosen_opt_id = best_cfg.get(lever.id)
+        match_opt = next((o for o in lever.options if o.id == chosen_opt_id), None)
+        optimal_titles[lever.name] = match_opt.title if match_opt else (chosen_opt_id or "Brak")
+
+    # 4. Decisive assumptions
+    assumptions: list[str] = []
+    for inter in design.interactions:
+        if not inter.compatible:
+            assumptions.append(
+                f"Wykluczenie wzajemne: {inter.option_a_id} nie może współistnieć z {inter.option_b_id} (źródło: {inter.source_ref or 'założenie logiczne'})"
+            )
+        elif inter.synergy != 0.0:
+            assumptions.append(
+                f"Synergia ({inter.synergy:+.1f}): połączenie {inter.option_a_id} + {inter.option_b_id} (źródło: {inter.source_ref or 'analiza empiryczna'})"
+            )
+
+    # 5. Practical manifestation
+    manifestation_parts = [f"{lever_name}: {opt_title}" for lever_name, opt_title in optimal_titles.items()]
+    practical_manifestation = f"Zrównoważona konfiguracja reformy: {'; '.join(manifestation_parts)}."
+
+    return DesignSynthesisResult(
+        problem_id=design.id,
+        optimal_configuration=best_cfg,
+        optimal_titles=optimal_titles,
+        model_optimal_label="optymalna dla modelu, nie dla świata (wynik zależy od podanych kryteriów i wag)",
+        pareto_frontier=pareto_points,
+        lever_importance_ranking=ranking,
+        unknowns_and_decisive_assumptions=assumptions,
+        practical_manifestation=practical_manifestation,
+    )

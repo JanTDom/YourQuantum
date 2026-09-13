@@ -369,6 +369,7 @@ export interface JobResult {
   } | null
   verification: VerificationReport | null
   error_message: string | null
+  metadata?: Record<string, any>
 }
 
 async function request<T>(
@@ -625,6 +626,55 @@ export async function getEvidenceRecord(id: string): Promise<Evidence> {
   const res = await fetch(`${BASE_URL}/evidence/${id}`)
   if (!res.ok) {
     throw new Error(`Nie znaleziono rekordu dowodu: ${id}`)
+  }
+  return res.json()
+}
+
+export interface ParetoPoint {
+  configuration: Record<string, string>
+  objective_values: Record<string, number>
+  is_pareto_optimal: boolean
+}
+
+export interface LeverRankingItem {
+  lever_id: string
+  lever_name: string
+  sensitivity_impact: number
+  options_count: number
+  relative_impact_percent: number
+}
+
+export interface DesignSynthesisResult {
+  problem_id: string
+  optimal_configuration: Record<string, string>
+  optimal_titles: Record<string, string>
+  model_optimal_label: string
+  pareto_frontier: ParetoPoint[]
+  lever_importance_ranking: LeverRankingItem[]
+  unknowns_and_decisive_assumptions: string[]
+  practical_manifestation: string
+}
+
+export async function getDesignFixture(fixtureName: string): Promise<any> {
+  const res = await fetch(`${BASE_URL}/design/fixtures/${fixtureName}`)
+  if (!res.ok) {
+    throw new Error(`Nie znaleziono wzorca konfiguracji: ${fixtureName}`)
+  }
+  return res.json()
+}
+
+export async function synthesizeDesign(designData: any): Promise<{
+  status: string
+  synthesis: DesignSynthesisResult
+  problem: any
+}> {
+  const res = await fetch(`${BASE_URL}/design/synthesize`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(designData),
+  })
+  if (!res.ok) {
+    throw new Error(`Błąd syntezy wariantów DESIGN: ${res.statusText}`)
   }
   return res.json()
 }

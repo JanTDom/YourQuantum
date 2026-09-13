@@ -403,6 +403,7 @@ async def get_job_result(
         "solver_result": job.result_json,
         "verification": job.verification_json,
         "error_message": job.error_message,
+        "metadata": job.metadata_json or {},
     }
 
 
@@ -817,3 +818,44 @@ async def get_evidence_record(evidence_id: str) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail=f"Evidence '{evidence_id}' not found")
 
     return ev.model_dump() if hasattr(ev, "model_dump") else dict(ev)
+
+
+# ---------------------------------------------------------------------------
+# D3 / G4: DESIGN Problem Synthesis & Pareto Frontier Endpoints
+# ---------------------------------------------------------------------------
+
+@router.get("/design/fixtures/{fixture_name}")
+async def get_design_fixture(fixture_name: str) -> dict[str, Any]:
+    """
+    Retrieve built-in DESIGN problem fixtures (e.g. healthcare_pl).
+    """
+    safe_name = re.sub(r"[^a-zA-Z0-9_\-]", "", fixture_name)
+    fixture_path = os.path.join(
+        os.path.dirname(__file__), "..", "..", "tests", "fixtures", "design", f"{safe_name}.json"
+    )
+    if not os.path.exists(fixture_path):
+        raise HTTPException(status_code=404, detail=f"Design fixture '{safe_name}' not found")
+
+    with open(fixture_path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+@router.post("/design/synthesize")
+async def synthesize_design_problem(design_data: dict[str, Any]) -> dict[str, Any]:
+    """
+    D3 / G4: Compute full multi-lever combinatorial synthesis:
+    Non-dominated Pareto frontier, lever sensitivity ranking, and optimal configuration.
+    """
+    from backend.domain.problem_classes import DesignProblem, compute_design_synthesis
+    try:
+        problem = DesignProblem.model_validate(design_data)
+        synthesis = compute_design_synthesis(problem)
+        return {
+            "status": "COMPLETED",
+            "synthesis": synthesis.model_dump(mode="json"),
+            "problem": problem.model_dump(mode="json"),
+        }
+    except Exception as e:
+        logger.exception("Design synthesis failed: %s", e)
+        raise HTTPException(status_code=400, detail=f"Błąd syntezy DESIGN: {str(e)}")
+

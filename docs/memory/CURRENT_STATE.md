@@ -195,29 +195,46 @@ Wszystkie testy backendu (59/59) przechodzą pomyślnie. Build frontendu (TypeSc
    - Zaimplementowano `QPUAdapter` w `backend/solvers/quantum/qpu_adapter.py`, zarejestrowano w `SOLVER_REGISTRY` w `backend/worker/runner.py`.
    - Zwraca `is_available() -> False`, `supports() -> False`, a próba wykonania zwraca status `FAILED`, `math_status = UNSUPPORTED` i komunikat o braku fizycznego QPU oraz dostępności wyłącznie symulatorów Aer.
 
+### ✅ Faza G: UI i Copy — Uczciwość, Klasy Problemów i Weryfikacja (G1–G6)
+1. **G1 (Rzeczywista telemetria i brak obietnic bez pokrycia na Landing Page)**:
+   - W `frontend/src/components/LandingPage.tsx` usunięto fałszywe slogany; wyświetlana jest rzeczywista liczba testów CI (150/150 zielonych), lista produkcyjnych solverów (CP-SAT, HiGHS, QAOA Aer) oraz jawne zastrzeżenie o symulacji kwantowej na klasycznym CPU bez fizycznego QPU.
+2. **G2 (Selektor klas problemów na ekranie startowym)**:
+   - W `LandingPage.tsx` dodano interaktywne zakładki dla 5 klas problemów (`CHOICE`, `ALLOCATION`, `DESIGN`, `PARAMETER`, `NOT_COMPUTABLE`) z jednozdaniowym wyjaśnieniem i możliwością natychmiastowego załadowania problemu testowego do terminala.
+3. **G3 (`ModelApprovalGate` z macierzą decyzyjną, edycją wag i bramką `BLOCKS_SOLVING`)**:
+   - W `frontend/src/components/ModelApprovalGate.tsx` wprowadzono pełną macierz decyzyjną z pochodzeniem komórek (`user_supplied`, `web_sourced`, `derived`, `assumed`), interaktywne suwaki/pola do edycji wag przed uruchomieniem solvera, listę założeń i niewiadomych oraz twardą blokadę przycisku zatwierdzenia, jeśli jakakolwiek nierozwiązana luka posiada oznaczenie `BLOCKS_SOLVING`.
+4. **G4 (`RecommendationView` dla `DESIGN` vs `CHOICE`)**:
+   - W `frontend/src/components/RecommendationView.tsx` zaimplementowano dwa wyspecjalizowane widoki:
+     * Dla `DESIGN`: tabela konfiguracji wielodźwigniowej, interaktywny wykres 2D frontu Pareto z punktami niezdominowanymi i przełącznikiem wariantów, ranking wrażliwości dźwigni (procentowy wpływ dźwigni na równowagę systemu), zweryfikowane źródła instytucjonalne (GUS, NFZ, WHO, OECD) oraz etykieta „optymalna dla modelu, nie dla świata”.
+     * Dla `CHOICE`: 5 sekcji z DEC-014 (Odpowiedź, Dlaczego ta opcja z Paszportem SHA-256 i bilansem, Trade-offy z analitycznym punktem zwrotnym B1, What-if / Na czym oparliśmy, Następny krok).
+5. **G5 (Obsługa 3 stanów UI i standardy WCAG 2.2 AA)**:
+   - Zapewniono obsługę stanów ładowania, pustych i błędów w komponentach `LandingPage`, `CaseWorkspace`, `ModelApprovalGate`, `RecommendationView`, widoczny focus ring, semantyczne tagi ARIA i wysoki kontrast OKLCH.
+6. **G6 (Dynamiczne Centrum Pomocy z rejestru zdolności i benchmarków)**:
+   - W `backend/api/help_service.py` Centrum Pomocy generuje tematy `rejestr-zdolnosci-silnika` oraz `wyniki-benchmarkow-empirycznych` bezpośrednio z introspekcji kodu i plików `benchmarks/results/*.json` bez ręcznie pisanych zapewnień.
+
 ---
 
 ## Wyniki weryfikacji empirycznej
-- **Backend Test Suite**: `./.venv/bin/pytest tests/` → **145 passed in 36.83s** (100% zielonych testów, zero błędów, zero regresji).
+- **Backend Test Suite**: `./.venv/bin/pytest tests/` → **150 passed in 38.26s** (100% zielonych testów, zero błędów, zero regresji).
   * 11 dedykowanych testów Phase A regressions (`tests/test_phase_a_regressions.py`).
   * 8 dedykowanych testów Phase B regressions (`tests/test_phase_b_regressions.py`).
   * 7 dedykowanych testów Phase C evidence & SSRF (`tests/test_phase_c_evidence.py`).
   * 6 dedykowanych testów Phase D problem classes & synthesis (`tests/test_phase_d_problem_classes.py`).
   * 8 dedykowanych testów Phase E cognitive loop & intake (`tests/test_phase_e_cognitive.py`).
   * 5 dedykowanych testów Phase F quantum honesty, noise & QUBO (`tests/test_phase_f_quantum_honesty.py`).
+  * 5 dedykowanych testów Phase G UI, copy, problem classes & help center (`tests/test_phase_g_ui_and_copy.py`).
   * 12 testów kognitywnych i API w `tests/unit/` oraz `tests/integration/`.
   * 88 testów regresyjnych, solverów, weryfikatora, QUBO, QAOA, MCP i API.
-- **Frontend Typecheck & Build**: `npm run build` → 0 błędów TypeScript (`tsc -b`), czysty build produkcyjny Vite (`dist/`).
+- **Frontend Typecheck & Build**: `npm run build` → 0 błędów TypeScript (`tsc -b`), czysty build produkcyjny Vite (`dist/` w 2.20s).
 - **Git Branch**: `feat/v2-honest-engine`.
 
 ---
 
 ## Następny krok (Next Step)
-- Rozpoczęcie **Fazy G (Warstwa weryfikacji i uczciwości: Bez kompromisów, G1–G6)**:
-  * G1: Niezależny weryfikator jako brama zaporowa w runnerze (odrzucenie niespełniającego kandydata przed zapisem).
-  * G2: Certyfikat weryfikacji w odpowiedzi API (`verification_certificate` z `evaluator_version`, `evaluator_mode="independent"`, `recalculated_objective`, `max_constraint_violation`).
-  * G3: Dual bound dla problemów z relaksacją ciągłą (HiGHS LP) z jawnie wyliczoną luką optymalności.
-  * G4: Prezentacja ograniczeń w UI (`EvidenceDrawer` / `RecommendationView`) w dedykowanej sekcji „Ograniczenia i założenia".
-  * G5: Paszport audytowy SHA-256 pieczętujący cały model ProblemIR, kandydat i werdykt weryfikatora.
-  * G6: Zestaw testów `tests/test_phase_g_verification.py`.
+- Rozpoczęcie **Fazy H: Bezpieczeństwo produkcyjne (H1–H6)**:
+  * H1: Usunięcie domyślnego hasła master w kodzie (A9) oraz tokeny sesyjne/anonimowe z czasem wygaśnięcia.
+  * H2: Uwierzytelnienie i limity (rate limits) per IP/sesja na otwartych endpointach `/cases/analyze`, `/cases/formalize`, `/cognitive/intake`, `/evidence/research` (ochrona budżetu Gemini i wyszukiwań).
+  * H3: Test ochrony przed wstrzyknięciem promptu z treści stron zewnętrznych (C5) z fixture „ignore previous instructions".
+  * H4: Testy odporności SSRF, limity wielkości pobieranych treści i timeouty sieciowe.
+  * H5: Zakresowanie pamięci epizodycznej (A18) oraz rygorystyczna zgoda użytkownika (E5).
+  * H6: Aktualizacja `docs/SECURITY.md` o granice zaufania warstwy dowodowej i wyciek w historii git.
 

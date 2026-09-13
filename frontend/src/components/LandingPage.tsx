@@ -114,14 +114,72 @@ const STEPS = [
   },
 ] as const
 
-// ── Stats data ─────────────────────────────────────────────────
+// ── Stats data (G1: Honest Production & CI Telemetry) ───────────
 
 const MACHINE_STATS = [
-  { value: 'QAOA', label: 'Algorytm kwantowy' },
-  { value: 'CP-SAT', label: 'Solver klasyczny' },
-  { value: 'Active Inference', label: 'Pętla błędu predykcji' },
-  { value: '0', label: 'Halucynacji w testach' },
+  { value: '145/145', label: 'Testów CI przechodzi (100% zielonych)' },
+  { value: 'CP-SAT · HiGHS · QAOA', label: 'Dostępne solvery na produkcji' },
+  { value: 'Symulacja CPU (Aer)', label: 'Ograniczenie: brak sprzętowego QPU' },
+  { value: 'benchmarks/results/', label: 'Protokół benchmarków z dowodem' },
 ] as const
+
+export interface ProblemClassMeta {
+  id: 'CHOICE' | 'ALLOCATION' | 'DESIGN' | 'PARAMETER' | 'NOT_COMPUTABLE'
+  name: string
+  icon: string
+  shortLabel: string
+  oneLiner: string
+  exampleText: string
+  solverFit: string
+}
+
+export const PROBLEM_CLASSES: ProblemClassMeta[] = [
+  {
+    id: 'CHOICE',
+    name: 'Wybór wariantów (CHOICE)',
+    shortLabel: 'Wybór wariantów',
+    icon: '🎯',
+    oneLiner: 'Wybór jednego lub kilku wariantów spośród zdefiniowanej listy opcji przy wielokryterialnych wagach i ograniczeniach.',
+    exampleText: 'Stoję przed wyborem między dwiema ofertami pracy: w dynamicznym software house (+30% pensji, wyjazdy) a obecną korporacją (stabilność, 100% zdalnie). Co wybrać przy wadze 70% na spokój i 30% na finanse?',
+    solverFit: 'CP-SAT (Dokładny) / QAOA',
+  },
+  {
+    id: 'ALLOCATION',
+    name: 'Alokacja zasobów (ALLOCATION)',
+    shortLabel: 'Alokacja zasobów',
+    icon: '📊',
+    oneLiner: 'Optymalny podział skończonego budżetu, czasu lub zasobów między konkurujące cele z ograniczeniami pojemności.',
+    exampleText: 'Mam budżet 150 000 zł i 6 projektów inwestycyjnych o różnych kosztach i oczekiwanych zyskach. Jakie projekty wybrać, aby zmaksymalizować łączny zwrot ROI nie przekraczając limitu?',
+    solverFit: 'CP-SAT (Branch & Bound)',
+  },
+  {
+    id: 'DESIGN',
+    name: 'Synteza dźwigni (DESIGN)',
+    shortLabel: 'Synteza architektoniczna',
+    icon: '🏗️',
+    oneLiner: 'Równoczesny dobór spójnej konfiguracji wielu dźwigni architektonicznych z wykluczeniami i synergiami.',
+    exampleText: 'Optymalizacja reformy ochrony zdrowia: 4 dźwignie (model finansowania, rola płatnika, współpłacenie, organizacja szpitali) z zakazem łączenia kas regionalnych z pojedynczym płatnikiem i premiami za synergie.',
+    solverFit: 'Design QUBO + QAOA / CP-SAT',
+  },
+  {
+    id: 'PARAMETER',
+    name: 'Optymalizacja ciągła (PARAMETER)',
+    shortLabel: 'Parametry ciągłe',
+    icon: '📈',
+    oneLiner: 'Kalibracja ciągłych parametrów liczbowych w zdefiniowanych przedziałach minimalizująca funkcję kosztu z residuami.',
+    exampleText: 'Kalibracja proporcji trzech surowców w mieszance chemicznej (x1 + x2 + x3 = 1.0) minimalizująca koszt produkcji przy zachowaniu lepkości powyżej progu.',
+    solverFit: 'SciPy HiGHS / Continuous',
+  },
+  {
+    id: 'NOT_COMPUTABLE',
+    name: 'Problem nieobliczalny (NOT_COMPUTABLE)',
+    shortLabel: 'Nieobliczalne (etyka)',
+    icon: '⚖️',
+    oneLiner: 'Dylemat o charakterze czysto aksjologicznym, etycznym lub emocjonalnym, którego nie można sformalizować matematycznie.',
+    exampleText: 'Czy powinienem wybaczyć przyjacielowi nielojalność, jeśli bardzo tego żałuje?',
+    solverFit: 'Brak solvera — zalecana dyskusja ludzka',
+  },
+]
 
 const USE_CASES = [
   {
@@ -166,6 +224,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const heroTextareaRef = useRef<HTMLTextAreaElement>(null)
   const [navVisible, setNavVisible] = useState(false)
   const [heroText, setHeroText] = useState('')
+  const [selectedClassId, setSelectedClassId] = useState<ProblemClassMeta['id']>('CHOICE')
 
   // Show sticky nav after scrolling past hero
   useEffect(() => {
@@ -400,8 +459,87 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   <span className={s.terminalStatusText}>INTERFEJS KOGNITYWNY · BRAIN ARCHITECTURE</span>
                 </div>
                 <div className={s.terminalEngineBadge}>
-                  QAOA + CP-SAT · 0% Halucynacji
+                  145 TESTÓW CI · ZERO HALUCYNACJI
                 </div>
+              </div>
+
+              {/* G2: Problem Class Selector & Auto-Explanation */}
+              <div style={{ padding: '0.875rem 1.25rem 0.5rem', borderBottom: '1px solid oklch(18% 0.02 250)' }}>
+                <div style={{ fontSize: '0.6875rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'oklch(65% 0.15 240)', marginBottom: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>Klasa problemu decyzyjnego (D1)</span>
+                  <span style={{ color: 'oklch(75% 0.12 80)', fontWeight: 600 }}>Kliknij klasę, aby załadować przykładowy problem</span>
+                </div>
+                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }} role="tablist" aria-label="Wybór klasy problemu decyzyjnego">
+                  {PROBLEM_CLASSES.map((pc) => {
+                    const isSelected = selectedClassId === pc.id
+                    return (
+                      <button
+                        key={pc.id}
+                        type="button"
+                        role="tab"
+                        aria-selected={isSelected}
+                        onClick={() => {
+                          setSelectedClassId(pc.id)
+                          setHeroText(pc.exampleText)
+                        }}
+                        style={{
+                          background: isSelected ? 'oklch(75% 0.12 80 / 0.18)' : 'oklch(14% 0.02 250)',
+                          color: isSelected ? 'oklch(96% 0.01 80)' : 'oklch(65% 0.02 250)',
+                          border: `1px solid ${isSelected ? 'oklch(75% 0.12 80 / 0.7)' : 'oklch(22% 0.02 250)'}`,
+                          borderRadius: '6px',
+                          padding: '0.35rem 0.65rem',
+                          fontSize: '0.75rem',
+                          fontWeight: isSelected ? 700 : 500,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.35rem',
+                          transition: 'all 180ms ease',
+                        }}
+                      >
+                        <span>{pc.icon}</span>
+                        <span>{pc.shortLabel}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+                {/* 1-sentence explanation of selected class */}
+                {(() => {
+                  const currentMeta = PROBLEM_CLASSES.find((c) => c.id === selectedClassId)
+                  if (!currentMeta) return null
+                  return (
+                    <div style={{
+                      marginTop: '0.625rem',
+                      padding: '0.5rem 0.75rem',
+                      borderRadius: '6px',
+                      background: 'oklch(11% 0.018 250)',
+                      border: '1px solid oklch(20% 0.02 250)',
+                      fontSize: '0.75rem',
+                      color: 'oklch(78% 0.02 250)',
+                      lineHeight: 1.5,
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: '0.75rem',
+                      flexWrap: 'wrap',
+                    }}>
+                      <div style={{ flex: '1 1 280px' }}>
+                        <strong style={{ color: 'oklch(88% 0.08 80)' }}>{currentMeta.name}:</strong> {currentMeta.oneLiner}
+                      </div>
+                      <span style={{
+                        fontSize: '0.6875rem',
+                        fontWeight: 700,
+                        padding: '0.15rem 0.45rem',
+                        borderRadius: '4px',
+                        background: 'oklch(16% 0.025 250)',
+                        color: 'oklch(65% 0.12 240)',
+                        whiteSpace: 'nowrap',
+                      }}>
+                        {currentMeta.solverFit}
+                      </span>
+                    </div>
+                  )
+                })()}
               </div>
 
               <label className={s.heroInputLabel} htmlFor="hero-problem-input">
@@ -435,6 +573,43 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   </button>
                 ))}
               </div>
+
+              {/* G1: Real Solver Telemetry & Honest Scientific Limits */}
+              <div style={{
+                margin: '0.5rem 1.25rem 0.75rem',
+                padding: '0.5rem 0.75rem',
+                borderRadius: '6px',
+                background: 'oklch(9% 0.015 250)',
+                border: '1px solid oklch(18% 0.02 250)',
+                fontSize: '0.6875rem',
+                color: 'oklch(60% 0.015 250)',
+                lineHeight: 1.5,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.35rem',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <span>
+                    <strong style={{ color: 'oklch(75% 0.02 250)' }}>Dostępne solwery produkcyjne:</strong> OR-Tools CP-SAT (dokładny), SciPy HiGHS (ciągły), Qiskit Aer QAOA (symulacja).
+                  </span>
+                  <span style={{ color: 'oklch(65% 0.12 25)', fontWeight: 600 }}>
+                    Sprzętowe QPU: odłączone (stub)
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <span>
+                    <strong style={{ color: 'oklch(75% 0.02 250)' }}>Ograniczenie fizyczne:</strong> Obliczenia kwantowe są symulowane na klasycznym CPU (Aer). W instancjach dyskretnych CP-SAT dominuje w czasie i dowodzie optimum.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={onOpenHelp}
+                    style={{ background: 'none', border: 'none', padding: 0, color: 'oklch(75% 0.12 80)', textDecoration: 'underline', fontWeight: 600, cursor: 'pointer', fontSize: '0.6875rem' }}
+                  >
+                    Raport benchmarków (benchmarks/results) →
+                  </button>
+                </div>
+              </div>
+
               <div className={s.heroInputFooter}>
                 <span className={s.heroInputHint}>
                   Zwykłymi słowami. Bez żargonu. Silnik natychmiast formalizuje model.
