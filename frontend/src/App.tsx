@@ -225,8 +225,8 @@ export const App: React.FC = () => {
         />
       )}
 
-      {/* Global notifications (non-INTAKE stages only) */}
-      {stage !== 'INTAKE' && statusMessage && (
+      {/* Global notifications */}
+      {statusMessage && (
         <div style={{
           background: 'var(--status-unverified-bg)',
           borderBottom: '1px solid var(--status-unverified-border)',
@@ -234,23 +234,49 @@ export const App: React.FC = () => {
           fontSize: '0.875rem',
           color: 'var(--status-unverified-text)',
           textAlign: 'center',
-          fontWeight: 500,
+          fontWeight: 600,
+          position: 'sticky',
+          top: 0,
+          zIndex: 1000,
         }}>
           {statusMessage}
         </div>
       )}
 
-      {stage !== 'INTAKE' && errorMessage && (
+      {errorMessage && (
         <div style={{
           background: 'var(--status-rejected-bg)',
           borderBottom: '1px solid var(--status-rejected-border)',
-          padding: '0.75rem 2rem',
-          fontSize: '0.875rem',
+          padding: '0.875rem 2rem',
+          fontSize: '0.9375rem',
           color: 'var(--status-rejected-text)',
           textAlign: 'center',
-          fontWeight: 500,
+          fontWeight: 600,
+          position: 'sticky',
+          top: 0,
+          zIndex: 1000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '1rem',
         }}>
-          {errorMessage}
+          <span>{errorMessage}</span>
+          <button
+            onClick={() => setErrorMessage(null)}
+            type="button"
+            style={{
+              background: 'transparent',
+              border: '1px solid currentColor',
+              color: 'inherit',
+              borderRadius: '4px',
+              padding: '0.2rem 0.6rem',
+              cursor: 'pointer',
+              fontSize: '0.75rem',
+              fontWeight: 700,
+            }}
+          >
+            Zamknij ✕
+          </button>
         </div>
       )}
 
@@ -260,6 +286,9 @@ export const App: React.FC = () => {
           <LandingPage
             onSubmit={handleIntakeSubmit}
             isLoading={isLoading}
+            errorMessage={errorMessage}
+            onClearError={() => setErrorMessage(null)}
+            initialText={userQuery}
             onOpenHelp={() => setIsHelpOpen(true)}
             onOpenBrain={() => setIsBrainOpen(true)}
             onOpenApiPortal={() => setIsApiPortalOpen(true)}

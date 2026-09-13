@@ -40,36 +40,134 @@ elif "postgresql" in DATABASE_URL:
 engine = create_async_engine(DATABASE_URL, echo=False, connect_args=connect_args)
 async_session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
+import asyncio
+
+_db_initialized = False
+_db_init_lock: asyncio.Lock | None = None
+
+
+def _get_init_lock() -> asyncio.Lock:
+    global _db_init_lock
+    if _db_init_lock is None:
+        _db_init_lock = asyncio.Lock()
+    return _db_init_lock
+
+
+async def ensure_db_initialized() -> None:
+    """Ensure tables exist, especially in serverless runtimes where lifespan does not run."""
+    global _db_initialized
+    if not _db_initialized:
+        async with _get_init_lock():
+            if not _db_initialized:
+                await init_db()
+                _db_initialized = True
+
 
 async def init_db() -> None:
     """Create tables if they don't exist and ensure schema migrations."""
     if DATABASE_URL.startswith("sqlite"):
         Path(DB_PATH).parent.mkdir(parents=True, exist_ok=True)
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+    except Exception:
+        pass
+
+    # Explicit DDL fallback to guarantee tables exist even if catalog reflection behaves unexpectedly
+    table_ddls = [
+        """CREATE TABLE IF NOT EXISTS problems (
+            id VARCHAR(36) PRIMARY KEY,
+            schema_version VARCHAR(10) DEFAULT '0.2',
+            version INTEGER DEFAULT 1,
+            parent_id VARCHAR(36),
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            description_raw TEXT,
+            description_formalised TEXT DEFAULT '',
+            mode VARCHAR(20) DEFAULT 'optimize',
+            approved BOOLEAN DEFAULT FALSE,
+            approved_at TIMESTAMP WITH TIME ZONE,
+            ir_json JSON DEFAULT '{}'
+        )""",
+        """CREATE TABLE IF NOT EXISTS jobs (
+            id VARCHAR(36) PRIMARY KEY,
+            problem_id VARCHAR(36),
+            solver_name VARCHAR(50),
+            execution_status VARCHAR(20) DEFAULT 'QUEUED',
+            math_status VARCHAR(20),
+            source VARCHAR(40),
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            started_at TIMESTAMP WITH TIME ZONE,
+            completed_at TIMESTAMP WITH TIME ZONE,
+            solve_time_seconds FLOAT,
+            objective_value FLOAT,
+            error_message TEXT,
+            publication_status VARCHAR(30) DEFAULT 'PENDING_VERIFICATION',
+            result_json JSON,
+            verification_json JSON,
+            budget_json JSON,
+            metadata_json JSON DEFAULT '{}'
+        )""",
+        """CREATE TABLE IF NOT EXISTS cases (
+            id VARCHAR(36) PRIMARY KEY,
+            title VARCHAR(255),
+            context TEXT,
+            status VARCHAR(30) DEFAULT 'intake',
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            problem_ir_id VARCHAR(36),
+            case_json JSON DEFAULT '{}'
+        )""",
+        """CREATE TABLE IF NOT EXISTS cognitive_traces (
+            id VARCHAR(36) PRIMARY KEY,
+            owner_id VARCHAR(36),
+            workspace_id VARCHAR(36),
+            is_public BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            problem_fingerprint VARCHAR(128),
+            raw_user_query TEXT,
+            successful_ir_json JSON DEFAULT '{}',
+            winning_solver VARCHAR(50) DEFAULT 'unknown',
+            penalty_multipliers JSON DEFAULT '{}',
+            reward_score FLOAT DEFAULT 1.0,
+            lessons_learned TEXT DEFAULT ''
+        )""",
+        """CREATE TABLE IF NOT EXISTS cognitive_sessions (
+            id VARCHAR(36) PRIMARY KEY,
+            owner_id VARCHAR(36),
+            workspace_id VARCHAR(36),
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            working_memory_json JSON DEFAULT '{}',
+            energy_budget_json JSON DEFAULT '{}',
+            history_json JSON DEFAULT '[]'
+        )""",
+    ]
+    for ddl in table_ddls:
         try:
-            await conn.execute(text("ALTER TABLE jobs ADD COLUMN publication_status VARCHAR(30) DEFAULT 'PENDING_VERIFICATION'"))
+            async with engine.begin() as conn:
+                await conn.execute(text(ddl))
         except Exception:
-            pass  # Already exists
+            pass
 
-        for col, col_type in [
-            ("owner_id", "VARCHAR(36)"),
-            ("workspace_id", "VARCHAR(36)"),
-            ("is_public", "BOOLEAN DEFAULT 0"),
-        ]:
-            try:
-                await conn.execute(text(f"ALTER TABLE cognitive_traces ADD COLUMN {col} {col_type}"))
-            except Exception:
-                pass
-
+    # In PostgreSQL, execute each ALTER TABLE in its own transaction so one failure doesn't abort the entire block
+    migrations = [
+        "ALTER TABLE jobs ADD COLUMN publication_status VARCHAR(30) DEFAULT 'PENDING_VERIFICATION'",
+        "ALTER TABLE cognitive_traces ADD COLUMN owner_id VARCHAR(36)",
+        "ALTER TABLE cognitive_traces ADD COLUMN workspace_id VARCHAR(36)",
+        "ALTER TABLE cognitive_traces ADD COLUMN is_public BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE cognitive_sessions ADD COLUMN energy_budget_json JSON DEFAULT '{}'",
+    ]
+    for sql in migrations:
         try:
-            await conn.execute(text("ALTER TABLE cognitive_sessions ADD COLUMN energy_budget_json JSON DEFAULT '{}'"))
+            async with engine.begin() as conn:
+                await conn.execute(text(sql))
         except Exception:
             pass
 
 
-
 async def get_session() -> AsyncSession:
+    await ensure_db_initialized()
     async with async_session_factory() as session:
         yield session
+
 

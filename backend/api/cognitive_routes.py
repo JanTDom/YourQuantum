@@ -75,11 +75,15 @@ async def cognitive_intake(
     try:
         # 1. Retrieve or create CognitiveSessionRecord
         session_rec: CognitiveSessionRecord | None = None
+        session_id = req.session_id or new_uuid()
         if req.session_id:
-            session_rec = await session.get(CognitiveSessionRecord, req.session_id)
+            try:
+                session_rec = await session.get(CognitiveSessionRecord, req.session_id)
+            except Exception as get_err:
+                logger.warning("Nie udało się odczytać sesji kognitywnej z bazy: %s", get_err)
+                session_rec = None
 
         if session_rec is None:
-            session_id = req.session_id or new_uuid()
             session_rec = CognitiveSessionRecord(
                 id=session_id,
                 owner_id=req.owner_id,
@@ -88,9 +92,16 @@ async def cognitive_intake(
                 energy_budget_json={},
                 history_json=[],
             )
-            session.add(session_rec)
-            await session.commit()
-            await session.refresh(session_rec)
+            try:
+                session.add(session_rec)
+                await session.commit()
+                await session.refresh(session_rec)
+            except Exception as add_err:
+                logger.warning("Nie udało się utrwalić sesji kognitywnej w bazie: %s", add_err)
+                try:
+                    await session.rollback()
+                except Exception:
+                    pass
 
         # 2. Restore GlobalWorkspace and EnergyBudget from session
         workspace: GlobalWorkspace | None = None
@@ -137,7 +148,15 @@ async def cognitive_intake(
             "timestamp": datetime.now(timezone.utc).isoformat(),
         })
         session_rec.history_json = history
-        await session.commit()
+        try:
+            session.add(session_rec)
+            await session.commit()
+        except Exception as save_err:
+            logger.warning("Nie udało się zaktualizować sesji kognitywnej w bazie: %s", save_err)
+            try:
+                await session.rollback()
+            except Exception:
+                pass
 
         # 5. Populate session_id in response
         formalization.session_id = session_rec.id

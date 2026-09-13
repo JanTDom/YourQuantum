@@ -155,6 +155,28 @@ async def classify_problem_class_async(query: str, options_count: int = 0) -> Pr
     """
     Classify problem using LLMGateway with strict schema and fallback to offline heuristic (N4).
     """
+    # Check deterministic computability first (e.g. "jaki jest sens życia", "czy bóg istnieje")
+    is_comp, nc_rep = evaluate_problem_computability(query)
+    if not is_comp and nc_rep:
+        return ProblemClassification(
+            problem_class=ProblemClass.NOT_COMPUTABLE.value,
+            confidence=1.0,
+            reason=nc_rep.reason,
+            computable=False,
+            reframe_suggestions=nc_rep.reframe_suggestions,
+        )
+
+    # For extremely short / vague inputs (< 4 words), do not classify as NOT_COMPUTABLE; let InputQualityGate handle it
+    words = [w for w in query.strip().split() if len(w) > 1]
+    if len(words) < 4:
+        return ProblemClassification(
+            problem_class=ProblemClass.CHOICE.value,
+            confidence=0.5,
+            reason="Zbyt krótki tekst do rzetelnej klasyfikacji LLM.",
+            computable=True,
+            reframe_suggestions=[],
+        )
+
     from backend.infrastructure.llm_gateway import LLMGateway
     gateway = LLMGateway()
 

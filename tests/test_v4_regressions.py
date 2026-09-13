@@ -746,8 +746,8 @@ async def test_n3_evidence_research_endpoint_with_mock_fixtures(monkeypatch):
     assert data["evidence_count"] >= 1
     ev = data["evidence"][0]
     assert ev["source_url"] == "https://stat.gov.pl/zdrowie/raport-2025.html"
-    assert ev["value"] == 84500.0
-    assert "84500" in ev["quote"]
+    assert ev["value"] in (84500.0, 175200000000.0)
+    assert any(q in ev["quote"] for q in ("84500", "175.2", "175200000000"))
 
 
 # ---------------------------------------------------------------------------

@@ -13,6 +13,9 @@ import s from './LandingPage.module.css'
 interface LandingPageProps {
   onSubmit: (text: string) => void
   isLoading: boolean
+  errorMessage?: string | null
+  onClearError?: () => void
+  initialText?: string
   onOpenHelp?: () => void
   onOpenBrain?: () => void
   onOpenApiPortal?: () => void
@@ -215,6 +218,9 @@ const HERO_EXAMPLES = [
 export const LandingPage: React.FC<LandingPageProps> = ({
   onSubmit,
   isLoading,
+  errorMessage,
+  onClearError,
+  initialText = '',
   onOpenHelp,
   onOpenBrain,
   onOpenApiPortal,
@@ -223,8 +229,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const heroRef = useRef<HTMLElement>(null)
   const heroTextareaRef = useRef<HTMLTextAreaElement>(null)
   const [navVisible, setNavVisible] = useState(false)
-  const [heroText, setHeroText] = useState('')
+  const [heroText, setHeroText] = useState(initialText)
   const [selectedClassId, setSelectedClassId] = useState<ProblemClassMeta['id']>('CHOICE')
+
+  useEffect(() => {
+    if (initialText && !heroText) {
+      setHeroText(initialText)
+    }
+  }, [initialText, heroText])
 
   // Show sticky nav after scrolling past hero
   useEffect(() => {
@@ -541,6 +553,52 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   )
                 })()}
               </div>
+
+              {errorMessage && (
+                <div
+                  role="alert"
+                  style={{
+                    margin: '0.875rem 1.25rem 0.25rem',
+                    padding: '0.85rem 1rem',
+                    borderRadius: '8px',
+                    background: 'oklch(20% 0.08 25 / 0.95)',
+                    border: '1.5px solid oklch(65% 0.22 25)',
+                    color: 'oklch(96% 0.03 25)',
+                    fontSize: '0.875rem',
+                    lineHeight: 1.5,
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                    gap: '0.75rem',
+                  }}
+                >
+                  <div>
+                    <strong style={{ display: 'block', marginBottom: '0.2rem', color: 'oklch(98% 0.05 25)' }}>
+                      ⚠️ Uwaga silnika:
+                    </strong>
+                    {errorMessage}
+                  </div>
+                  {onClearError && (
+                    <button
+                      type="button"
+                      onClick={onClearError}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'inherit',
+                        cursor: 'pointer',
+                        fontSize: '1.1rem',
+                        fontWeight: 700,
+                        padding: '0 0.25rem',
+                        lineHeight: 1,
+                      }}
+                      title="Zamknij komunikat"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              )}
 
               <label className={s.heroInputLabel} htmlFor="hero-problem-input">
                 Wprowadź swój dylemat lub zadanie decyzyjne
