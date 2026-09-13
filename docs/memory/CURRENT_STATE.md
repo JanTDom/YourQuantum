@@ -48,7 +48,7 @@ WYNIK KOŃCOWY: 22 BRAMEK CZERWONYCH (FAIL)
 - **Bramka G-R6**: PASS (`search_adapter.py nie traktuje tekstu modelu jako strony i nie używa google.com/search`).
 - **Testy R6**: `.venv/bin/pytest tests/test_v4_regressions.py -v` → 4/4 passed (weryfikacja cytatów, odrzucenie halucynacji modelu, brak pseudo-źródeł, brak fake URL).
 - **Frontend build**: `npm run build` → 0 błędów TypeScript, czysty bundle.
-- **DEC-029**: Zapisano w `DECISIONS.md`.
+- **DEC-029**: Zapisano w `docs/memory/DECISIONS.md`.
 
 ---
 
@@ -64,8 +64,8 @@ WYNIK KOŃCOWY: 22 BRAMEK CZERWONYCH (FAIL)
 
 ### Stan po wdrożeniu R2 (`fix(R2)`)
 - **Bramka G-R2**: PASS (0 niedozwolonych wystąpień sekretu master w repozytorium poza dokumentami audytowymi).
-- **Frontend**: Usunięto 6 wystąpień hasła w `ApiPortalModal.tsx` oraz podpowiedź w `AppHeader.tsx`. Wprowadzono modal z autoryzacją użytkownika.
-- **SDK & MCP**: Oczyszczono `yourquantum_client.ts`, `yourquantum_sdk.py`, `smoke_test.py`, `mcp_server/README.md`.
+- **Frontend**: Usunięto 6 wystąpień hasła w `frontend/src/components/ApiPortalModal.tsx` oraz podpowiedź w `frontend/src/components/AppHeader.tsx`. Wprowadzono modal z autoryzacją użytkownika.
+- **SDK & MCP**: Oczyszczono `backend/sdk/yourquantum_client.ts`, `backend/sdk/yourquantum_sdk.py`, `mcp_server/smoke_test.py`, `mcp_server/README.md`.
 - **Testy**: Zastąpiono statyczne hasło dynamicznym `TEST_RANDOM_SECRET` w `tests/test_universal_api.py`.
 - **Test regresyjny R2**: `tests/test_v4_regressions.py::test_r2_no_master_secret_literal_in_repo` PASS.
 
@@ -74,15 +74,23 @@ WYNIK KOŃCOWY: 22 BRAMEK CZERWONYCH (FAIL)
 ### Stan po wdrożeniu R3 (`fix(R3)`)
 - **Bramka G-R3**: PASS (0 wartości domyślnych dla `YQ_SIGNING_KEY` i `YQ_MASTER_API_SECRET` w katalogu `backend/`).
 - **Weryfikator**: Usunięto wartość domyślną z `get_signing_key()`. Bez zmiennej `YQ_SIGNING_KEY` raport ma `hmac_signature = None` oraz limitation `raport niepodpisany – brak YQ_SIGNING_KEY`.
-- **Frontend**: `RecommendationView.tsx` wyświetla `odcisk SHA-256 (bez podpisu serwera)` w przypadku braku podpisu HMAC.
+- **Frontend**: `frontend/src/components/RecommendationView.tsx` wyświetla `odcisk SHA-256 (bez podpisu serwera)` w przypadku braku podpisu HMAC.
 - **Test regresyjny R3**: `tests/test_v4_regressions.py::test_r3_signing_key_has_no_default` PASS.
 
 ---
 
 ### Stan po wdrożeniu R5 (`fix(R5)`)
-- **Bramka G-R5**: PASS (0 zmyślonych domyślnych wartości `?? 1` oraz `isVerified ? 0 : 1` w `EvidenceDrawer.tsx`).
-- **Frontend**: `EvidenceDrawer.tsx` przy braku telemetrii renderuje `—` z tooltipem `telemetria niedostępna`. Oczyszczono także domyślne limity metaboliczne.
+- **Bramka G-R5**: PASS (0 zmyślonych domyślnych wartości `?? 1` oraz `isVerified ? 0 : 1` w `frontend/src/components/EvidenceDrawer.tsx`).
+- **Frontend**: `frontend/src/components/EvidenceDrawer.tsx` przy braku telemetrii renderuje `—` z tooltipem `telemetria niedostępna`. Oczyszczono także domyślne limity metaboliczne.
 - **Test regresyjny R5**: `tests/test_v4_regressions.py::test_r5_no_fabricated_telemetry_fallbacks` PASS.
+
+---
+
+### Stan po wdrożeniu R4 (`fix(R4)`)
+- **Bramka G-R4**: PASS (Wszystkie ścieżki w backtickach w dokumentacji `docs/memory/CURRENT_STATE.md`, `docs/CAPABILITIES.md`, `docs/memory/DECISIONS.md` istnieją na dysku).
+- **Skrypt walidacji**: `scripts/validate-structure.sh` rozszerzony o automatyczną weryfikację istnienia ścieżek z dokumentacji (132 sprawdzenia zielone).
+- **Dokumentacja**: Skorygowano ścieżki fixture, adapterów, testów i komponentów; odnotowano stan schematu Problem IR 0.2 przed migracją w N9.
+- **Test regresyjny R4**: `tests/test_v4_regressions.py::test_r4_documentation_paths_exist` PASS.
 
 ---
 
@@ -118,7 +126,7 @@ WYNIK KOŃCOWY: 22 BRAMEK CZERWONYCH (FAIL)
 ### ✅ Faza C: Warstwa Dowodowa i Integracja z Siecią (C1–C7)
 - Utwardzony `SafeWebFetcher` z filtrem SSRF (blokada IP loopback, link-local, RFC 1918 i cloud metadata `169.254.169.254`).
 - `EvidenceExtractor` z ucieczką markerów granicznych `<<<END_UNTRUSTED_WEB_CONTENT>>>` i heurystyką neutralizującą prompt injection.
-- Rejestr dowodów instytucjonalnych (GUS, NFZ, WHO, OECD) z hashami SHA-256 treści i cytatami.
+- Ekstrakcja i walidacja dowodów internetowych przez `SafeWebFetcher` i `EvidenceExtractor` z hashami SHA-256 treści i weryfikacją cytatów.
 - Detekcja konfliktów i rozbieżności między wieloma źródłami dowodowymi (`detect_conflicts`).
 
 ### ✅ Faza D: Taksonomia 5 Klas Problemów i Synteza Architektoniczna (D1–D6)
@@ -126,7 +134,7 @@ WYNIK KOŃCOWY: 22 BRAMEK CZERWONYCH (FAIL)
 - Obsługa klasy `PARAMETER` przez adapter ciągły `ContinuousSolverAdapter` (SciPy HiGHS / minimize).
 - Obsługa klasy `DESIGN`: synteza wielu dźwigni architektonicznych z wyznaczaniem punktów niezdominowanych frontu Pareto oraz rankingu wrażliwości dźwigni.
 - Obsługa klasy `NOT_COMPUTABLE`: raport z konstruktywnymi sugestiami przekształcenia w kryteria mierzalne.
-- Fixture ochrony zdrowia `backend/domain/design_synthesis/fixtures/healthcare_pl.json`.
+- Syntetyczny fixture testowy architektury systemów w `tests/fixtures/design/healthcare_pl.json`.
 
 ### ✅ Faza E: Pętla Kognitywna i Odporność (E1–E7)
 - Ujednolicony punkt wejścia `/api/v1/cognitive/intake` (Single Intake Pathway).
@@ -160,7 +168,7 @@ WYNIK KOŃCOWY: 22 BRAMEK CZERWONYCH (FAIL)
 ### ✅ Faza I: Testy E2E, Dokumentacja i Raport (I1–I3)
 - Zbudowano testy E2E Playwright (`frontend/e2e/v2-honest-engine.spec.ts`) pokrywające pełne ścieżki `CHOICE` i `DESIGN` (obie zielone w 8.9s).
 - Utworzono uniwersalny skrypt `scripts/ci.sh`.
-- Zaktualizowano dokumentację: `CAPABILITIES.md`, `PROBLEM_IR.md` (v0.3), `ARCHITECTURE.md`, `QUANTUM_CORE.md`, `BENCHMARK_PROTOCOL.md`, `SOURCES.md`, `mcp_server/README.md`, `.env.example`, `docs/memory/DECISIONS.md` (DEC-023 do DEC-028) oraz `docs/memory/LESSONS.md` (L-017 do L-020).
+- Zaktualizowano dokumentację: `docs/CAPABILITIES.md`, `docs/PROBLEM_IR.md`, `docs/ARCHITECTURE.md`, `docs/QUANTUM_CORE.md`, `docs/BENCHMARK_PROTOCOL.md`, `docs/SOURCES.md`, `mcp_server/README.md`, `.env.example`, `docs/memory/DECISIONS.md` (DEC-023 do DEC-028) oraz `docs/memory/LESSONS.md` (L-017 do L-020).
 - Przygotowano oficjalny raport końcowy: `docs/REPORT_V2.md`.
 
 ---

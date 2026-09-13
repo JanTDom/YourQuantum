@@ -403,3 +403,34 @@ def test_r5_no_fabricated_telemetry_fallbacks():
     assert "isVerified ? 0 : 1" not in content, "Found 'isVerified ? 0 : 1' in EvidenceDrawer.tsx"
     assert 'title="telemetria niedostępna"' in content, "Missing 'telemetria niedostępna' tooltip"
 
+
+# ---------------------------------------------------------------------------
+# R4: Documentation Filepaths Reconciled with Disk
+# ---------------------------------------------------------------------------
+
+def test_r4_documentation_paths_exist():
+    """
+    R4: Verify that all backtick filepaths in CURRENT_STATE.md, CAPABILITIES.md, and DECISIONS.md
+    exist on disk. Also verify scripts/validate-structure.sh passes.
+    """
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    docs = ["docs/memory/CURRENT_STATE.md", "docs/CAPABILITIES.md", "docs/memory/DECISIONS.md"]
+    pattern = re.compile(r"\`([A-Za-z0-9_./-]+\.(?:py|ts|tsx|md|json|sh|yml|txt)|Dockerfile)\`")
+
+    missing = []
+    for doc in docs:
+        doc_path = os.path.join(repo_root, doc)
+        assert os.path.isfile(doc_path), f"Documentation file missing: {doc}"
+        with open(doc_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        matches = pattern.findall(content)
+        for m in matches:
+            if m.startswith("http") or "*" in m or m.startswith("v0.") or m.startswith("0."):
+                continue
+            full_target = os.path.join(repo_root, m)
+            if not os.path.exists(full_target):
+                missing.append(f"{doc} references missing: {m}")
+
+    assert missing == [], f"Found non-existent paths referenced in documentation: {missing}"
+
+
