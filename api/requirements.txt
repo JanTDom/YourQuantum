@@ -1,4 +1,8 @@
-# Lightweight dependencies for YourQuantum API / Vercel Serverless
+# Dependencies for YourQuantum API on Vercel (Python runtime).
+# Heavy numeric/quantum stack included: Vercel raised the Python function
+# bundle limit to 500 MB, and "large functions" (beta) to 5 GB when Fluid
+# compute + Active CPU are enabled. Enabled here via the project env var
+# VERCEL_SUPPORT_LARGE_FUNCTIONS=1. See docs/SOURCES.md (2026-09-13).
 fastapi>=0.115.0
 uvicorn>=0.32.0
 pydantic>=2.10.0
@@ -9,3 +13,7 @@ httpx>=0.28.0
 python-dotenv>=1.0.1
 numpy>=2.1.0
 aiosqlite>=0.20.0
+scipy>=1.14.0
+ortools>=9.11.0
+qiskit>=1.2.0
+qiskit-aer>=0.15.0
