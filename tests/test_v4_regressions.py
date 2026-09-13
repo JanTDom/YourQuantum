@@ -382,3 +382,24 @@ def test_r3_signing_key_has_no_default(monkeypatch):
 
     assert signing_hits == [], f"Found default in getenv YQ_SIGNING_KEY: {signing_hits}"
     assert master_hits == [], f"Found default in getenv YQ_MASTER_API_SECRET: {master_hits}"
+
+
+# ---------------------------------------------------------------------------
+# R5: No Fabricated Fallback Telemetry in EvidenceDrawer
+# ---------------------------------------------------------------------------
+
+def test_r5_no_fabricated_telemetry_fallbacks():
+    """
+    R5: Verify EvidenceDrawer.tsx does not fabricate fallback metrics (?? 1, isVerified ? 0 : 1).
+    Verify fallback is '—' with title 'telemetria niedostępna'.
+    """
+    drawer_path = os.path.join(
+        os.path.dirname(__file__), "..", "frontend", "src", "components", "EvidenceDrawer.tsx"
+    )
+    with open(drawer_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    assert not re.search(r"\?\?\s*1\b", content), "Found '?? 1' in EvidenceDrawer.tsx"
+    assert "isVerified ? 0 : 1" not in content, "Found 'isVerified ? 0 : 1' in EvidenceDrawer.tsx"
+    assert 'title="telemetria niedostępna"' in content, "Missing 'telemetria niedostępna' tooltip"
+

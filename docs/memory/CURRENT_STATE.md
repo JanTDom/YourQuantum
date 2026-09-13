@@ -79,6 +79,13 @@ WYNIK KOŃCOWY: 22 BRAMEK CZERWONYCH (FAIL)
 
 ---
 
+### Stan po wdrożeniu R5 (`fix(R5)`)
+- **Bramka G-R5**: PASS (0 zmyślonych domyślnych wartości `?? 1` oraz `isVerified ? 0 : 1` w `EvidenceDrawer.tsx`).
+- **Frontend**: `EvidenceDrawer.tsx` przy braku telemetrii renderuje `—` z tooltipem `telemetria niedostępna`. Oczyszczono także domyślne limity metaboliczne.
+- **Test regresyjny R5**: `tests/test_v4_regressions.py::test_r5_no_fabricated_telemetry_fallbacks` PASS.
+
+---
+
 ## Wyniki weryfikacji empirycznej (Evidence-First DoD)
 
 - **Backend Pytest Suite**: `.venv/bin/pytest tests/ -v` → **157/157 passed in 39.41s** (zero błędów, zero regresji, 100% zielonych testów).
