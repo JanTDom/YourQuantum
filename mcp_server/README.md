@@ -32,7 +32,7 @@ Skopiuj plik `.env.example` lub ustaw zmienne w konfiguracji klienta:
 
 ```bash
 # Wymagany klucz API / hasło dostępu do YourQuantum:
-YQ_API_KEY=A132a132!
+YQ_API_KEY=<TWOJ_KLUCZ_API>
 
 # Opcjonalny adres bazowy API (domyślnie chmura produkcyjna):
 YQ_API_BASE_URL=https://yourquantum.pl
@@ -60,7 +60,7 @@ python -m mcp_server
 ### 3. Uruchomienie smoke-testu
 Aby sprawdzić działanie wszystkich narzędzi i łączność z API:
 ```bash
-YQ_API_KEY=A132a132! python mcp_server/smoke_test.py
+YQ_API_KEY=<TWOJ_KLUCZ_API> python mcp_server/smoke_test.py
 ```
 
 ---
@@ -83,7 +83,7 @@ Dodaj konfigurację serwera do pliku konfiguracyjnego Claude Desktop:
         "mcp_server"
       ],
       "env": {
-        "YQ_API_KEY": "A132a132!",
+        "YQ_API_KEY": "<TWOJ_KLUCZ_API>",
         "YQ_API_BASE_URL": "https://yourquantum.pl",
         "PYTHONPATH": "/Users/macbookpro/PROJEKTY/YOURQUANTUM"
       }

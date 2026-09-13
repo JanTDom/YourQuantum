@@ -353,8 +353,93 @@ Dedykowany kontener roboczy (Worker Container) eliminuje limity rozmiaru pamięc
 **Consequences:**
 - Obliczenia backendowe działają asynchronicznie (`JobRecord` ze statusem `QUEUED` -> `RUNNING` -> `COMPLETED`/`FAILED`).
 - `Dockerfile` w repozytorium definiuje oficjalny kontener obliczeniowy.
-- Środowisko deweloperskie i testowe lokalnie (`pytest`) uruchamia ten sam kod bezpośrednio w venv lub kontenerze Docker.
+---
 
+## DEC-023 — Rozszerzenie Problem IR o 5 klas problemów (Taxonomy v0.3)
 
+**Date:** 2026-09-13
+**Status:** ACTIVE
 
+**Decision:**
+Rozszerzyć Problem IR do wersji 0.3 wprowadzając taksonomię 5 fundamentalnych klas problemów:
+1. `CHOICE` — wielokryterialny wybór z dyskretnej listy opcji (wagi od użytkownika, analityczny próg zwrotny).
+2. `ALLOCATION` — podział zasobu/budżetu (plecak, portfel, harmonogramowanie) z ograniczeniami pojemności.
+3. `DESIGN` — synteza architektoniczna wielodźwigniowa (równoczesny dobór opcji z synergią i wykluczeniami).
+4. `PARAMETER` — ciągłe dostrajanie parametrów (SciPy HiGHS / minimalizacja ciągła).
+5. `NOT_COMPUTABLE` — dylematy etyczne/światopoglądowe; system odmawia fałszywych obliczeń i oferuje konstruktywne przekształcenie w mierzalne kryteria.
 
+**Rationale:**
+Zapobiega sztucznemu wtłaczaniu każdego pytania w jeden schemat (np. unikanie wymuszania QUBO tam, gdzie naturalny jest CP-SAT lub problem jest nieobliczalny).
+
+---
+
+## DEC-024 — Warstwa dowodowa, obrona przed wstrzyknięciem promptu i ochrona SSRF
+
+**Date:** 2026-09-13
+**Status:** ACTIVE
+
+**Decision:**
+Wprowadzić warstwę `Evidence Layer` pobierającą fakty z internetu wyłącznie przez utwardzony `SafeWebFetcher` z pre-rezolucją DNS i filtrem SSRF (blokującym loopback, link-local, RFC 1918 i adresy metadata chmury `169.254.169.254`). Treść stron zewnętrznych podlega sanityzacji w `EvidenceExtractor`: ucieczce markerów granicznych, neutralizacji poleceń prompt injection oraz heurystycznemu filtrowaniu zdań atakujących.
+
+**Rationale:**
+Zewnętrzne strony internetowe są z natury niezaufane na granicy systemu. Nieostrożne wstrzyknięcie tekstu strony w kontekst LLM mogłoby zafałszować liczby w modelu decyzyjnym (np. zerując koszty).
+
+---
+
+## DEC-025 — Synteza wielodźwigniowa (DESIGN Class) z frontem Pareto i rankingiem ważności
+
+**Date:** 2026-09-13
+**Status:** ACTIVE
+
+**Decision:**
+Dla klasy `DESIGN` interfejs i backend zwracają:
+1. Konfigurację optymalną z dowodem spójności reguł wykluczenia.
+2. Interaktywny 2D front Pareto punktów niezdominowanych (wielokryterialny trade-off).
+3. Ranking wrażliwości dźwigni (procentowy udział każdej dźwigni w zmienności wyniku systemu).
+4. Obowiązkowe zastrzeżenie formalne: *"Rozwiązanie model-optymalne (optymalne dla zdefiniowanego modelu i wag, nie absolutnie optymalne dla świata)"*.
+
+**Rationale:**
+Złożone decyzje publiczne i architektoniczne (np. reforma ochrony zdrowia) nie mają jednego „magicznego" punktu bez kompromisów; użytkownik musi widzieć przestrzeń wariantów Pareto i wiedzieć, która dźwignia decyduje o wyniku.
+
+---
+
+## DEC-026 — Rygorystyczna walidacja dowodu wykonania obwodu kwantowego (F1 Quantum Execution Evidence)
+
+**Date:** 2026-09-13
+**Status:** ACTIVE
+
+**Decision:**
+Wprowadzić moduł `backend/domain/quantum_evidence.py`. Żaden wynik oznaczony jako `source == QUANTUM_CIRCUIT_SIMULATION` lub `PHYSICAL_QPU_EXECUTION` nie może zostać opublikowany bez weryfikowalnego rekordu telemetrii obwodu: `circuit_depth > 0`, `gate_count > 0`, `shots > 0`, backend name.
+
+**Rationale:**
+Zgodnie z regułą dowodową AGENTS.md §7 i eliminacją błędu A1, zabrania się podszywania obliczeń klasycznych lub losowych liczb pod obwody kwantowe.
+
+---
+
+## DEC-027 — Wielopoziomowe limity zapytań (Sliding Window, Quotas, Circuit Breaker) i tokeny sesyjne
+
+**Date:** 2026-09-13
+**Status:** ACTIVE
+
+**Decision:**
+Wdrożyć `RateLimiter` w `backend/api/security_guard.py`:
+1. Ruchomy bufor czasowy (Sliding Window): 15 zapytań/min dla sesji anonimowych, 150 dla uwierzytelnionych.
+2. Dzienny limit per klient: 60 zapytań/dzień anonimowo, 600 zapytań/dzień autoryzowany.
+3. Globalny bezpiecznik kosztowy (Circuit Breaker): 600 wywołań LLM dziennie na całą instalację.
+4. Podpisywane kryptograficznie tokeny sesyjne HMAC-SHA256 (`yq_sess_<exp>_<hash>_<sig>`).
+
+**Rationale:**
+Ochrona budżetu API przed atakami Denial-of-Wallet oraz wyczerpaniem limitów zewnętrznych modeli bez autoryzacji.
+
+---
+
+## DEC-028 — Ścisła izolacja dzierżawców i bramka zgody w pamięci epizodycznej
+
+**Date:** 2026-09-13
+**Status:** ACTIVE
+
+**Decision:**
+Pamięć robocza sesji (`WorkingMemory`) jest trwała w ramach aktywnej sesji użytkownika w SQLite, natomiast pamięć epizodyczna (`EpisodicMemory`) podlega ścisłemu zakresowaniu per dzierżawca (`tenant_id`) i wymaga jednoznacznej, uprzedniej zgody użytkownika (`consent=True`). Przy braku zgody konsolidacja zostaje pominięta (`skipped`).
+
+**Rationale:**
+Zgodność z RODO/GDPR oraz eliminacja ryzyka przecieku danych wrażliwych i dylematów decyzyjnych między różnymi użytkownikami platformy.

@@ -75,9 +75,9 @@ export const ModelApprovalGate: React.FC<ModelApprovalGateProps> = ({
     blockingMissingInfo.length > 0 ||
     decisionCase?.input_quality?.level === 'too_vague'
 
-  const optionCount = formalized.binary_variables.length
+  const optionCount = formalized.binary_variables?.length || 0
   const constraintCount =
-    formalized.equality_constraints.length + formalized.inequality_constraints.length
+    (formalized.equality_constraints?.length || 0) + (formalized.inequality_constraints?.length || 0)
   const direction = formalized.objective_direction === 'maximize' ? 'maximize' : 'minimize'
 
   return (
@@ -488,12 +488,12 @@ export const ModelApprovalGate: React.FC<ModelApprovalGateProps> = ({
                     Twarde reguły matematyczne:
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-                    {formalized.equality_constraints.map((c, idx) => (
+                    {formalized.equality_constraints?.map((c, idx) => (
                       <div key={`eq-${idx}`} style={{ fontSize: '0.75rem', color: 'oklch(70% 0.02 250)', fontFamily: 'monospace' }}>
                         • {Object.entries(c.lhs).map(([k, v]) => `${v}·${k}`).join(' + ')} = {c.rhs} (równość)
                       </div>
                     ))}
-                    {formalized.inequality_constraints.map((c, idx) => (
+                    {formalized.inequality_constraints?.map((c, idx) => (
                       <div key={`ineq-${idx}`} style={{ fontSize: '0.75rem', color: 'oklch(70% 0.02 250)', fontFamily: 'monospace' }}>
                         • {Object.entries(c.lhs).map(([k, v]) => `${v}·${k}`).join(' + ')} ≤ {c.rhs} (ograniczenie zasobu)
                       </div>
