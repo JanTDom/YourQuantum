@@ -158,7 +158,7 @@ export const PROBLEM_CLASSES: ProblemClassMeta[] = [
     shortLabel: 'Synteza architektoniczna',
     icon: '🏗️',
     oneLiner: 'Równoczesny dobór spójnej konfiguracji wielu dźwigni architektonicznych z wykluczeniami i synergiami.',
-    exampleText: 'Optymalizacja reformy ochrony zdrowia: 4 dźwignie (model finansowania, rola płatnika, współpłacenie, organizacja szpitali) z zakazem łączenia kas regionalnych z pojedynczym płatnikiem i premiami za synergie.',
+    exampleText: 'Dobór architektury systemu rozproszonego: 4 dźwignie (baza danych, model spójności, kolejka zadań, sieć dostarczania) z regułami wykluczeń i premiami za synergię komponentów.',
     solverFit: 'Design QUBO + QAOA / CP-SAT',
   },
   {

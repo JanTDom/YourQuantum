@@ -162,3 +162,80 @@ def test_r6_grep_no_google_search_literal():
 
     assert "google.com/search" not in content
     assert "page_text=text" not in content
+
+
+# ---------------------------------------------------------------------------
+# R1: No Hardcoded Institutional Sources in Frontend, Synthetic Fixture
+# ---------------------------------------------------------------------------
+
+def test_r1_no_hardcoded_sources_in_frontend():
+    """
+    R1: grep frontend/src for stat.gov.pl|nfz.gov.pl|who.int|oecd.org must return 0 hits.
+    Also verify RecommendationView.tsx has no getDesignFixture call.
+    """
+    frontend_src = os.path.join(os.path.dirname(__file__), "..", "frontend", "src")
+    pattern = re.compile(r"stat\.gov\.pl|nfz\.gov\.pl|who\.int|oecd\.org")
+
+    hits = []
+    for root, _, files in os.walk(frontend_src):
+        for file in files:
+            if file.endswith((".ts", ".tsx", ".js", ".jsx", ".html", ".css")):
+                filepath = os.path.join(root, file)
+                with open(filepath, "r", encoding="utf-8") as f:
+                    for line_num, line in enumerate(f, 1):
+                        if pattern.search(line):
+                            hits.append(f"{filepath}:{line_num}: {line.strip()}")
+
+    assert hits == [], f"Found hardcoded institutional URLs in frontend: {hits}"
+
+    rec_view_path = os.path.join(frontend_src, "components", "RecommendationView.tsx")
+    with open(rec_view_path, "r", encoding="utf-8") as f:
+        rec_content = f.read()
+    assert "getDesignFixture(" not in rec_content
+
+
+def test_r1_design_fixture_is_synthetic():
+    """
+    R1: All URLs in tests/fixtures/design/healthcare_pl.json must start with https://example.test/
+    and file must declare synthetic_test_data: true.
+    """
+    import json
+    fixture_path = os.path.join(
+        os.path.dirname(__file__), "fixtures", "design", "healthcare_pl.json"
+    )
+    with open(fixture_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    assert data.get("synthetic_test_data") is True
+
+    # Check all URLs in the fixture
+    url_pattern = re.compile(r"https?://[^\s\"']+")
+    with open(fixture_path, "r", encoding="utf-8") as f:
+        raw_text = f.read()
+
+    found_urls = url_pattern.findall(raw_text)
+    assert len(found_urls) > 0, "Expected to find URLs in fixture"
+    for u in found_urls:
+        assert u.startswith("https://example.test"), f"URL {u} is not under https://example.test"
+
+
+def test_r1_fixture_endpoint_disabled_by_default():
+    """
+    R1: Endpoint /api/v1/design/fixtures/* must return 404 by default (without YQ_ENABLE_TEST_FIXTURES=1).
+    When YQ_ENABLE_TEST_FIXTURES=1 is set, it returns the fixture.
+    """
+    from fastapi.testclient import TestClient
+    from backend.main import app
+
+    client = TestClient(app)
+
+    # 1. By default -> 404
+    os.environ.pop("YQ_ENABLE_TEST_FIXTURES", None)
+    res_default = client.get("/api/v1/design/fixtures/healthcare_pl")
+    assert res_default.status_code == 404
+
+    # 2. With YQ_ENABLE_TEST_FIXTURES=1 -> 200
+    with patch.dict(os.environ, {"YQ_ENABLE_TEST_FIXTURES": "1"}):
+        res_enabled = client.get("/api/v1/design/fixtures/healthcare_pl")
+        assert res_enabled.status_code == 200
+        assert res_enabled.json().get("synthetic_test_data") is True

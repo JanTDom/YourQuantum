@@ -52,6 +52,16 @@ WYNIK KOŃCOWY: 22 BRAMEK CZERWONYCH (FAIL)
 
 ---
 
+### Stan po wdrożeniu R1 (`fix(R1)`)
+- **Bramki G-R1a, G-R1b, G-R1c**: PASS (0 literałów domen w frontend/src, getDesignFixture usunięte z UI, fixture healthcare_pl w 100% syntetyczny z example.test).
+- **Endpoint `/api/v1/design/fixtures/*`**: zablokowany (404) domyślnie, odblokowany tylko przy `YQ_ENABLE_TEST_FIXTURES=1`.
+- **Landing page**: przykład DESIGN zneutralizowany (architektura systemów rozproszonych zamiast ochrony zdrowia).
+- **Testy R1**: `.venv/bin/pytest tests/test_v4_regressions.py -v` → 7/7 passed.
+- **Frontend build**: `npm run build` → 0 błędów TypeScript (`tsc -b`).
+- **Errata**: Zapisana w `docs/REPORT_V2.md`.
+
+---
+
 ## Wyniki weryfikacji empirycznej (Evidence-First DoD)
 
 - **Backend Pytest Suite**: `.venv/bin/pytest tests/ -v` → **157/157 passed in 39.41s** (zero błędów, zero regresji, 100% zielonych testów).

@@ -2,9 +2,8 @@ import React, { useEffect, useState } from 'react'
 import {
   DecisionCase,
   DesignSynthesisResult,
+  Evidence,
   JobResult,
-  getDesignFixture,
-  synthesizeDesign,
 } from '../api'
 import { EvidenceDrawer } from './EvidenceDrawer'
 
@@ -17,6 +16,7 @@ interface RecommendationViewProps {
   sessionId?: string | null
   problemClass?: string | null
   designSynthesis?: DesignSynthesisResult | null
+  evidenceList?: Evidence[]
 }
 
 export const RecommendationView: React.FC<RecommendationViewProps> = ({
@@ -28,6 +28,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
   sessionId,
   problemClass = 'CHOICE',
   designSynthesis,
+  evidenceList,
 }) => {
   const isVerified = result.publication_status === 'PUBLISHED_VERIFIED'
   const assignment = result.solver_result?.assignment ?? {}
@@ -36,39 +37,25 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
   const isDesign =
     problemClass === 'DESIGN' ||
     result.metadata?.problem_class === 'DESIGN' ||
-    Boolean(designSynthesis) ||
-    Boolean(decisionCase?.context?.toLowerCase().includes('reforma'))
+    Boolean(designSynthesis)
 
   // State for loaded DESIGN synthesis data
   const [designData, setDesignData] = useState<DesignSynthesisResult | null>(designSynthesis || null)
   const [selectedParetoIdx, setSelectedParetoIdx] = useState<number>(0)
-  const [isDesignLoading, setIsDesignLoading] = useState<boolean>(false)
+  const isDesignLoading = false
 
-  // Fetch or calculate design synthesis if in DESIGN mode and not yet provided
   useEffect(() => {
-    if (!isDesign || designData) return
-
-    let isMounted = true
-    setIsDesignLoading(true)
-
-    getDesignFixture('healthcare_pl')
-      .then((fixture) => synthesizeDesign(fixture))
-      .then((res) => {
-        if (isMounted && res?.synthesis) {
-          setDesignData(res.synthesis)
-        }
-      })
-      .catch((err) => {
-        console.warn('Could not load healthcare design fixture synthesis:', err)
-      })
-      .finally(() => {
-        if (isMounted) setIsDesignLoading(false)
-      })
-
-    return () => {
-      isMounted = false
+    if (designSynthesis) {
+      setDesignData(designSynthesis)
     }
-  }, [isDesign, designData])
+  }, [designSynthesis])
+
+  const verifiedEvidence: Evidence[] = (
+    evidenceList ||
+    (result.metadata?.evidence as Evidence[] | undefined) ||
+    ((result as any).evidence as Evidence[] | undefined) ||
+    []
+  ).filter((ev) => ev && ev.source_url && ev.content_hash)
 
   // Map solver variable names to human option titles (CHOICE mode)
   const chosenVarNames = Object.entries(assignment)
@@ -632,47 +619,62 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                   4. Zweryfikowane źródła instytucjonalne i podstawy dowodowe
                 </h2>
 
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-                  gap: '0.875rem',
-                }}>
-                  {[
-                    { inst: 'Główny Urząd Statystyczny (GUS)', doc: 'Raport Ochrona Zdrowia w Polsce 2024/2025', url: 'https://stat.gov.pl/zdrowie', quote: 'Wydatki bieżące na ochronę zdrowia wyniosły 6.8% PKB' },
-                    { inst: 'Narodowy Fundusz Zdrowia (NFZ)', doc: 'Sprawozdanie Finansowe i Plan Świadczeń', url: 'https://nfz.gov.pl/o-nas', quote: 'Koszty świadczeń gwarantowanych i struktura kontraktowania' },
-                    { inst: 'World Health Organization (WHO)', doc: 'Beveridge vs Bismarck Health Financing Report', url: 'https://who.int/health-systems', quote: 'Wskaźniki elastyczności cenowej i sprawiedliwości dystrybucyjnej' },
-                    { inst: 'OECD Health Statistics', doc: 'Health at a Glance: Europe 2024', url: 'https://oecd.org/health', quote: 'Porównanie wielofunduszowości i decentralizacji płatnika' },
-                  ].map((src, i) => (
-                    <div
-                      key={i}
-                      style={{
-                        background: 'oklch(12% 0.02 250)',
-                        border: '1px solid oklch(20% 0.025 250)',
-                        borderRadius: '8px',
-                        padding: '1rem',
-                        fontSize: '0.8125rem',
-                      }}
-                    >
-                      <div style={{ fontWeight: 800, color: 'oklch(88% 0.02 250)', marginBottom: '0.25rem' }}>
-                        🏛️ {src.inst}
-                      </div>
-                      <div style={{ fontSize: '0.75rem', color: 'oklch(75% 0.12 80)', marginBottom: '0.4rem' }}>
-                        {src.doc}
-                      </div>
-                      <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.75rem', color: 'oklch(65% 0.02 250)', fontStyle: 'italic' }}>
-                        „{src.quote}”
-                      </p>
-                      <a
-                        href={src.url}
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        style={{ fontSize: '0.6875rem', color: 'oklch(75% 0.15 220)', textDecoration: 'none' }}
+                {verifiedEvidence.length === 0 ? (
+                  <div style={{
+                    padding: '1.5rem',
+                    background: 'oklch(12% 0.015 250)',
+                    border: '1px dashed oklch(25% 0.02 250)',
+                    borderRadius: '8px',
+                    color: 'oklch(65% 0.02 250)',
+                    fontSize: '0.875rem',
+                    textAlign: 'center',
+                  }}>
+                    Brak źródeł zewnętrznych. Wszystkie wartości pochodzą od użytkownika lub są założeniami.
+                  </div>
+                ) : (
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+                    gap: '0.875rem',
+                  }}>
+                    {verifiedEvidence.map((ev, i) => (
+                      <div
+                        key={ev.id || i}
+                        style={{
+                          background: 'oklch(12% 0.02 250)',
+                          border: '1px solid oklch(20% 0.025 250)',
+                          borderRadius: '8px',
+                          padding: '1rem',
+                          fontSize: '0.8125rem',
+                        }}
                       >
-                        Przejdź do źródła ↗
-                      </a>
-                    </div>
-                  ))}
-                </div>
+                        <div style={{ fontWeight: 800, color: 'oklch(88% 0.02 250)', marginBottom: '0.25rem' }}>
+                          🏛️ {ev.publisher || ev.source_title || 'Źródło zewnętrzne'}
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'oklch(75% 0.12 80)', marginBottom: '0.4rem' }}>
+                          {ev.claim || ev.source_title}
+                        </div>
+                        <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.75rem', color: 'oklch(65% 0.02 250)', fontStyle: 'italic' }}>
+                          „{ev.quote}”
+                        </p>
+                        <div style={{ fontSize: '0.6875rem', color: 'oklch(55% 0.02 250)', marginBottom: '0.4rem', fontFamily: 'monospace' }}>
+                          Hash: {ev.content_hash.slice(0, 16)}...
+                        </div>
+                        <div style={{ fontSize: '0.6875rem', color: 'oklch(55% 0.02 250)', marginBottom: '0.4rem' }}>
+                          Pobrano: {new Date(ev.retrieved_at).toLocaleString()}
+                        </div>
+                        <a
+                          href={ev.source_url}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          style={{ fontSize: '0.6875rem', color: 'oklch(75% 0.15 220)', textDecoration: 'none' }}
+                        >
+                          Przejdź do źródła ↗
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* ── 5. Next Steps for Implementation ────────── */}
