@@ -137,10 +137,33 @@ Wszystkie testy backendu (59/59) przechodzą pomyślnie. Build frontendu (TypeSc
 ---
 
 ## Wyniki weryfikacji empirycznej
-- **Backend Test Suite**: `./.venv/bin/pytest tests/` → **126 passed in 67.80s** (100% zielonych testów, zero błędów, zero regresji).
+### ✅ V2 Honest Engine — Phase D (Klasy problemów — nie tylko wybór między opcjami, D1–D6)
+1. **D1 (Jawna klasyfikacja ProblemClass i ochrona przed niepoliczalnymi pytaniami)**:
+   - Zaimplementowano taksonomię `ProblemClass` (CHOICE, ALLOCATION, DESIGN, PARAMETER, NOT_COMPUTABLE) w `backend/domain/problem_classes.py`.
+   - Funkcja `evaluate_problem_computability` chroni przed halucynowaniem pseudo-naukowych odpowiedzi na pytania filozoficzne i czysto spekulacyjne, oferując uczciwe wyjaśnienie („nie da się policzyć") i konstruktywne propozycje przeformułowania problemu (`NotComputableReport`).
+2. **D2 (Kombinatoryczny model klasy DESIGN i zakaz fabrykowanych synergii)**:
+   - Zaimplementowano modele `DesignProblem`, `DesignLever`, `LeverOption`, `DesignCriterion`, `Interaction`.
+   - Wprowadzono twardą regułę: **każda niezerowa synergia wymaga zweryfikowanego źródła lub jawnego oznaczenia założeń** (`validate_synergy_source()`). Zero wymyślonych bonusów/kar!
+   - Kompilacja do `ProblemIR`: zmienne binarne per (dźwignia, opcja), ścisłe więzy one-hot ($\sum x_{l,o} = 1$), ograniczenia wykluczeń ($x_a + x_b \le 1$) oraz linearyzacja iloczynów synergii ($y = x_a \cdot x_b$) metodą Forteta z zachowaniem liniowości celu dla CP-SAT i dokładności QUBO.
+3. **D3 (Front Pareto metodą wielokryterialną)**:
+   - Zaimplementowano algorytm `compute_design_pareto_frontier` wyznaczający zbiór rozwiązań niezdominowanych pod kątem przeciwstawnych kryteriów (np. koszt vs dostępność vs równość).
+4. **D4 (Adapter optymalizacji ciągłej SciPy HiGHS)**:
+   - Zbudowano `ContinuousSolverAdapter` w `backend/solvers/continuous.py` dla zmiennych `CONTINUOUS`, wykorzystujący silnik HiGHS ze ścisłym wyliczaniem residuów ograniczeń `numerical_residual`. Zarejestrowano w `SOLVER_REGISTRY` i dynamicznym rejestrze możliwości.
+5. **D5 (Skill i dokumentacja standardu syntezy)**:
+   - Utworzono skill `.agents/skills/yq-design-synthesis/SKILL.md` opisujący procedurę dekompozycji i zasady braku fabrykowanych synergii.
+   - Zaktualizowano `docs/PROBLEM_IR.md` do wersji schematu v0.3 uwzględniającej `ProblemClass` i nowe proweniencje.
+6. **D6 (Fixtura i test reformy ochrony zdrowia)**:
+   - Zbudowano fixturę `tests/fixtures/design/healthcare_pl.json` (4 dźwignie, 3 kryteria, incompatibilities, synergie).
+   - Opracowano zestaw testów `tests/test_phase_d_problem_classes.py` (6/6 testów przechodzi pomyślnie).
+
+---
+
+## Wyniki weryfikacji empirycznej
+- **Backend Test Suite**: `./.venv/bin/pytest tests/` → **132 passed in 66.51s** (100% zielonych testów, zero błędów, zero regresji).
   * 11 dedykowanych testów Phase A regressions (`tests/test_phase_a_regressions.py`).
   * 8 dedykowanych testów Phase B regressions (`tests/test_phase_b_regressions.py`).
   * 7 dedykowanych testów Phase C evidence & SSRF (`tests/test_phase_c_evidence.py`).
+  * 6 dedykowanych testów Phase D problem classes & synthesis (`tests/test_phase_d_problem_classes.py`).
   * 12 testów kognitywnych i API w `tests/unit/` oraz `tests/integration/`.
   * 88 testów regresyjnych, solverów, weryfikatora, QUBO, QAOA, MCP i API.
 - **Frontend Typecheck & Build**: `npm run build` → 0 błędów TypeScript (`tsc -b`), czysty build produkcyjny Vite (`dist/`).
@@ -149,9 +172,12 @@ Wszystkie testy backendu (59/59) przechodzą pomyślnie. Build frontendu (TypeSc
 ---
 
 ## Następny krok (Next Step)
-- Rozpoczęcie **Fazy D (Klasy problemów — nie tylko wybór między opcjami, D1–D4)**:
-  * D1: Taksonomia `ProblemClass` (CHOICE, ALLOCATION, DESIGN, PARAMETER, NOT_COMPUTABLE) z jawnym potwierdzeniem w UI.
-  * D2: Model klasy DESIGN (synteza wielodźwigniowa): `DesignLever`, `LeverOption`, `DesignCriterion`, interakcje (synergie i wykluczenia) z kompilacją do modelu kombinatorycznego.
-  * D3: Wyniki klasy DESIGN: konfiguracja optymalna, front Pareto metodą $\varepsilon$-constraint, ranking dźwigni, opis „Jak wyglądałoby to w praktyce" oparty na dowodach.
-  * D4: Klasa PARAMETER: adapter optymalizacji ciągłej `backend/solvers/continuous.py` (SciPy minimize/HiGHS) z numerycznym residuum weryfikatora.
+- Rozpoczęcie **Fazy E (Warstwa mózgowa: Z dekoracji w rdzeń, E1–E7)**:
+  * E1: Jedna ścieżka intake `POST /api/v1/cognitive/intake` jako główne wejście; orkiestracja percepcji, klasyfikacji, recallu i bramek jakości.
+  * E2: Trwała pamięć robocza `GlobalWorkspace` z powiązaniem do `session_id`.
+  * E3: Zamknięcie pętli active inference: sprzężenie zwrotne weryfikatora i wymóg ponownego zatwierdzenia modelu przy nowej hipotezie (DEC-002).
+  * E4: Rzeczywisty budżet metaboliczny (tokeny, wyszukiwania, solvery) w `EnergyBudget`.
+  * E5: Anonimizowana konsolidacja epizodyczna wyłącznie za jawną zgodą użytkownika.
+  * E6: Panel Cognitive Inspector w UI.
+  * E7: Zintegrowane testy pętli kognitywnej.
 

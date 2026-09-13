@@ -99,6 +99,15 @@ def get_capabilities_registry() -> list[CapabilityRecord]:
             description="Linear programming dual bound certificate generation via SciPy HiGHS.",
         ),
         CapabilityRecord(
+            id="solver-continuous",
+            name="SciPy Continuous Optimization Adapter",
+            category="Classical Solvers",
+            status=CapabilityStatus.TESTED,
+            test_coverage_ref="tests/test_phase_d_problem_classes.py",
+            description="Continuous parameter optimization using SciPy HiGHS / minimize with numerical residuals.",
+            is_available=solver_status.get("scipy_continuous", (False, ""))[0],
+        ),
+        CapabilityRecord(
             id="solver-z3",
             name="Z3 SMT Solver Adapter",
             category="Classical Solvers",

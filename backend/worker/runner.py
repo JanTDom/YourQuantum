@@ -24,6 +24,7 @@ from backend.db.models import JobRecord, ProblemRecord
 from backend.domain.problem_ir import ComputeBudget, ProblemIR
 from backend.solvers.base import ExecutionStatus, SolverAdapter, SolverResult
 from backend.solvers.cpsat import CPSATAdapter
+from backend.solvers.continuous import ContinuousSolverAdapter
 from backend.solvers.hybrid_benders import HybridBendersAdapter
 from backend.solvers.quantum.qaoa import QAOAAdapter
 from backend.verifier.verifier import IndependentVerifier, SolverCandidate
@@ -35,6 +36,7 @@ SOLVER_REGISTRY: list[SolverAdapter] = [
     CPSATAdapter(),
     QAOAAdapter(),
     HybridBendersAdapter(),
+    ContinuousSolverAdapter(),
 ]
 
 

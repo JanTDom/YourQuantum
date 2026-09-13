@@ -69,6 +69,7 @@ class SolverResult:
     lower_bound: float | None = None
     optimality_gap: float | None = None
     certificate: dict[str, Any] | None = None
+    numerical_residual: float | None = None
 
     # Metadata
     solver_backend_status: str = ""    # raw status string from backend
