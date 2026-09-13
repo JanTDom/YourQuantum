@@ -934,6 +934,26 @@ def test_n7_universal_engine_approval_gate_and_problem_router():
     assert resp_ok.verification["feasible"] is True
 
 
+# ---------------------------------------------------------------------------
+# N8: Zero Unsupported Hallucination Claims in UI and Help Service
+# ---------------------------------------------------------------------------
+
+def test_n8_no_unsupported_hallucination_claims_in_ui_and_help_service():
+    """
+    N8: Verify that frontend/src and backend/api/help_service.py contain
+    zero occurrences of the word 'halucynac*'.
+    """
+    import subprocess
+    from pathlib import Path
+
+    repo_root = Path(__file__).parent.parent
+    cmd = 'grep -rni "halucynac" frontend/src backend/api/help_service.py'
+    res = subprocess.run(cmd, shell=True, cwd=repo_root, capture_output=True, text=True)
+    assert res.returncode != 0, f"Found forbidden hallucination claims:\n{res.stdout}"
+    assert len(res.stdout.strip()) == 0
+
+
+
 
 
 

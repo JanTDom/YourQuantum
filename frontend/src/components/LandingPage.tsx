@@ -459,7 +459,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   <span className={s.terminalStatusText}>INTERFEJS KOGNITYWNY · BRAIN ARCHITECTURE</span>
                 </div>
                 <div className={s.terminalEngineBadge}>
-                  145 TESTÓW CI · ZERO HALUCYNACJI
+                  145 TESTÓW CI · NIEZALEŻNA WERYFIKACJA
                 </div>
               </div>
 

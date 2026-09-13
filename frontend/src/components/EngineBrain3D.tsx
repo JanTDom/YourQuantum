@@ -28,7 +28,7 @@ export const BRAIN_LOBES: Record<BrainLobeId, LobeInfo> = {
     cameraPos: [0, 4, 19],
     targetPos: [0, 0.5, 3],
     explanation:
-      "Prefrontalna pamięć robocza w RAM. Zamiast 'czarnej skrzynki' generującej losowe słowa, Global Workspace trzyma cel w ognisku uwagi, a cybernetyczny budżet metaboliczny reguluje energię i eliminuje halucynacje.",
+      "Prefrontalna pamięć robocza w RAM. Zamiast 'czarnej skrzynki' generującej losowe słowa, Global Workspace trzyma cel w ognisku uwagi, a cybernetyczny budżet metaboliczny reguluje energię i wymusza weryfikację ograniczeń.",
     bulletPoints: [
       "Global Workspace: ognisko uwagi na kluczowych zmiennych decyzyjnych.",
       "Cybernetyczna homeostaza: twardy limit tokenów i cykli metabolicznych.",
