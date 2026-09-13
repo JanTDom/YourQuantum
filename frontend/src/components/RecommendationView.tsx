@@ -658,6 +658,87 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
             </div>
           </div>
 
+          {/* ── 4b. NA CZYM OPARLIŚMY TĘ REKOMENDACJĘ & CZEGO NIE WIEMY (Phase C6) ── */}
+          <div style={{
+            background: 'oklch(11% 0.02 250)',
+            border: '1px solid oklch(22% 0.025 250)',
+            borderRadius: '10px',
+            padding: '1.5rem',
+            marginBottom: '1.5rem',
+          }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
+              {/* Na czym oparliśmy tę rekomendację */}
+              <div>
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: '0.5rem',
+                  fontSize: '0.8125rem', fontWeight: 800,
+                  letterSpacing: '0.08em', textTransform: 'uppercase',
+                  color: 'oklch(75% 0.12 80)', marginBottom: '0.75rem',
+                }}>
+                  <span>🌐</span> Na czym oparliśmy tę rekomendację
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {decisionCase?.facts && decisionCase.facts.length > 0 ? (
+                    decisionCase.facts.map((f) => (
+                      <div key={f.id} style={{
+                        fontSize: '0.8125rem', padding: '0.5rem 0.75rem',
+                        background: 'oklch(13% 0.022 250)', borderRadius: '6px',
+                        border: '1px solid oklch(20% 0.025 250)',
+                      }}>
+                        <strong style={{ color: 'oklch(88% 0.015 250)' }}>{f.label}:</strong>{' '}
+                        <span style={{ color: 'oklch(75% 0.12 80)' }}>{String(f.value)} {f.unit || ''}</span>
+                        {f.source_text && (
+                          <div style={{ fontSize: '0.75rem', color: 'oklch(56% 0.018 250)', marginTop: '0.2rem' }}>
+                            👤 Źródło: {f.source_text}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <div style={{ fontSize: '0.8125rem', color: 'oklch(60% 0.02 250)' }}>
+                      Wszystkie parametry zostały ustalone bezpośrednio na podstawie Twojego opisu i zatwierdzonego modelu matematycznego.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Czego nie wiemy */}
+              <div>
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: '0.5rem',
+                  fontSize: '0.8125rem', fontWeight: 800,
+                  letterSpacing: '0.08em', textTransform: 'uppercase',
+                  color: 'oklch(75% 0.15 45)', marginBottom: '0.75rem',
+                }}>
+                  <span>⚠️</span> Czego nie wiemy i co założyliśmy
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {decisionCase?.unknowns && decisionCase.unknowns.filter(u => !u.is_resolved).length > 0 ? (
+                    decisionCase.unknowns.filter(u => !u.is_resolved).map((u) => (
+                      <div key={u.id} style={{
+                        fontSize: '0.8125rem', padding: '0.5rem 0.75rem',
+                        background: 'oklch(14% 0.03 45 / 0.3)', borderRadius: '6px',
+                        border: '1px solid oklch(28% 0.06 45 / 0.5)',
+                        color: 'oklch(80% 0.08 45)',
+                      }}>
+                        <strong>Brak danych:</strong> {u.question}
+                        {u.default_assumption && (
+                          <div style={{ fontSize: '0.75rem', color: 'oklch(68% 0.06 45)', marginTop: '0.2rem' }}>
+                            Założenie robocze: {u.default_assumption}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <div style={{ fontSize: '0.8125rem', color: 'oklch(60% 0.02 250)' }}>
+                      Brak nierozwiązanych wątpliwości — wszystkie kluczowe zmienne decyzyjne zostały jawnie określone.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* ── 5. NEXT STEP ───────────────────────────────── */}
           <div style={{
             background: 'linear-gradient(135deg, oklch(13% 0.03 80) 0%, oklch(13% 0.03 240) 100%)',

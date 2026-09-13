@@ -211,4 +211,22 @@ def get_capabilities_registry() -> list[CapabilityRecord]:
             test_coverage_ref="tests/test_mcp_server.py",
             description="Universal LLM tool integration supporting Claude, Cursor, and IDE extensions.",
         ),
+
+        # Evidence Layer (Phase C)
+        CapabilityRecord(
+            id="ev-web-research",
+            name="Evidence Research Layer",
+            category="Evidence",
+            status=CapabilityStatus.TESTED,
+            test_coverage_ref="tests/test_phase_c_evidence.py",
+            description="Empirical web evidence gathering with SHA-256 content hashes and verbatim quote verification.",
+        ),
+        CapabilityRecord(
+            id="ev-conflict-detection",
+            name="Multi-Source Conflict & Spread Detection",
+            category="Evidence",
+            status=CapabilityStatus.TESTED,
+            test_coverage_ref="tests/test_phase_c_evidence.py",
+            description="Automatic divergence and spread detection across conflicting web sources.",
+        ),
     ]

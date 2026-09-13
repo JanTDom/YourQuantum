@@ -113,12 +113,34 @@ Wszystkie testy backendu (59/59) przechodzą pomyślnie. Build frontendu (TypeSc
 7. **B7 (Aktualizacja narzędzi w MCP Server)**:
    - Narzędzie `yq_optimize_options` w `mcp_server/server.py` przyjmuje `criteria_matrix`, zwraca `routing_record` oraz transparentne źródło obliczeń (`compute_source`).
 
+### ✅ V2 Honest Engine — Phase C (Warstwa dowodowa: Dane z sieci jako pierwszorzędny obywatel, C1–C7)
+1. **C1 (Architektura hexagonalna warstwy dowodowej)**:
+   - Utworzono moduł domenowy `backend/domain/evidence/` (`models.py`, `ports.py`, `planner.py`, `__init__.py`) oraz moduł infrastruktury `backend/infrastructure/web_research/` (`fetcher.py`, `html_text.py`, `search_adapter.py`, `extractor.py`).
+   - Wdrożono port `EvidenceSourcePort` realizowany przez adapter `WebResearchAdapter` obsługujący wyszukiwarki (Tavily/Serper/Generic), pliki fixture offline oraz deterministyczny tryb bezkluczowy („offline_user_data_only").
+2. **C2 (Model dowodu i integralność SHA-256)**:
+   - Zaimplementowano model `Evidence` z unikalnym identyfikatorem, jednozdaniową tezą (`claim`), wyekstrahowaną wartością numeryczną/tekstową, jednostką, adresem URL, tytułem, wydawcą, czasem pobrania, hashem SHA-256 pobranego dokumentu (`content_hash`), dosłownym cytatem (`quote` $\le 300$ znaków), metodą ekstrakcji (`extraction_method`) i listą powiązanych konfliktów (`conflicts_with`).
+3. **C3 (Pętla badawcza ResearchPlanner i weryfikacja cytatów)**:
+   - `ResearchPlanner` skanuje macierz `DecisionCase` w poszukiwaniu komórek bez zweryfikowanego źródła (`source_ref`) i formułuje zwięzłe, chroniące prywatność zapytania `ResearchQuery` (bez wycieku tekstu prywatnego dylematu użytkownika).
+   - W `EvidenceExtractor` wprowadzono **bezwzględną weryfikację cytatu**: `if not quote or quote.strip() not in doc.page_text: reject_evidence()`. Zapobiega to jakimkolwiek halucynacjom liczb z pamięci modeli autoregresyjnych!
+4. **C4 (Konflikty i rozpiętość źródeł)**:
+   - Zaimplementowano detekcję rozbieżności między źródłami `EvidenceConflict`. Przy rozbieżnych wartościach liczbowych system wyznacza przedział rozpiętości (`spread_min`, `spread_max`), kandydata mediany oraz wzajemnie linkuje identyfikatory w `conflicts_with`, uniemożliwiając ciche arbitralne wybory.
+5. **C5 (Bezpieczeństwo SSRF i prompt isolation)**:
+   - `SafeWebFetcher` weryfikuje adresy URL pod kątem SSRF (odrzuca metadane chmurowe `169.254.169.254`, pętle zwrotne `127.0.0.1`, `localhost`, zakresy prywatne RFC1918, adresy link-local i schematy inne niż HTTP/HTTPS).
+   - Ograniczenia: limit rozmiaru dokumentu 2 MB, limit przekierowań z ponowną weryfikacją każdego skoku, izolacja tekstu w dedykowanych znacznikach `<<<UNTRUSTED_WEB_CONTENT>>>`.
+6. **C6 (UI — panel źródeł, dowodów i niepewności)**:
+   - Zaktualizowano `frontend/src/api.ts` o typy `Evidence`, `EvidenceConflict`, `ScoredValue` oraz metody `researchEvidence` i `getEvidenceRecord`.
+   - Zaktualizowano `RecommendationView.tsx` o sekcję „Na czym oparliśmy tę rekomendację" oraz „Czego nie wiemy i co założyliśmy".
+7. **C7 (Weryfikacja testowa i fixtury)**:
+   - Utworzono katalog `tests/fixtures/web/` z realistycznymi dokumentami HTML i wynikami wyszukiwania.
+   - Opracowano zestaw testów `tests/test_phase_c_evidence.py` (7/7 testów przechodzi pomyślnie: integralność hashy, blokada SSRF, odrzucenie sfabrykowanego cytatu, detekcja konfliktu i mediana, integracja z `DecisionCase`, zasilenie `DataSource` w `ProblemIR`, endpointy REST).
+
 ---
 
 ## Wyniki weryfikacji empirycznej
-- **Backend Test Suite**: `./.venv/bin/pytest tests/` → **119 passed in 68.55s** (100% zielonych testów, zero błędów, zero regresji).
+- **Backend Test Suite**: `./.venv/bin/pytest tests/` → **126 passed in 67.80s** (100% zielonych testów, zero błędów, zero regresji).
   * 11 dedykowanych testów Phase A regressions (`tests/test_phase_a_regressions.py`).
   * 8 dedykowanych testów Phase B regressions (`tests/test_phase_b_regressions.py`).
+  * 7 dedykowanych testów Phase C evidence & SSRF (`tests/test_phase_c_evidence.py`).
   * 12 testów kognitywnych i API w `tests/unit/` oraz `tests/integration/`.
   * 88 testów regresyjnych, solverów, weryfikatora, QUBO, QAOA, MCP i API.
 - **Frontend Typecheck & Build**: `npm run build` → 0 błędów TypeScript (`tsc -b`), czysty build produkcyjny Vite (`dist/`).
@@ -127,12 +149,9 @@ Wszystkie testy backendu (59/59) przechodzą pomyślnie. Build frontendu (TypeSc
 ---
 
 ## Następny krok (Next Step)
-- Rozpoczęcie **Fazy C (Web Research & Evidence — dane z sieci jako pierwszorzędny obywatel, C1–C7)**:
-  * C1: Port domenowy `Evidence` i adapter `backend/infrastructure/web_research/`.
-  * C2: Model dowodu `Evidence` z hashem treści, cytatami i metadanymi URL.
-  * C3: Pętla `ResearchPlanner` z weryfikacją cytatów (`quote in page_text`).
-  * C4: Obsługa sprzeczności danych i niepewności w UI i modelu IR.
-  * C5: Bezpieczeństwo SSRF, allowlista/blocklista domen i rate-limiting.
-  * C6: Panel UI "Źródła i dowody" w frontendzie.
-  * C7: Testy jednostkowe z mockami zapytań sieciowych.
+- Rozpoczęcie **Fazy D (Klasy problemów — nie tylko wybór między opcjami, D1–D4)**:
+  * D1: Taksonomia `ProblemClass` (CHOICE, ALLOCATION, DESIGN, PARAMETER, NOT_COMPUTABLE) z jawnym potwierdzeniem w UI.
+  * D2: Model klasy DESIGN (synteza wielodźwigniowa): `DesignLever`, `LeverOption`, `DesignCriterion`, interakcje (synergie i wykluczenia) z kompilacją do modelu kombinatorycznego.
+  * D3: Wyniki klasy DESIGN: konfiguracja optymalna, front Pareto metodą $\varepsilon$-constraint, ranking dźwigni, opis „Jak wyglądałoby to w praktyce" oparty na dowodach.
+  * D4: Klasa PARAMETER: adapter optymalizacji ciągłej `backend/solvers/continuous.py` (SciPy minimize/HiGHS) z numerycznym residuum weryfikatora.
 

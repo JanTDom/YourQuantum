@@ -121,11 +121,50 @@ export interface DecisionCase {
   tradeoffs: CaseTradeoff[]
   priority_tokens?: string[]
   selected_priority_tokens?: string[]
+  score_matrix?: Record<string, Record<string, ScoredValue>>
   break_even_point?: string | null
   input_quality?: InputQuality
   created_at: string
   updated_at: string
   problem_ir_id?: string | null
+}
+
+export interface ScoredValue {
+  value: number
+  unit?: string | null
+  provenance: 'user_supplied' | 'derived' | 'assumed' | 'web_sourced' | 'llm_extracted'
+  source_ref?: string | null
+  confidence: number
+}
+
+export interface Evidence {
+  id: string
+  claim: string
+  value: number | string | null
+  unit?: string | null
+  source_url: string
+  source_title: string
+  publisher?: string | null
+  published_at?: string | null
+  retrieved_at: string
+  content_hash: string
+  quote: string
+  extraction_method: 'llm_extracted' | 'api_field' | 'table_cell' | 'user_verified'
+  confidence: number
+  conflicts_with: string[]
+  target_param?: string | null
+}
+
+export interface EvidenceConflict {
+  id: string
+  target_param: string
+  evidence_ids: string[]
+  divergent_values: (number | string)[]
+  spread_min?: number | null
+  spread_max?: number | null
+  resolution_method: string
+  resolved_value?: number | string | null
+  notes: string
 }
 
 export interface ConstraintResult {
@@ -467,5 +506,33 @@ export interface HelpResponse {
   glossary: Array<{ term: string; meaning: string }>
 }
 
+export async function researchEvidence(params: {
+  case_id?: string
+  target_parameters?: Array<{ param_id: string; query_text: string; expected_unit?: string; rationale?: string }>
+  max_results_per_param?: number
+}): Promise<{
+  status: string
+  evidence_count: number
+  conflict_count: number
+  evidence: Evidence[]
+  conflicts: EvidenceConflict[]
+  port_status: Record<string, unknown>
+}> {
+  const res = await fetch(`${BASE_URL}/evidence/research`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  })
+  if (!res.ok) {
+    throw new Error(`Błąd badania źródeł: ${res.statusText}`)
+  }
+  return res.json()
+}
 
-
+export async function getEvidenceRecord(id: string): Promise<Evidence> {
+  const res = await fetch(`${BASE_URL}/evidence/${id}`)
+  if (!res.ok) {
+    throw new Error(`Nie znaleziono rekordu dowodu: ${id}`)
+  }
+  return res.json()
+}

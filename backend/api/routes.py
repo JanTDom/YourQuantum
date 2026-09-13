@@ -744,4 +744,74 @@ async def verify_audit_passport_endpoint(req: VerificationCheckRequest) -> dict[
     }
 
 
+# ---------------------------------------------------------------------------
+# C1-C6: Evidence Layer Endpoints
+# ---------------------------------------------------------------------------
 
+GLOBAL_EVIDENCE_STORE: dict[str, Any] = {}
+
+
+class EvidenceResearchRequest(BaseModel):
+    case_id: str | None = None
+    target_parameters: list[dict[str, Any]] | None = None
+    max_results_per_param: int = 2
+
+
+@router.post("/evidence/research")
+async def conduct_evidence_research(req: EvidenceResearchRequest) -> dict[str, Any]:
+    """
+    C1-C5: Research missing parameters across the public web using ResearchPlanner.
+    Enforces quote verification and returns validated Evidence records and conflicts.
+    """
+    from backend.domain.evidence.models import Evidence, ResearchQuery
+    from backend.domain.evidence.planner import ResearchPlanner
+    from backend.infrastructure.web_research.search_adapter import WebResearchAdapter
+    from backend.infrastructure.web_research.extractor import EvidenceExtractor
+
+    adapter = WebResearchAdapter()
+    extractor = EvidenceExtractor()
+    planner = ResearchPlanner(evidence_port=adapter, extractor=extractor)
+
+    queries: list[ResearchQuery] = []
+    if req.target_parameters:
+        for idx, tp in enumerate(req.target_parameters):
+            param_id = str(tp.get("param_id") or f"param_{idx+1}")
+            q_text = str(tp.get("query_text") or tp.get("name") or param_id)
+            queries.append(
+                ResearchQuery(
+                    id=f"rq_{uuid.uuid4().hex[:8]}",
+                    target_param=param_id,
+                    query_text=q_text,
+                    expected_unit=tp.get("expected_unit"),
+                    rationale=tp.get("rationale", ""),
+                )
+            )
+
+    evidence_list, conflicts = await planner.execute_research_plan(
+        queries=queries,
+        max_results_per_query=req.max_results_per_param,
+    )
+
+    for ev in evidence_list:
+        GLOBAL_EVIDENCE_STORE[ev.id] = ev
+
+    return {
+        "status": "COMPLETED",
+        "evidence_count": len(evidence_list),
+        "conflict_count": len(conflicts),
+        "evidence": [ev.model_dump() for ev in evidence_list],
+        "conflicts": [c.model_dump() for c in conflicts],
+        "port_status": adapter.get_status(),
+    }
+
+
+@router.get("/evidence/{evidence_id}")
+async def get_evidence_record(evidence_id: str) -> dict[str, Any]:
+    """
+    C2: Retrieve detailed Evidence record by ID.
+    """
+    ev = GLOBAL_EVIDENCE_STORE.get(evidence_id)
+    if not ev:
+        raise HTTPException(status_code=404, detail=f"Evidence '{evidence_id}' not found")
+
+    return ev.model_dump() if hasattr(ev, "model_dump") else dict(ev)

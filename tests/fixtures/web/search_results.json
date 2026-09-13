@@ -1,0 +1,16 @@
+{
+  "zdrowie nakłady koszty": [
+    {
+      "title": "Raport Zdrowie 2025 - Wydatki na Ochronę Zdrowia w Polsce",
+      "url": "https://stat.gov.pl/zdrowie/raport-2025.html",
+      "snippet": "Publiczne nakłady na ochronę zdrowia w 2025 roku wyniosły 175.2 miliarda złotych.",
+      "score": 0.95
+    },
+    {
+      "title": "Analiza Niezależnego Ośrodka Studiów - Koszty Ochrony Zdrowia",
+      "url": "https://nos.org.pl/zdrowie-naklady.html",
+      "snippet": "Łączne publiczne nakłady na ochronę zdrowia osiągnęły 182.0 miliarda złotych.",
+      "score": 0.88
+    }
+  ]
+}
