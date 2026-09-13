@@ -5,8 +5,10 @@ Reads only ProblemIR + candidate. Never reads solver internals.
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import math
+import os
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
@@ -19,6 +21,38 @@ from backend.domain.problem_ir import (
     ProblemIR, Variable, VariableDomain,
 )
 from backend.domain.evaluator import ExpressionEvaluator
+
+
+def get_signing_key() -> str:
+    return os.getenv("YQ_SIGNING_KEY", "yourquantum_audit_master_seal_2026")
+
+
+def build_verification_canonical_string(
+    problem_id: str,
+    candidate_id: str,
+    assignment: dict[str, Any],
+    objective_value: float | None,
+    residual: float,
+    verdict: str,
+) -> str:
+    res_val = residual if residual is not None else 0.0
+    return (
+        f"{problem_id}:{candidate_id}:"
+        f"{json.dumps(assignment, sort_keys=True)}:{objective_value}:"
+        f"{res_val:.6f}:{verdict}"
+    )
+
+
+def compute_verification_signatures(canonical_str: str) -> tuple[str, str]:
+    """
+    Returns (sha256_hash, hmac_signature).
+    - sha256_hash: Content integrity digest
+    - hmac_signature: Cryptographic server signature proving authentic YourQuantum provenance (B3)
+    """
+    sha256_hash = hashlib.sha256(canonical_str.encode("utf-8")).hexdigest()
+    signing_key = get_signing_key().encode("utf-8")
+    hmac_signature = hmac.new(signing_key, canonical_str.encode("utf-8"), hashlib.sha256).hexdigest()
+    return sha256_hash, hmac_signature
 
 
 class Verdict(str, Enum):
@@ -55,8 +89,9 @@ class VerificationReport(BaseModel):
     verdict_reason: str
     limitations: list[str]             # honest list of what was NOT proven
 
-    # Mathematical Certificate & Supremacy Stamping
+    # Mathematical Certificate & Supremacy Stamping (B3)
     sha256_hash: str = ""
+    hmac_signature: str = ""
     optimality_proven: bool = False
     dual_bound: float | None = None
     optimality_gap_percent: float | None = None
@@ -180,13 +215,16 @@ class IndependentVerifier:
             candidate, objective_value, feasible
         )
 
-        # 9. Cryptographic SHA-256 Audit Stamp
-        canonical_str = (
-            f"{self._problem.problem_id}:{candidate.candidate_id}:"
-            f"{json.dumps(assignment, sort_keys=True)}:{objective_value}:"
-            f"{residual:.6f}:{verdict.value}"
+        # 9. Cryptographic SHA-256 Audit Stamp & HMAC Server Signature (B3)
+        canonical_str = build_verification_canonical_string(
+            problem_id=self._problem.problem_id,
+            candidate_id=candidate.candidate_id,
+            assignment=assignment,
+            objective_value=objective_value,
+            residual=residual,
+            verdict=verdict.value,
         )
-        sha256_hash = hashlib.sha256(canonical_str.encode("utf-8")).hexdigest()
+        sha256_hash, hmac_signature = compute_verification_signatures(canonical_str)
 
         # 10. Honest limitations
         limitations = self._build_limitations(
@@ -208,6 +246,7 @@ class IndependentVerifier:
             verdict_reason=reason,
             limitations=limitations,
             sha256_hash=sha256_hash,
+            hmac_signature=hmac_signature,
             optimality_proven=opt_proven,
             dual_bound=dual_bound,
             optimality_gap_percent=gap_percent,

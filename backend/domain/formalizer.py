@@ -533,59 +533,92 @@ Zwróć WYŁĄCZNIE poprawny JSON (application/json):
             return None
 
     def formalize_case(self, case: DecisionCase) -> FormalizationResult:
-        """Compile a structured DecisionCase (with options and user answers) into FormalizationResult."""
-        if self.gemini_api_key:
-            try:
-                res = self._try_llm_formalize_case(case)
-                if res is not None:
-                    return res
-            except Exception as e:
-                logger.warning(f"Gemini formalize_case failed: {e}; using heuristic fallback")
+        """
+        Compile a structured DecisionCase into a mathematically rigorous FormalizationResult
+        using deterministic multi-criteria utility aggregation and analytical break-even calculation.
+        Eliminates subjective LLM attractiveness scoring (B1).
+        """
+        from backend.domain.decision_matrix import (
+            compute_option_utilities,
+            calculate_analytical_break_even,
+            calculate_criteria_weights,
+        )
 
-        # Deterministic fallback using the real options from the case
-        if case.options:
-            var_names: list[str] = []
-            seen: set[str] = set()
-            for opt in case.options:
-                slug = self._slugify(opt.title)
-                cur = slug
-                idx = 2
-                while cur in seen:
-                    cur = f"{slug}_{idx}"
-                    idx += 1
-                seen.add(cur)
-                var_names.append(cur)
-
-            coeffs = {v: 1.0 for v in var_names}
-            opt_titles = ", ".join(f"'{o.title}'" for o in case.options)
-            count = len(case.options)
-
-            desc = (
-                f"Dylemat: {case.title}\n\n"
-                f"Rozpatrywane opcje ({count}): {opt_titles}.\n"
-                f"System dokona wyboru najkorzystniejszej opcji na podstawie podanych kryteriów i ograniczeń."
-            )
-
+        if not case.options:
             return FormalizationResult(
                 description_raw=case.context or case.title,
-                description_formalised=desc,
-                binary_variables=var_names,
+                description_formalised="Brak zdefiniowanych opcji do wyboru.",
+                binary_variables=[],
                 objective_direction="maximize",
-                objective_coefficients=coeffs,
-                equality_constraints=[{"lhs": {v: 1.0 for v in var_names}, "rhs": 1.0}],
-                inequality_constraints=[],
-                assumptions=[
-                    f"Wymóg decyzyjny: należy wybrać dokładnie jedną z rozważanych opcji ({count})."
-                ],
-                missing_information=[u.question for u in case.unknowns if not u.is_resolved],
+                objective_coefficients={},
+                missing_information=["Zdefiniuj co najmniej dwie opcje decyzyjne."],
                 identified_archetype="decision_dilemma",
-                break_even_point=(
-                    f"Gdyby druga oferta podniosła kluczowe warunki (np. zaoferowała wyższą stawkę lub większą swobodę decyzyjną), "
-                    f"wynik analizy przechyliłby się na jej korzyść."
-                ),
             )
 
-        return self.formalize(case.context or case.title)
+        var_names: list[str] = []
+        slug_to_opt: dict[str, Option] = {}
+        seen: set[str] = set()
+        for opt in case.options:
+            slug = self._slugify(opt.title)
+            cur = slug
+            idx = 2
+            while cur in seen:
+                cur = f"{slug}_{idx}"
+                idx += 1
+            seen.add(cur)
+            var_names.append(cur)
+            slug_to_opt[cur] = opt
+
+        # Calculate multi-criteria utilities if criteria are defined
+        assumptions: list[str] = [
+            f"Wymóg wyboru dokładnie jednej opcji spośród {len(case.options)} wariantów (one-hot)."
+        ]
+        if case.criteria:
+            raw_utilities = compute_option_utilities(case)
+            coeffs = {slug: float(raw_utilities.get(opt.id, 1.0)) for slug, opt in slug_to_opt.items()}
+            weights = calculate_criteria_weights(case)
+            assumptions.append(
+                f"Wagi kryteriów wyznaczone jawnie z preferencji użytkownika: "
+                + ", ".join(f"{c.name}: {weights.get(c.id, 0.0):.2f}" for c in case.criteria)
+            )
+        else:
+            coeffs = {v: 1.0 for v in var_names}
+
+        # For <= 3 options in an additive linear model, note that combinatorial solvers are not required (DEC-003)
+        if len(case.options) <= 3:
+            assumptions.append(
+                "Dla 3 lub mniej opcji w addytywnym modelu wielokryterialnym optymalny wybór wynika bezpośrednio z analitycznej sumy ważonej; heurystyczny solver kwantowy nie jest wymagany (DEC-003)."
+            )
+
+        # Calculate analytical break-even point (DEC-015)
+        be_analysis = calculate_analytical_break_even(case)
+        break_even_point = be_analysis.summary_pl if be_analysis else None
+
+        # Check missing information from unknowns and matrix cells
+        is_valid, matrix_errs = case.validate_for_modeling()
+        unknown_errs = [u.question for u in case.unknowns if not u.is_resolved]
+        missing_info = unknown_errs + matrix_errs
+
+        opt_titles = ", ".join(f"'{o.title}'" for o in case.options)
+        desc = (
+            f"Dylemat: {case.title}\n\n"
+            f"Rozpatrywane opcje ({len(case.options)}): {opt_titles}.\n"
+            f"Ocena użyteczności oparta na znormalizowanej macierzy kryteriów i preferencjach użytkownika."
+        )
+
+        return FormalizationResult(
+            description_raw=case.context or case.title,
+            description_formalised=desc,
+            binary_variables=var_names,
+            objective_direction="maximize",
+            objective_coefficients=coeffs,
+            equality_constraints=[{"lhs": {v: 1.0 for v in var_names}, "rhs": 1.0}],
+            inequality_constraints=[],
+            assumptions=assumptions,
+            missing_information=missing_info,
+            identified_archetype="decision_dilemma",
+            break_even_point=break_even_point,
+        )
 
     def _try_llm_formalize_case(self, case: DecisionCase) -> FormalizationResult | None:
         """

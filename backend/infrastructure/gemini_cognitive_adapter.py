@@ -122,6 +122,8 @@ class GeminiCognitiveAdapter(CognitiveReasoningPort):
             f"3. Zwróć wyłącznie prawidłowy dokument JSON ściśle według schematu:\n{schema_format}"
         )
 
+        from backend.infrastructure.llm_gateway import LLMGateway
+
         exemplar_prompts: list[dict[str, Any]] = []
         if analogies:
             for ex in analogies:
@@ -142,35 +144,18 @@ class GeminiCognitiveAdapter(CognitiveReasoningPort):
                 + "\nSkoryguj definicję ograniczeń lub wag kar, aby wyeliminować powyższe błędy."
             )
 
-        payload = {
-            "system_instruction": {
-                "parts": [{"text": system_instruction}],
-            },
-            "contents": [
-                *exemplar_prompts,
-                {
-                    "role": "user",
-                    "parts": [{"text": user_content}],
-                },
-            ],
-            "generationConfig": {
-                "temperature": 0.0,
-                "responseMimeType": "application/json",
-            },
-        }
+        gateway = LLMGateway(api_key=self.api_key, model=self.model, timeout=self.timeout)
+        response = await gateway.generate(
+            system_instruction=system_instruction,
+            user_content=user_content,
+            purpose="cognitive_formalization",
+            few_shots=exemplar_prompts,
+        )
 
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            response = await client.post(url, json=payload)
-            response.raise_for_status()
-            data = response.json()
+        if response.is_offline or response.parsed_json is None:
+            raise ValueError(f"Gemini gateway error: {response.error or 'empty response'}")
 
-        candidates = data.get("candidates", [])
-        if not candidates:
-            raise ValueError("Gemini returned empty candidates list.")
-
-        text_content = candidates[0]["content"]["parts"][0]["text"]
-        parsed = json.loads(text_content)
-        return self._parse_json_to_formalization_result(query, parsed, error_context)
+        return self._parse_json_to_formalization_result(query, response.parsed_json, error_context)
 
     def _parse_json_to_formalization_result(
         self,

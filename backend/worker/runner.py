@@ -116,11 +116,21 @@ async def _run_job(job_id: str) -> None:
             await _fail_job(session, job, f"Failed to deserialise problem: {e}")
         return
 
-    adapter = get_adapter_by_name(job.solver_name)
+    from backend.domain.router import ProblemRouter
+
+    router = ProblemRouter()
+    routing_decision = router.route(problem)
+    routing_record = routing_decision.routing_record
+
+    target_solver = job.solver_name
+    if target_solver in ("auto", "router", ""):
+        target_solver = routing_decision.recommended_solver
+
+    adapter = get_adapter_by_name(target_solver)
     if adapter is None:
         async with async_session_factory() as session:
             job = await session.get(JobRecord, job_id)
-            await _fail_job(session, job, f"Unknown solver: {job.solver_name!r}")
+            await _fail_job(session, job, f"Unknown solver: {target_solver!r}")
         return
 
     # Run solver in thread pool to avoid blocking event loop
@@ -167,6 +177,13 @@ async def _run_job(job_id: str) -> None:
                         report.objective_value,
                     )
                     verification_json["robustness"] = rob_report.model_dump(mode="json")
+
+                    resolve_report = sens_engine.analyze_resolve(
+                        candidate.candidate_id,
+                        candidate.assignment,
+                        budget,
+                    )
+                    verification_json["resolve_sensitivity"] = resolve_report.model_dump(mode="json")
                 except Exception as sens_err:
                     logger.warning(f"Sensitivity analysis failed for job {job_id}: {sens_err}")
             else:
@@ -192,6 +209,9 @@ async def _run_job(job_id: str) -> None:
         job.publication_status = publication_status
         job.result_json = _solver_result_to_json(result)
         job.verification_json = verification_json
+        meta = dict(job.metadata_json or {})
+        meta["routing_record"] = routing_record
+        job.metadata_json = meta
         await session.commit()
 
     logger.info(
@@ -246,9 +266,19 @@ async def run_job_sync(job_id: str, session: AsyncSession) -> JobRecord:
         await _fail_job(session, job, f"Failed to deserialise problem: {e}")
         return job
 
-    adapter = get_adapter_by_name(job.solver_name)
+    from backend.domain.router import ProblemRouter
+
+    router = ProblemRouter()
+    routing_decision = router.route(problem)
+    routing_record = routing_decision.routing_record
+
+    target_solver = job.solver_name
+    if target_solver in ("auto", "router", ""):
+        target_solver = routing_decision.recommended_solver
+
+    adapter = get_adapter_by_name(target_solver)
     if adapter is None:
-        await _fail_job(session, job, f"Unknown solver: {job.solver_name!r}")
+        await _fail_job(session, job, f"Unknown solver: {target_solver!r}")
         return job
 
     loop = asyncio.get_event_loop()
@@ -289,6 +319,13 @@ async def run_job_sync(job_id: str, session: AsyncSession) -> JobRecord:
                         report.objective_value,
                     )
                     verification_json["robustness"] = rob_report.model_dump(mode="json")
+
+                    resolve_report = sens_engine.analyze_resolve(
+                        candidate.candidate_id,
+                        candidate.assignment,
+                        budget,
+                    )
+                    verification_json["resolve_sensitivity"] = resolve_report.model_dump(mode="json")
                 except Exception as sens_err:
                     logger.warning(f"Sensitivity analysis failed for job {job_id}: {sens_err}")
             else:
@@ -309,6 +346,9 @@ async def run_job_sync(job_id: str, session: AsyncSession) -> JobRecord:
     job.publication_status = publication_status
     job.result_json = _solver_result_to_json(result)
     job.verification_json = verification_json
+    meta = dict(job.metadata_json or {})
+    meta["routing_record"] = routing_record
+    job.metadata_json = meta
     await session.commit()
     await session.refresh(job)
 

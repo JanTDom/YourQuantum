@@ -55,6 +55,7 @@ async def optimize_options(
     incompatible_pairs: Optional[List[List[str]]] = None,
     solver: Literal["auto", "hybrid_benders", "qaoa", "cpsat"] = "auto",
     domain: str = "general",
+    criteria_matrix: Optional[Dict[str, Dict[str, Any]]] = None,
 ) -> str:
     """
     Kompiluje i rozwiązuje problem decyzyjny z pełną weryfikacją matematyczną.
@@ -259,11 +260,18 @@ async def optimize_options(
         "",
         "### 4. Metryki i audyt obliczeniowy:",
         f"- **Wartość funkcji celu**: `{total_obj:,.2f}`",
+        f"- **Rzeczywiste źródło obliczeń**: `{res.get('source', res.get('compute_source', 'KLASYCZNY_SOLVER'))}`",
         f"- **Zastosowany silnik**: `{solver_used}`",
         f"- **Dowód optymalności**: `{'TAK (Globalne Optimum Udowodnione)' if proven else 'Przybliżone (Heurystyka)'}`"
         + (f" (Luka optymalności: `{optimality_gap:.2f}%`)" if optimality_gap is not None else ""),
-        f"- **Paszport kryptograficzny SHA-256**: `{sha_passport}`",
+        f"- **Paszport integralności SHA-256**: `{sha_passport}`",
     ])
+
+    routing_record = res.get("routing_record") or (res.get("metadata") or {}).get("routing_record")
+    if routing_record:
+        rec_solver = routing_record.get("recommended_solver", solver_used)
+        comparisons = routing_record.get("comparison_solvers", [])
+        summary_lines.append(f"- **Rekomendacja routera**: `{rec_solver}`" + (f" (porównano z: {', '.join(comparisons)})" if comparisons else ""))
 
     if sensitivity:
         summary_lines.extend([

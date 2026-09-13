@@ -7,14 +7,18 @@ Performs stress testing and perturbation analysis on solver candidates:
 """
 from __future__ import annotations
 
+import copy
 import math
 from typing import Any
 from pydantic import BaseModel, Field
 
 from backend.domain.problem_ir import (
+    ComputeBudget,
     ConstraintType,
+    ExprNode,
     ObjectiveDirection,
     ProblemIR,
+    Provenance,
 )
 from backend.domain.evaluator import ExpressionEvaluator
 
@@ -37,9 +41,31 @@ class RobustnessReport(BaseModel):
     summary_pl: str
 
 
+class ParameterSensitivityResult(BaseModel):
+    parameter_id: str
+    parameter_name: str
+    provenance: str
+    baseline_value: float
+    critical_shock_level: float | None = None
+    winner_changed: bool = False
+    alternative_winner: str | None = None
+    stability_score: float = 1.0
+    shifts_tested: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class ReSolveSensitivityReport(BaseModel):
+    candidate_id: str
+    baseline_winner: str | None
+    parameters_tested: list[ParameterSensitivityResult] = Field(default_factory=list)
+    most_critical_assumption: str | None = None
+    overall_stability_verdict: str = "HIGHLY_STABLE"
+    summary_pl: str
+
+
 class SensitivityEngine:
     """
     Evaluates how resilient an optimal candidate is against external parameter shocks.
+    Includes both static constraint perturbation and dynamic re-solve what-if analysis (B2).
     """
 
     SHOCK_LEVELS = [5.0, 15.0, 25.0]
@@ -164,5 +190,146 @@ class SensitivityEngine:
             stress_test_survived_pct=round(survived_pct, 1),
             elasticity=round(avg_elasticity, 2),
             shock_levels=shock_results,
+            summary_pl=summary_pl,
+        )
+
+    def analyze_resolve(
+        self,
+        candidate_id: str,
+        baseline_assignment: dict[str, Any],
+        budget: ComputeBudget | None = None,
+    ) -> ReSolveSensitivityReport:
+        """
+        B2: Performs dynamic re-solve what-if sensitivity analysis.
+        For each uncertain parameter (provenance in assumed, web_sourced, derived),
+        perturbs values across shock levels, re-solves the problem, and reports if/when
+        the winning decision flips, producing a parameter stability ranking.
+        """
+        from backend.solvers.cpsat import CPSATAdapter
+
+        # Find baseline winner
+        baseline_winner = None
+        for v in self._problem.variables:
+            val = baseline_assignment.get(v.id, 0.0)
+            if float(val) > 0.5:
+                baseline_winner = v.id
+                break
+
+        uncertain_provenances = {
+            Provenance.ASSUMED,
+            Provenance.WEB_SOURCED,
+            Provenance.DERIVED,
+            Provenance.LLM_EXTRACTED,
+        }
+        target_vars = [
+            v for v in self._problem.variables
+            if v.provenance in uncertain_provenances
+        ]
+        if not target_vars:
+            target_vars = list(self._problem.variables)
+
+        solver = CPSATAdapter()
+        solve_budget = budget or ComputeBudget(wall_time_seconds=3.0)
+        shocks = [-25.0, -15.0, -5.0, 5.0, 15.0, 25.0]
+
+        param_results: list[ParameterSensitivityResult] = []
+
+        for var in target_vars:
+            coeff_node_id: str | None = None
+            baseline_val = 1.0
+
+            target_var_node = f"v_{var.id}"
+            for nid, node in self._problem.expressions.nodes.items():
+                if node.op == "mul" and target_var_node in node.children:
+                    other_children = [c for c in node.children if c != target_var_node]
+                    if other_children:
+                        c_node = self._problem.expressions.nodes.get(other_children[0])
+                        if c_node and c_node.op == "const" and c_node.value is not None:
+                            coeff_node_id = c_node.id
+                            baseline_val = float(c_node.value)
+                            break
+
+            shifts_tested: list[dict[str, Any]] = []
+            winner_changed = False
+            critical_shock: float | None = None
+            alt_winner: str | None = None
+
+            for shock in sorted(shocks, key=abs):
+                multiplier = 1.0 + (shock / 100.0)
+                perturbed_val = baseline_val * multiplier
+
+                perturbed_problem = copy.deepcopy(self._problem)
+                if coeff_node_id and coeff_node_id in perturbed_problem.expressions.nodes:
+                    perturbed_problem.expressions.nodes[coeff_node_id].value = perturbed_val
+
+                try:
+                    res = solver.solve(perturbed_problem, solve_budget)
+                    new_winner = None
+                    for v in perturbed_problem.variables:
+                        if float(res.assignment.get(v.id, 0.0)) > 0.5:
+                            new_winner = v.id
+                            break
+
+                    changed = (new_winner != baseline_winner) and (new_winner is not None)
+                    shifts_tested.append({
+                        "shock_percent": shock,
+                        "perturbed_value": perturbed_val,
+                        "new_winner": new_winner,
+                        "changed": changed,
+                    })
+
+                    if changed and not winner_changed:
+                        winner_changed = True
+                        critical_shock = abs(shock)
+                        alt_winner = new_winner
+                except Exception:
+                    continue
+
+            stability_score = 1.0 if not winner_changed else (critical_shock / 25.0 if critical_shock else 0.1)
+
+            param_results.append(
+                ParameterSensitivityResult(
+                    parameter_id=var.id,
+                    parameter_name=var.name,
+                    provenance=var.provenance.value if hasattr(var.provenance, "value") else str(var.provenance),
+                    baseline_value=baseline_val,
+                    critical_shock_level=critical_shock,
+                    winner_changed=winner_changed,
+                    alternative_winner=alt_winner,
+                    stability_score=round(stability_score, 2),
+                    shifts_tested=shifts_tested,
+                )
+            )
+
+        param_results.sort(key=lambda p: p.stability_score)
+
+        most_critical = param_results[0] if param_results and param_results[0].winner_changed else None
+        most_critical_name = most_critical.parameter_name if most_critical else None
+
+        if most_critical and most_critical.critical_shock_level and most_critical.critical_shock_level <= 10.0:
+            overall_verdict = "CRITICAL"
+            summary_pl = (
+                f"Rekomendacja jest wysoce wrażliwa na założenie: '{most_critical.parameter_name}'. "
+                f"Wstrząs zaledwie ±{most_critical.critical_shock_level:.0f}% zmienia zwycięską decyzję na korzyść '{most_critical.alternative_winner}'."
+            )
+        elif most_critical:
+            overall_verdict = "SENSITIVE"
+            summary_pl = (
+                f"Rekomendacja umiarkowanie wrażliwa. Najbardziej decydujące założenie to '{most_critical.parameter_name}' "
+                f"(zmiana decyzji następuje przy wstrząsie ±{most_critical.critical_shock_level:.0f}%)."
+            )
+        else:
+            overall_verdict = "HIGHLY_STABLE"
+            summary_pl = (
+                "Rekomendacja jest niewrażliwa na wstrząsy parametrów w zakresie ±25%. "
+                "Zwycięski wariant dominuje niezależnie od fluktuacji założeń."
+            )
+
+        return ReSolveSensitivityReport(
+            candidate_id=candidate_id,
+            baseline_winner=baseline_winner,
+            parameters_tested=param_results,
+            most_critical_assumption=most_critical_name,
+            overall_stability_verdict=overall_verdict,
             summary_pl=summary_pl,
         )

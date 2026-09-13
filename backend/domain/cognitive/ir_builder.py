@@ -9,14 +9,18 @@ from datetime import datetime, timezone
 from typing import Any, Literal
 
 from backend.domain.problem_ir import (
+    Assumption,
     ComputeBudget,
     Constraint,
     ConstraintType,
+    DataSource,
     ExprNode,
     ExpressionRegistry,
+    MissingInfo,
     Objective,
     ObjectiveDirection,
     ProblemIR,
+    Provenance,
     SolveMode,
     Variable,
     VariableDomain,
@@ -31,6 +35,9 @@ def build_problem_ir(
     formalised_description: str = "",
     mode: SolveMode = SolveMode.OPTIMIZE,
     budget: ComputeBudget | None = None,
+    assumptions: list[str | Assumption | dict[str, Any]] | None = None,
+    missing_information: list[MissingInfo | dict[str, Any]] | None = None,
+    data_sources: list[DataSource | dict[str, Any] | str] | None = None,
 ) -> ProblemIR:
     """
     Construct a validated, fully registered ProblemIR from structured specs.
@@ -72,6 +79,18 @@ def build_problem_ir(
             domain = VariableDomain.BINARY
             lb, ub = 0.0, 1.0
 
+        prov_str = str(v_dict.get("provenance", "user_supplied")).lower()
+        if prov_str in ("web_sourced", "web"):
+            prov = Provenance.WEB_SOURCED
+        elif prov_str in ("llm_extracted", "llm"):
+            prov = Provenance.LLM_EXTRACTED
+        elif prov_str == "derived":
+            prov = Provenance.DERIVED
+        elif prov_str == "assumed":
+            prov = Provenance.ASSUMED
+        else:
+            prov = Provenance.USER_SUPPLIED
+
         variables.append(
             Variable(
                 id=vid,
@@ -80,6 +99,7 @@ def build_problem_ir(
                 lower_bound=lb,
                 upper_bound=ub,
                 unit=v_dict.get("unit"),
+                provenance=prov,
                 description=v_dict.get("description"),
             )
         )
@@ -165,6 +185,44 @@ def build_problem_ir(
             )
         )
 
+    # 4. Assumptions conversion
+    typed_assumptions: list[Assumption] = []
+    if assumptions:
+        for idx, a in enumerate(assumptions):
+            if isinstance(a, Assumption):
+                typed_assumptions.append(a)
+            elif isinstance(a, str):
+                typed_assumptions.append(
+                    Assumption(
+                        id=f"a_{idx+1}",
+                        statement=a,
+                        confidence="medium",
+                        source=Provenance.ASSUMED,
+                    )
+                )
+            elif isinstance(a, dict):
+                typed_assumptions.append(Assumption(**a))
+
+    # 5. Missing Information conversion
+    typed_missing: list[MissingInfo] = []
+    if missing_information:
+        for idx, m in enumerate(missing_information):
+            if isinstance(m, MissingInfo):
+                typed_missing.append(m)
+            elif isinstance(m, dict):
+                typed_missing.append(MissingInfo(**m))
+
+    # 6. Data Sources conversion
+    typed_sources: list[DataSource] = []
+    if data_sources:
+        for idx, s in enumerate(data_sources):
+            if isinstance(s, DataSource):
+                typed_sources.append(s)
+            elif isinstance(s, str):
+                typed_sources.append(DataSource(id=f"src_{idx+1}", name=s))
+            elif isinstance(s, dict):
+                typed_sources.append(DataSource(**s))
+
     return ProblemIR(
         description_raw=raw_query,
         description_formalised=formalised_description or f"Cognitive Problem Formulation ({len(variables)} vars, {len(constraints)} constraints)",
@@ -173,6 +231,9 @@ def build_problem_ir(
         expressions=reg,
         objectives=objectives,
         constraints=constraints,
+        assumptions=typed_assumptions,
+        missing_information=typed_missing,
+        data_sources=typed_sources,
         budget=budget or ComputeBudget(),
         approved=False,
         approved_at=None,

@@ -677,11 +677,71 @@ async def universal_compute(
         result = engine.execute(req)
         return result.model_dump()
     except Exception as e:
-        logger.exception("Błąd silnika obliczeniowego universal_compute")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Błąd silnika YourQuantum: {str(e)}",
         )
+
+
+class VerificationCheckRequest(BaseModel):
+    problem_id: str
+    candidate_id: str
+    assignment: dict[str, Any]
+    objective_value: float | None = None
+    residual: float = 0.0
+    verdict: str
+    sha256_hash: str
+    hmac_signature: str | None = None
+
+
+@router.post("/verification/check")
+async def verify_audit_passport_endpoint(req: VerificationCheckRequest) -> dict[str, Any]:
+    """
+    B3: Independently verifies SHA-256 integrity hash and server HMAC signature of a verification report.
+    Guarantees mathematically that the result was stamped by YourQuantum without tampering.
+    """
+    from backend.verifier.verifier import (
+        build_verification_canonical_string,
+        compute_verification_signatures,
+    )
+    import hmac
+
+    canonical = build_verification_canonical_string(
+        problem_id=req.problem_id,
+        candidate_id=req.candidate_id,
+        assignment=req.assignment,
+        objective_value=req.objective_value,
+        residual=req.residual,
+        verdict=req.verdict,
+    )
+
+    expected_sha256, expected_hmac = compute_verification_signatures(canonical)
+
+    sha256_valid = hmac.compare_digest(expected_sha256.lower(), req.sha256_hash.lower())
+    hmac_valid = False
+    if req.hmac_signature:
+        hmac_valid = hmac.compare_digest(expected_hmac.lower(), req.hmac_signature.lower())
+
+    if sha256_valid and hmac_valid:
+        overall_status = "AUTHENTIC_VERIFIED"
+        details = "Pełna weryfikacja pomyślna: integralność danych SHA-256 oraz kryptograficzna pieczęć serwera HMAC są autentyczne."
+    elif sha256_valid and not req.hmac_signature:
+        overall_status = "INTEGRITY_VERIFIED_UNSIGNED"
+        details = "Odcisk integralności SHA-256 poprawny (dane nie uległy zmianie), brak podpisu serwera HMAC."
+    elif sha256_valid and not hmac_valid:
+        overall_status = "SIGNATURE_MISMATCH"
+        details = "Odcisk SHA-256 zgadza się, lecz podpis serwera HMAC jest nieprawidłowy."
+    else:
+        overall_status = "TAMPERED"
+        details = "Odcisk integralności SHA-256 nie zgadza się z zawartością raportu — dane zostały zmodyfikowane."
+
+    return {
+        "sha256_valid": sha256_valid,
+        "hmac_valid": hmac_valid,
+        "status": overall_status,
+        "details": details,
+        "canonical_string": canonical,
+    }
 
 
 

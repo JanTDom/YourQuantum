@@ -59,6 +59,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(router, prefix="/api")
 app.include_router(router, prefix="/api/v1")
 app.include_router(cognitive_router, prefix="/api")
 app.include_router(cognitive_router, prefix="/api/v1")

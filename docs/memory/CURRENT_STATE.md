@@ -93,11 +93,32 @@ Wszystkie testy backendu (59/59) przechodzą pomyślnie. Build frontendu (TypeSc
 16. **A19 (Dynamic Capabilities Registry)**: Created `backend/domain/capabilities.py`, exposed `GET /capabilities`, updated `docs/CAPABILITIES.md`.
 17. **A20 (Model Approval Gate Transparency)**: Added objective coefficients display, formula breakdown, criteria weights, constraint list, and "Popraw formalizację" controls in `ModelApprovalGate.tsx`.
 
+### ✅ V2 Honest Engine — Phase B (Usunięcie półśrodków i brakujących ogniw, B1–B7)
+1. **B1 (Wielokryterialna macierz decyzyjna i analityczny break-even)**:
+   - Utworzono `backend/domain/decision_matrix.py` z precyzyjnym wyliczaniem wag kryteriów (sum-to-one), normalizacją min-max (z rozróżnieniem kierunków korzyści/kosztów), kalkulacją użyteczności ważonej oraz analitycznym punktem zwrotnym (`calculate_analytical_break_even`).
+   - Rozszerzono `DecisionCase` w `backend/domain/decision_case.py` o `ScoredValue(value, unit, provenance, source_ref, confidence)`, macierz `score_matrix` i walidację `validate_for_modeling()` blokującą przejście do modelu przy brakujących referencjach źródłowych.
+   - Zastąpiono subiektywny rating LLM w `formalize_case` analityczną kompilacją użyteczności i wskaźnikami wrażliwości.
+2. **B2 (Analiza wrażliwości w trybie re-solve)**:
+   - Dodano `SensitivityEngine.analyze_resolve()` w `backend/domain/sensitivity.py`. Przeprowadza ponowne rozwiązywanie solverem (CP-SAT/HiGHS) przy wielowymiarowych perturbacjach parametrów (wagi kryteriów, granice budżetowe, współczynniki celu) i wyznacza ranking wrażliwości parametrów (`parameter_vulnerability`).
+3. **B3 (Kryptograficzny Paszport Audytowy i endpoint weryfikacji HMAC)**:
+   - Zaimplementowano generowanie i weryfikację podpisów HMAC-SHA256 w `backend/verifier/verifier.py` (`build_verification_canonical_string`, `compute_verification_signatures`).
+   - Dodano publiczny endpoint `POST /api/v1/verification/check` w `backend/api/routes.py` umożliwiający niezależnemu audytorowi weryfikację autentyczności certyfikatu obliczeniowego.
+4. **B4 (Zunifikowany Gateway LLM z budżetowaniem tokenów)**:
+   - Zbudowano `backend/infrastructure/llm_gateway.py` (`LLMGateway`, `LLMCallTelemetry`, `LLMResponse`) z automatycznym retry i wykładniczym backoffem, budżetowaniem tokenów na sesję (`session_token_limit`), śledzeniem metryk i deterministycznym trybem offline. Zintegrowano z `GeminiCognitiveAdapter`.
+5. **B5 (Rozszerzenie ProblemIR o metadane proweniencji)**:
+   - Dodano wartości `WEB_SOURCED = "web_sourced"` i `LLM_EXTRACTED = "llm_extracted"` do enuma `Provenance` w `backend/domain/problem_ir.py`.
+   - Zaktualizowano `ir_builder.py` o pełną konwersję i rejestrację `assumptions`, `missing_information`, `data_sources` i zmiennych z proweniencją.
+6. **B6 (Dynamiczny ProblemRouter z telemetrią benchmarków)**:
+   - Zaimplementowano `backend/domain/router.py` (`characterize_problem`, `ProblemRouter`, `RoutingDecision`, `RoutingCandidate`). Router automatycznie analizuje stopień liniowości, wielkość problemu i stan solverów w rejestrze możliwości, typując solver wiodący oraz solvery porównawcze. Zintegrowano z `runner.py` (`routing_record` w metadanych zadania).
+7. **B7 (Aktualizacja narzędzi w MCP Server)**:
+   - Narzędzie `yq_optimize_options` w `mcp_server/server.py` przyjmuje `criteria_matrix`, zwraca `routing_record` oraz transparentne źródło obliczeń (`compute_source`).
+
 ---
 
 ## Wyniki weryfikacji empirycznej
-- **Backend Test Suite**: `./.venv/bin/pytest tests/` → **111 passed in 59.75s** (100% zielonych testów, zero błędów, zero regresji).
+- **Backend Test Suite**: `./.venv/bin/pytest tests/` → **119 passed in 68.55s** (100% zielonych testów, zero błędów, zero regresji).
   * 11 dedykowanych testów Phase A regressions (`tests/test_phase_a_regressions.py`).
+  * 8 dedykowanych testów Phase B regressions (`tests/test_phase_b_regressions.py`).
   * 12 testów kognitywnych i API w `tests/unit/` oraz `tests/integration/`.
   * 88 testów regresyjnych, solverów, weryfikatora, QUBO, QAOA, MCP i API.
 - **Frontend Typecheck & Build**: `npm run build` → 0 błędów TypeScript (`tsc -b`), czysty build produkcyjny Vite (`dist/`).
@@ -106,12 +127,12 @@ Wszystkie testy backendu (59/59) przechodzą pomyślnie. Build frontendu (TypeSc
 ---
 
 ## Następny krok (Next Step)
-- Rozpoczęcie **Fazy B (Usunięcie półśrodków i brakujących ogniw, B1–B7)**:
-  * B1: Implementacja wielokryterialnej macierzy decyzyjnej `DecisionMatrix` z obiektami `ScoredValue(value, unit, provenance, source_ref)` oraz analitycznym punktem zwrotnym (break-even point).
-  * B2: Rozszerzenie analizy wrażliwości o tryb `re-solve` w `backend/domain/sensitivity.py`.
-  * B3: Weryfikacja podpisów HMAC w `IndependentVerifier` i endpoint `POST /api/v1/verification/check`.
-  * B4: Zunifikowany gateway LLM `backend/infrastructure/llm_gateway.py` z budżetowaniem tokenów i fallbackami.
-  * B5: Rozszerzenie `ProblemIR` o metadane proweniencji.
-  * B6: Dynamiczny router solverów w `backend/domain/router.py`.
-  * B7: Aktualizacja narzędzi w `mcp_server/server.py`.
+- Rozpoczęcie **Fazy C (Web Research & Evidence — dane z sieci jako pierwszorzędny obywatel, C1–C7)**:
+  * C1: Port domenowy `Evidence` i adapter `backend/infrastructure/web_research/`.
+  * C2: Model dowodu `Evidence` z hashem treści, cytatami i metadanymi URL.
+  * C3: Pętla `ResearchPlanner` z weryfikacją cytatów (`quote in page_text`).
+  * C4: Obsługa sprzeczności danych i niepewności w UI i modelu IR.
+  * C5: Bezpieczeństwo SSRF, allowlista/blocklista domen i rate-limiting.
+  * C6: Panel UI "Źródła i dowody" w frontendzie.
+  * C7: Testy jednostkowe z mockami zapytań sieciowych.
 
