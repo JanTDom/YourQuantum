@@ -461,6 +461,7 @@ export const api = {
     session_id?: string | null
     owner_id?: string | null
     workspace_id?: string | null
+    problem_class_override?: string | null
   }) =>
     request<CognitiveIntakeResponse>('/cognitive/intake', {
       method: 'POST',

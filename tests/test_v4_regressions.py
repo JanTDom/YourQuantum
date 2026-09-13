@@ -750,6 +750,53 @@ async def test_n3_evidence_research_endpoint_with_mock_fixtures(monkeypatch):
     assert "84500" in ev["quote"]
 
 
+# ---------------------------------------------------------------------------
+# N4: Problem Classification & problem_class_override
+# ---------------------------------------------------------------------------
+
+def test_n4_classification_system_alarmowy_is_choice_not_design():
+    """
+    N4: 'system alarmowy do domu czy kamery' must classify as CHOICE, NOT DESIGN.
+    Heuristic confidence must be <= 0.5.
+    """
+    from backend.domain.cognitive.active_inference_engine import (
+        classify_problem_class,
+        heuristic_classify_problem,
+    )
+    from backend.domain.problem_classes import ProblemClass
+
+    query = "system alarmowy do domu czy kamery"
+    p_class = classify_problem_class(query)
+    assert p_class == ProblemClass.CHOICE.value, f"Expected CHOICE, got {p_class}"
+
+    classification = heuristic_classify_problem(query)
+    assert classification.problem_class == ProblemClass.CHOICE.value
+    assert classification.confidence <= 0.5, f"Expected confidence <= 0.5, got {classification.confidence}"
+    assert classification.computable is True
+
+
+@pytest.mark.asyncio
+async def test_n4_intake_problem_class_override():
+    """
+    N4: POST /api/v1/cognitive/intake respects problem_class_override.
+    """
+    from starlette.testclient import TestClient
+    from backend.main import app
+    from backend.domain.problem_classes import ProblemClass
+
+    client = TestClient(app)
+    payload = {
+        "query": "Wybieram między pracą w Korporacji a Startupie.",
+        "problem_class_override": ProblemClass.ALLOCATION.value,
+    }
+
+    res = client.post("/api/v1/cognitive/intake", json=payload)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["problem_class"] == ProblemClass.ALLOCATION.value
+    assert data["confidence"] == 1.0
+
+
 
 
 

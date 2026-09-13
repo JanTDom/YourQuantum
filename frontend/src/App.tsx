@@ -31,6 +31,7 @@ export const App: React.FC = () => {
   const [sessionId, setSessionId] = useState<string>(() => 'sess_' + Math.random().toString(36).substring(2, 12))
   const [userQuery, setUserQuery] = useState('')
   const [problemClass, setProblemClass] = useState<string>('CHOICE')
+  const [intakeExplanation, setIntakeExplanation] = useState<string>('')
   const [decisionCase, setDecisionCase] = useState<DecisionCase | null>(null)
   const [formalized, setFormalized] = useState<FormalizeResponse | null>(null)
   const [primaryResult, setPrimaryResult] = useState<JobResult | null>(null)
@@ -41,6 +42,7 @@ export const App: React.FC = () => {
     setSessionId('sess_' + Math.random().toString(36).substring(2, 12))
     setUserQuery('')
     setProblemClass('CHOICE')
+    setIntakeExplanation('')
     setDecisionCase(null)
     setFormalized(null)
     setPrimaryResult(null)
@@ -50,7 +52,7 @@ export const App: React.FC = () => {
   }
 
   // 1. Analyze case from user intake text (E1: Single Intake Pathway via /cognitive/intake)
-  const handleIntakeSubmit = async (text: string) => {
+  const handleIntakeSubmit = async (text: string, problemClassOverride?: string) => {
     setIsLoading(true)
     setErrorMessage(null)
     setUserQuery(text)
@@ -60,10 +62,15 @@ export const App: React.FC = () => {
       const intakeRes = await api.cognitiveIntake({
         query: text,
         session_id: sessionId,
+        problem_class_override: problemClassOverride,
       })
 
       if (intakeRes.session_id) {
         setSessionId(intakeRes.session_id)
+      }
+
+      if (intakeRes.explanation) {
+        setIntakeExplanation(intakeRes.explanation)
       }
 
       if (intakeRes.status === 'not_computable') {
@@ -262,6 +269,14 @@ export const App: React.FC = () => {
         {stage === 'CASE_WORKSPACE' && decisionCase && (
           <CaseWorkspace
             decisionCase={decisionCase}
+            problemClass={problemClass}
+            problemClassReason={intakeExplanation || undefined}
+            onOverrideProblemClass={(newClass) => {
+              setProblemClass(newClass)
+              if (userQuery) {
+                handleIntakeSubmit(userQuery, newClass)
+              }
+            }}
             onAnswerUnknown={handleAnswerUnknown}
             onUpdateCase={setDecisionCase}
             onProceedToModeling={handleProceedToModeling}

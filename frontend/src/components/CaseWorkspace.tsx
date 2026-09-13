@@ -10,6 +10,9 @@ import {
 
 interface CaseWorkspaceProps {
   decisionCase: DecisionCase
+  problemClass?: string
+  problemClassReason?: string
+  onOverrideProblemClass?: (newClass: string) => void
   onAnswerUnknown: (unknownId: string, answer: string) => void
   onUpdateCase: (updatedCase: DecisionCase) => void
   onProceedToModeling: () => void
@@ -28,6 +31,9 @@ const DEFAULT_PRIORITY_TOKENS = [
 
 export const CaseWorkspace: React.FC<CaseWorkspaceProps> = ({
   decisionCase,
+  problemClass,
+  problemClassReason,
+  onOverrideProblemClass,
   onAnswerUnknown,
   onUpdateCase,
   onProceedToModeling,
@@ -382,6 +388,69 @@ export const CaseWorkspace: React.FC<CaseWorkspaceProps> = ({
               >
                 ← Zmień opis
               </button>
+            </div>
+
+            {/* Problem Class Confirmation / Override Badge (N4) */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              background: 'oklch(14% 0.025 250)',
+              border: '1px solid oklch(24% 0.03 250)',
+              borderRadius: '8px',
+              padding: '0.75rem 1rem',
+              marginBottom: '2rem',
+              flexWrap: 'wrap',
+              gap: '0.75rem',
+            }}>
+              <div>
+                <span style={{ fontSize: '0.75rem', color: 'oklch(60% 0.02 250)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>
+                  Rozpoznana klasa problemu:
+                </span>{' '}
+                <span style={{
+                  display: 'inline-block',
+                  padding: '0.2rem 0.55rem',
+                  borderRadius: '4px',
+                  background: 'oklch(75% 0.12 80 / 0.15)',
+                  border: '1px solid oklch(75% 0.12 80 / 0.4)',
+                  color: 'oklch(85% 0.12 80)',
+                  fontWeight: 800,
+                  fontSize: '0.8125rem',
+                  marginLeft: '0.35rem',
+                }}>
+                  {problemClass || 'CHOICE'}
+                </span>
+                {problemClassReason && (
+                  <span style={{ marginLeft: '0.65rem', fontSize: '0.8125rem', color: 'oklch(65% 0.02 250)' }}>
+                    — {problemClassReason}
+                  </span>
+                )}
+              </div>
+
+              {onOverrideProblemClass && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem' }}>
+                  <span style={{ color: 'oklch(55% 0.02 250)' }}>Zmień klasę:</span>
+                  {(['CHOICE', 'ALLOCATION', 'DESIGN', 'PARAMETER'] as const).map((cls) => (
+                    <button
+                      key={cls}
+                      type="button"
+                      onClick={() => onOverrideProblemClass(cls)}
+                      style={{
+                        background: (problemClass || 'CHOICE') === cls ? 'oklch(75% 0.12 80)' : 'none',
+                        color: (problemClass || 'CHOICE') === cls ? 'oklch(6% 0.01 250)' : 'oklch(70% 0.02 250)',
+                        border: '1px solid oklch(28% 0.03 250)',
+                        borderRadius: '4px',
+                        padding: '0.2rem 0.45rem',
+                        fontSize: '0.75rem',
+                        fontWeight: (problemClass || 'CHOICE') === cls ? 700 : 500,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {cls}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Options grid with photo accents */}
