@@ -443,3 +443,20 @@ Pamięć robocza sesji (`WorkingMemory`) jest trwała w ramach aktywnej sesji u�
 
 **Rationale:**
 Zgodność z RODO/GDPR oraz eliminacja ryzyka przecieku danych wrażliwych i dylematów decyzyjnych między różnymi użytkownikami platformy.
+
+---
+
+## DEC-029 — Grounding LLM = lista URL, nie dowód
+
+**Date:** 2026-09-13
+**Status:** ACTIVE
+
+**Decision:**
+Mechanizm Google Search Grounding modelu Gemini (oraz wszelkie pokrewne narzędzia wyszukiwania wbudowane w LLM) może być wykorzystywany **wyłącznie jako źródło kandydatów URL** (`groundingChunks[].web.uri` + metadane tytułu).
+1. Treść wygenerowana przez model (`parts[].text`) nigdy nie jest traktowana jako treść strony (`page_text`), nie stanowi podstawy do obliczenia skrótu kryptograficznego `content_hash` i nie bierze udziału w weryfikacji cytatu (`_verify_quote_in_text`).
+2. Każdy dokument dowodowy (`EvidenceDocument`) musi zostać realnie pobrany i zdezynfekowany przez `SafeWebFetcher`. Jeśli pobranie się nie powiedzie, dokument i dowód nie powstają (`Evidence` nie jest tworzone).
+3. Niedozwolone jest tworzenie fikcyjnych źródeł syntetycznych (np. `https://google.com/search`). Przy braku realnych linków lista wyników jest pusta.
+4. Dobór dostawcy wyszukiwania jest jawny (`SEARCH_PROVIDER=gemini|tavily|serper|none`). Sama obecność `GEMINI_API_KEY` nie włącza wyszukiwania.
+
+**Rationale:**
+Zgodnie z regułą dowodową i eliminacją halucynacji (BUILD_SPEC_V2.md §1 pkt 4 oraz audyt V4 R6), uznanie tekstu wygenerowanego przez model za „stronę źródłową" prowadzi do samopotwierdzenia halucynacji modelu w weryfikatorze cytatów, podszywając się pod obiektywne dane empiryczne.

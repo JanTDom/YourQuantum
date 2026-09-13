@@ -44,6 +44,14 @@ WYNIK KOŃCOWY: 22 BRAMEK CZERWONYCH (FAIL)
 
 ---
 
+### Stan po wdrożeniu R6 (`fix(R6)`)
+- **Bramka G-R6**: PASS (`search_adapter.py nie traktuje tekstu modelu jako strony i nie używa google.com/search`).
+- **Testy R6**: `.venv/bin/pytest tests/test_v4_regressions.py -v` → 4/4 passed (weryfikacja cytatów, odrzucenie halucynacji modelu, brak pseudo-źródeł, brak fake URL).
+- **Frontend build**: `npm run build` → 0 błędów TypeScript, czysty bundle.
+- **DEC-029**: Zapisano w `DECISIONS.md`.
+
+---
+
 ## Wyniki weryfikacji empirycznej (Evidence-First DoD)
 
 - **Backend Pytest Suite**: `.venv/bin/pytest tests/ -v` → **157/157 passed in 39.41s** (zero błędów, zero regresji, 100% zielonych testów).
