@@ -685,5 +685,71 @@ async def test_n2_offline_intake_matrix_filling_and_weighted_sum_solving():
     assert solution.assignment[opt1_slug] == 0
 
 
+# ---------------------------------------------------------------------------
+# N3: Evidence Research Connected to UI and Backend
+# ---------------------------------------------------------------------------
+
+def test_n3_frontend_calls_research_evidence():
+    """
+    N3 / G-N3: Frontend components must invoke researchEvidence.
+    """
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    components_dir = os.path.join(repo_root, "frontend", "src", "components")
+    app_file = os.path.join(repo_root, "frontend", "src", "App.tsx")
+
+    hits = []
+    for root, _, files in os.walk(components_dir):
+        for f in files:
+            if f.endswith((".tsx", ".ts")):
+                p = os.path.join(root, f)
+                with open(p, "r", encoding="utf-8") as fp:
+                    content = fp.read()
+                    if "researchEvidence(" in content:
+                        hits.append(p)
+
+    if os.path.exists(app_file):
+        with open(app_file, "r", encoding="utf-8") as fp:
+            if "researchEvidence(" in fp.read():
+                hits.append(app_file)
+
+    assert len(hits) >= 1, f"Expected at least 1 frontend component calling researchEvidence, found {len(hits)}"
+
+
+@pytest.mark.asyncio
+async def test_n3_evidence_research_endpoint_with_mock_fixtures(monkeypatch):
+    """
+    N3: POST /evidence/research with mock fixtures returns valid evidence records
+    with exact provenance, source_url, and quote.
+    """
+    monkeypatch.setenv("YQ_MOCK_SEARCH_FIXTURES", "1")
+    from starlette.testclient import TestClient
+    from backend.main import app
+
+    client = TestClient(app)
+    payload = {
+        "case_id": "test_case_123",
+        "target_parameters": [
+            {
+                "param_id": "zdrowie_koszt",
+                "query_text": "zdrowie nakłady koszty",
+                "expected_unit": "PLN",
+            }
+        ],
+        "max_results_per_param": 2,
+    }
+
+    res = client.post("/api/v1/evidence/research", json=payload)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "COMPLETED"
+    assert "port_status" in data
+    assert data["evidence_count"] >= 1
+    ev = data["evidence"][0]
+    assert ev["source_url"] == "https://stat.gov.pl/zdrowie/raport-2025.html"
+    assert ev["value"] == 84500.0
+    assert "84500" in ev["quote"]
+
+
+
 
 

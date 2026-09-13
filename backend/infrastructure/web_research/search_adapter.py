@@ -6,6 +6,7 @@ strict rate budgeting, and deterministic offline fallback.
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import logging
 import httpx
@@ -50,7 +51,17 @@ class WebResearchAdapter(EvidenceSourcePort):
         self.fetcher = fetcher or SafeWebFetcher()
         self.max_session_queries = max_session_queries
         self.queries_performed = 0
-        self.mock_fixtures = mock_fixtures or {}
+        self.mock_fixtures = dict(mock_fixtures) if mock_fixtures is not None else {}
+
+        if not self.mock_fixtures and os.getenv("YQ_MOCK_SEARCH_FIXTURES"):
+            fixtures_dir = os.path.join(os.path.dirname(__file__), "..", "..", "..", "tests", "fixtures", "web")
+            search_path = os.path.join(fixtures_dir, "search_results.json")
+            if os.path.exists(search_path):
+                try:
+                    with open(search_path, "r", encoding="utf-8") as f:
+                        self.mock_fixtures = json.load(f)
+                except Exception:
+                    pass
 
     def is_available(self) -> bool:
         """True if either mock fixtures are supplied or a live API key is set within quota."""
