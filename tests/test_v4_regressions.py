@@ -3,6 +3,7 @@ Tests for YourQuantum V4 Regressions (R1-R6) and Missing Features (N1-N11).
 Follows strict evidence-first DoD per docs/BUILD_SPEC_V4.md.
 """
 import hashlib
+import json
 import os
 import re
 import pytest
@@ -478,6 +479,211 @@ def test_n1_split_requirements_and_container_files():
         current_state = f.read()
     pattern = re.compile(r"```json\s*\{.*?\"available\".*?\}\s*```", re.DOTALL)
     assert pattern.search(current_state), "CURRENT_STATE.md does not contain raw production json with 'available'"
+
+
+# ---------------------------------------------------------------------------
+# N2: Decision Matrix Extraction, Validation & Solving
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_n2_quote_verification_rejects_hallucinated_values():
+    """
+    N2: extract_decision_structure verifies quote_from_user_text against user query.
+    Values with hallucinated / missing quotes must be strictly rejected.
+    """
+    from backend.domain.llm_advisor import extract_decision_structure
+    from backend.infrastructure.llm_gateway import LLMGateway, LLMResponse, LLMCallTelemetry
+
+    user_query = "Wybieram między ofertą A i ofertą B. Oferta A oferuje 20000 zł, a oferta B 25000 zł."
+
+    mock_gateway = MagicMock(spec=LLMGateway)
+    mock_gateway.is_available = True
+
+    mock_payload = {
+        "title": "Wybór oferty: A vs B",
+        "options": [
+            {"id": "opt_a", "title": "Oferta A"},
+            {"id": "opt_b", "title": "Oferta B"},
+        ],
+        "criteria": [
+            {"id": "crit_zarobki", "name": "Wynagrodzenie", "direction": "maximize", "weight": 1.0, "unit": "PLN"},
+        ],
+        "values": [
+            {
+                "option_id": "opt_a",
+                "criterion_id": "crit_zarobki",
+                "value": 20000.0,
+                "unit": "PLN",
+                "quote_from_user_text": "20000 zł",  # VERIFIED IN QUERY
+            },
+            {
+                "option_id": "opt_b",
+                "criterion_id": "crit_zarobki",
+                "value": 99999.0,
+                "unit": "PLN",
+                "quote_from_user_text": "oferuje 99999 zł na rękę z bonusem",  # HALLUCINATED! NOT IN QUERY
+            },
+        ],
+    }
+
+    mock_gateway.generate = AsyncMock(
+        return_value=LLMResponse(
+            text=json.dumps(mock_payload),
+            parsed_json=mock_payload,
+            telemetry=LLMCallTelemetry(model="gemini-test", purpose="test"),
+            is_offline=False,
+        )
+    )
+
+    struct = await extract_decision_structure(user_query, gateway=mock_gateway)
+    verified = struct["values"]
+
+    assert len(verified) == 1, f"Expected 1 verified value, got {len(verified)}"
+    assert verified[0]["option_id"] == "opt_a"
+    assert verified[0]["value"] == 20000.0
+    assert not any(v["option_id"] == "opt_b" for v in verified), "Hallucinated quote for opt_b was not rejected!"
+
+
+def test_n2_decision_case_validation_blocks_zero_criteria():
+    """
+    N2: DecisionCase.validate_for_modeling() returns False with 'Zdefiniuj co najmniej jedno kryterium'
+    when criteria list is empty.
+    """
+    from backend.domain.decision_case import DecisionCase, Option
+
+    case = DecisionCase(
+        title="Dylemat bez kryteriów",
+        context="Brak kryteriów",
+        options=[Option(id="o1", title="A"), Option(id="o2", title="B")],
+        criteria=[],
+        score_matrix={},
+    )
+    is_valid, errors = case.validate_for_modeling()
+    assert is_valid is False
+    assert any("Zdefiniuj co najmniej jedno kryterium" in err for err in errors)
+
+
+def test_n2_formalize_without_criteria_blocks_solving():
+    """
+    N2: formalize_case without criteria returns BLOCKS_SOLVING and never default 1.0 coeffs.
+    """
+    from backend.domain.decision_case import DecisionCase, Option
+    from backend.domain.formalizer import ProblemFormalizer
+
+    case = DecisionCase(
+        title="Dylemat bez kryteriów",
+        context="Brak kryteriów",
+        options=[Option(id="o1", title="A"), Option(id="o2", title="B")],
+        criteria=[],
+        score_matrix={},
+    )
+    formalizer = ProblemFormalizer()
+    res = formalizer.formalize_case(case)
+
+    assert any("BLOCKS_SOLVING" in info for info in res.missing_information)
+    assert res.objective_coefficients == {}, "Formalizer returned non-empty coeffs for 0 criteria"
+
+
+@pytest.mark.asyncio
+async def test_n2_offline_intake_matrix_filling_and_weighted_sum_solving():
+    """
+    N2 integration test in offline mode (no LLM mocks):
+    1. Heuristic analyze extracts options and default criteria from priority tokens.
+    2. validate_for_modeling() fails on empty matrix cells.
+    3. Filling score_matrix with valid values and source_ref makes validate_for_modeling() pass.
+    4. formalize_case produces distinct weighted sum coefficients (not 1.0).
+    5. Solve using CP-SAT adapter; verify the option with highest weighted score wins.
+    """
+    from backend.domain.llm_advisor import LLMAdvisor
+    from backend.domain.decision_case import ScoredValue
+    from backend.domain.formalizer import ProblemFormalizer
+    from backend.domain.problem_ir import ProblemIR, ComputeBudget
+    from backend.solvers.cpsat import CPSATAdapter
+
+    # 1. Intake
+    advisor = LLMAdvisor(gemini_api_key=None, openai_api_key=None)
+    case = advisor.heuristic_analyze("Wybieram między pracą w Korporacji a Startupie.")
+    assert len(case.options) == 2
+    assert len(case.criteria) >= 2
+
+    # 2. Validation fails because score_matrix is empty
+    is_valid, errs = case.validate_for_modeling()
+    assert is_valid is False
+    assert len(errs) > 0
+
+    # 3. Populate matrix cells:
+    # Option 1 (Korporacja): zarobki=18000, kultura=5, autonomia=4, stabilnosc=9
+    # Option 2 (Startup): zarobki=28000, kultura=8, autonomia=9, stabilnosc=4
+    opt1_id, opt2_id = case.options[0].id, case.options[1].id
+    case.score_matrix = {
+        opt1_id: {
+            "crit_zarobki": ScoredValue(value=18000.0, unit="PLN", provenance="user_supplied", source_ref="user_input"),
+            "crit_kultura": ScoredValue(value=5.0, unit="skala 1-10", provenance="assumed", source_ref="assumption"),
+            "crit_autonomia": ScoredValue(value=4.0, unit="skala 1-10", provenance="assumed", source_ref="assumption"),
+            "crit_stabilnosc": ScoredValue(value=9.0, unit="skala 1-10", provenance="assumed", source_ref="assumption"),
+        },
+        opt2_id: {
+            "crit_zarobki": ScoredValue(value=28000.0, unit="PLN", provenance="user_supplied", source_ref="user_input"),
+            "crit_kultura": ScoredValue(value=8.0, unit="skala 1-10", provenance="assumed", source_ref="assumption"),
+            "crit_autonomia": ScoredValue(value=9.0, unit="skala 1-10", provenance="assumed", source_ref="assumption"),
+            "crit_stabilnosc": ScoredValue(value=4.0, unit="skala 1-10", provenance="assumed", source_ref="assumption"),
+        },
+    }
+
+    # Now validation passes!
+    is_valid_filled, errs_filled = case.validate_for_modeling()
+    assert is_valid_filled is True, f"Validation failed after filling: {errs_filled}"
+    assert len(errs_filled) == 0
+
+    # 4. Formalization
+    formalizer = ProblemFormalizer()
+    res = formalizer.formalize_case(case)
+    coeffs = res.objective_coefficients
+    assert len(coeffs) == 2
+    # Distinct non-1.0 coefficients
+    vals = list(coeffs.values())
+    assert vals[0] != vals[1]
+    assert all(v != 1.0 for v in vals)
+
+    # Startup (higher salary, higher autonomy, higher culture) has higher utility
+    opt1_slug = list(coeffs.keys())[0]
+    opt2_slug = list(coeffs.keys())[1]
+    assert coeffs[opt2_slug] > coeffs[opt1_slug]
+
+    # 5. Solve via CP-SAT
+    from backend.domain.cognitive.ir_builder import build_problem_ir
+    from datetime import datetime, timezone
+
+    vars_spec = [{"id": v, "name": v, "domain": "binary"} for v in res.binary_variables]
+    obj_spec = {
+        "direction": res.objective_direction,
+        "coefficients": res.objective_coefficients,
+    }
+    consts_spec = [
+        {"id": f"eq_{i}", "type": "equality", "lhs_terms": eq["lhs"], "rhs": eq["rhs"]}
+        for i, eq in enumerate(res.equality_constraints)
+    ]
+    problem_ir = build_problem_ir(
+        raw_query=case.context or case.title,
+        variables_spec=vars_spec,
+        objective_spec=obj_spec,
+        constraints_spec=consts_spec,
+        formalised_description=res.description_formalised,
+    )
+    problem_ir.approved = True
+    problem_ir.approved_at = datetime.now(timezone.utc)
+
+    assert problem_ir.is_ready_to_solve is True
+    solver = CPSATAdapter()
+    budget = ComputeBudget(wall_time_seconds=5.0)
+    solution = solver.solve(problem_ir, budget)
+
+    from backend.solvers.base import MathStatus
+    assert solution.math_status in (MathStatus.OPTIMAL, MathStatus.FEASIBLE)
+    # Winner must be opt2 (Startup)
+    assert solution.assignment[opt2_slug] == 1
+    assert solution.assignment[opt1_slug] == 0
+
 
 
 

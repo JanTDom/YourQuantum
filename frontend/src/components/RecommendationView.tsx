@@ -94,7 +94,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
   const effectiveBreakEven =
     breakEvenPoint ||
     decisionCase?.break_even_point ||
-    `Opcja "${alternativeTitle}" zyskałaby przewagę, gdyby zaoferowała warunki korzystniejsze o ok. 20-30% w kluczowych aspektach (finansowych, czasowych lub stabilności), albo gdyby Twoim nadrzędnym priorytetem stało się całkowite uniknięcie ryzyka.`
+    null
 
   const mathStatusMap: Record<string, string> = {
     OPTIMAL: 'Najlepszy możliwy wynik przy podanych warunkach',
@@ -599,8 +599,8 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                       </div>
                     ))
                   ) : (
-                    <div style={{ fontSize: '0.8125rem', color: 'oklch(60% 0.02 250)' }}>
-                      Obliczanie rankingu wrażliwości...
+                    <div style={{ fontSize: '0.8125rem', color: 'oklch(60% 0.02 250)', fontStyle: 'italic' }}>
+                      Ranking wrażliwości niedostępny dla tej konfiguracji modelu.
                     </div>
                   )}
                 </div>
@@ -1079,24 +1079,37 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                     Punkt zwrotny (B1) — co musiałoby się zmienić, aby wybrać drugą opcję?
                   </h3>
                 </div>
-                <p style={{
-                  margin: '0 0 0.75rem 0',
-                  fontSize: '0.9rem',
-                  color: 'oklch(94% 0.01 250)',
-                  lineHeight: 1.65,
-                }}>
-                  {effectiveBreakEven}
-                </p>
-                <div style={{
-                  fontSize: '0.78rem',
-                  color: 'oklch(72% 0.03 80)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.4rem',
-                }}>
-                  <span>💡</span>
-                  <span>Wskazówka: Użyj tego analitycznego progu jako konkretnego kryterium podczas rozmów lub negocjacji.</span>
-                </div>
+                {effectiveBreakEven ? (
+                  <>
+                    <p style={{
+                      margin: '0 0 0.75rem 0',
+                      fontSize: '0.9rem',
+                      color: 'oklch(94% 0.01 250)',
+                      lineHeight: 1.65,
+                    }}>
+                      {effectiveBreakEven}
+                    </p>
+                    <div style={{
+                      fontSize: '0.78rem',
+                      color: 'oklch(72% 0.03 80)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                    }}>
+                      <span>💡</span>
+                      <span>Wskazówka: Użyj tego analitycznego progu jako konkretnego kryterium podczas rozmów lub negocjacji.</span>
+                    </div>
+                  </>
+                ) : (
+                  <p style={{
+                    margin: '0',
+                    fontSize: '0.85rem',
+                    color: 'oklch(54% 0.018 250)',
+                    fontStyle: 'italic',
+                  }}>
+                    Punkt zwrotny niedostępny — brak zdefiniowanych wag lub kryteriów różnicujących w modelu.
+                  </p>
+                )}
               </div>
 
               {/* ── 4. WHAT-IF ─────────────────────────────────── */}

@@ -573,16 +573,34 @@ Zwróć WYŁĄCZNIE poprawny JSON (application/json):
         assumptions: list[str] = [
             f"Wymóg wyboru dokładnie jednej opcji spośród {len(case.options)} wariantów (one-hot)."
         ]
-        if case.criteria:
-            raw_utilities = compute_option_utilities(case)
-            coeffs = {slug: float(raw_utilities.get(opt.id, 1.0)) for slug, opt in slug_to_opt.items()}
-            weights = calculate_criteria_weights(case)
-            assumptions.append(
-                f"Wagi kryteriów wyznaczone jawnie z preferencji użytkownika: "
-                + ", ".join(f"{c.name}: {weights.get(c.id, 0.0):.2f}" for c in case.criteria)
+        if not case.criteria:
+            is_valid, matrix_errs = case.validate_for_modeling()
+            unknown_errs = [u.question for u in case.unknowns if not u.is_resolved]
+            missing_info = [
+                "BLOCKS_SOLVING: Zdefiniuj co najmniej jedno kryterium oceny opcji decyzyjnych."
+            ] + unknown_errs + matrix_errs
+            return FormalizationResult(
+                description_raw=case.context or case.title,
+                description_formalised="Brak zdefiniowanych kryteriów oceny opcji decyzyjnych.",
+                binary_variables=var_names,
+                objective_direction="maximize",
+                objective_coefficients={},
+                equality_constraints=[{"lhs": {v: 1.0 for v in var_names}, "rhs": 1.0}],
+                inequality_constraints=[],
+                assumptions=assumptions,
+                missing_information=missing_info,
+                identified_archetype="decision_dilemma",
+                break_even_point=None,
             )
-        else:
-            coeffs = {v: 1.0 for v in var_names}
+
+        # Calculate multi-criteria utilities since criteria are present
+        raw_utilities = compute_option_utilities(case)
+        coeffs = {slug: float(raw_utilities.get(opt.id, 1.0)) for slug, opt in slug_to_opt.items()}
+        weights = calculate_criteria_weights(case)
+        assumptions.append(
+            f"Wagi kryteriów wyznaczone jawnie z preferencji użytkownika: "
+            + ", ".join(f"{c.name}: {weights.get(c.id, 0.0):.2f}" for c in case.criteria)
+        )
 
         # For <= 3 options in an additive linear model, note that combinatorial solvers are not required (DEC-003)
         if len(case.options) <= 3:

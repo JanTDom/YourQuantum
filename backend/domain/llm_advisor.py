@@ -14,8 +14,6 @@ import os
 import re
 import uuid
 from typing import Any
-
-import httpx
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -26,11 +24,195 @@ from backend.domain.decision_case import (
     Fact,
     InputQuality,
     Option,
+    ScoredValue,
     Tradeoff,
     Unknown,
 )
+from backend.infrastructure.llm_gateway import LLMGateway
 
 logger = logging.getLogger(__name__)
+
+
+def _verify_quote_in_text(quote: str, text: str) -> bool:
+    """Verifies that a quoted snippet exists within the source text using normalized comparison."""
+    if not quote or not text:
+        return False
+    norm_quote = re.sub(r"\s+", " ", quote.strip().lower())
+    norm_text = re.sub(r"\s+", " ", text.strip().lower())
+    return norm_quote in norm_text
+
+
+DECISION_STRUCTURE_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "title": {"type": "string"},
+        "options": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string"},
+                    "title": {"type": "string"},
+                    "description": {"type": "string"},
+                },
+                "required": ["id", "title"],
+            },
+        },
+        "criteria": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string"},
+                    "name": {"type": "string"},
+                    "direction": {"type": "string", "enum": ["maximize", "minimize"]},
+                    "weight": {"type": "number"},
+                    "unit": {"type": "string"},
+                },
+                "required": ["id", "name", "direction", "weight"],
+            },
+        },
+        "values": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "option_id": {"type": "string"},
+                    "criterion_id": {"type": "string"},
+                    "value": {"type": "number"},
+                    "unit": {"type": "string"},
+                    "quote_from_user_text": {"type": "string"},
+                },
+                "required": ["option_id", "criterion_id", "value", "quote_from_user_text"],
+            },
+        },
+        "unknowns": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "question": {"type": "string"},
+                    "impact_description": {"type": "string"},
+                    "default_assumption": {"type": "string"},
+                },
+                "required": ["question"],
+            },
+        },
+        "tradeoffs": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "description": {"type": "string"},
+                    "gain": {"type": "string"},
+                    "sacrifice": {"type": "string"},
+                },
+                "required": ["description"],
+            },
+        },
+        "priority_tokens": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+    },
+    "required": ["options", "criteria", "values"],
+}
+
+
+async def extract_decision_structure(
+    query: str,
+    gateway: LLMGateway | None = None,
+) -> dict[str, Any]:
+    """
+    N2: Extract decision criteria, options, and values with quote verification against user query.
+    Values without a verified quote from user text are strictly rejected.
+    Offline fallback: options from heuristic regex, criteria from priority tokens, values empty.
+    """
+    gw = gateway or LLMGateway()
+    cleaned = query.strip()
+    if not cleaned:
+        return {"options": [], "criteria": [], "values": []}
+
+    if gw.is_available:
+        sys_inst = (
+            "Jesteś precyzyjnym analitykiem decyzji YourQuantum. "
+            "Twoim zadaniem jest wyodrębnienie z tekstu użytkownika: "
+            "1. options: co najmniej 2 wariantów wyboru. "
+            "2. criteria: 2-4 kluczowych kryteriów oceny (kierunek maximize/minimize, waga 0-1 sumująca się do 1.0). "
+            "3. values: wartości liczbowych dla komórek [option_id, criterion_id]. "
+            "BARDZO WAŻNE: Wartość możesz podać TYLKO wtedy, gdy użytkownik podał ją wprost w tekście. "
+            "Pole 'quote_from_user_text' MUSI zawierać DOKŁADNY cytat fragmentu tekstu użytkownika, z którego pochodzi liczba. "
+            "Jeśli danej liczby nie ma w tekście, NIE WOLNO JEJ ZMYŚLAĆ — nie twórz wtedy rekordu w values. "
+            "4. unknowns: pytania o brakujące kluczowe dane. "
+            "5. tradeoffs: kompromisy między wariantami."
+        )
+        resp = await gw.generate(
+            system_instruction=sys_inst,
+            user_content=f"Tekst dylematu użytkownika:\n\"\"\"{cleaned}\"\"\"",
+            purpose="extract_decision_structure",
+            response_schema=DECISION_STRUCTURE_SCHEMA,
+            temperature=0.1,
+        )
+        if resp.parsed_json:
+            parsed = resp.parsed_json
+            options = parsed.get("options") or []
+            criteria = parsed.get("criteria") or []
+            raw_values = parsed.get("values") or []
+
+            # Normalize criteria weights so sum equals 1.0
+            if criteria:
+                tot = sum(float(c.get("weight", 0.0)) for c in criteria)
+                if tot > 0:
+                    for c in criteria:
+                        c["weight"] = round(float(c.get("weight", 0.0)) / tot, 3)
+                else:
+                    eq = round(1.0 / len(criteria), 3)
+                    for c in criteria:
+                        c["weight"] = eq
+
+            verified_values = []
+            for v in raw_values:
+                quote = str(v.get("quote_from_user_text", "")).strip()
+                if _verify_quote_in_text(quote, cleaned):
+                    verified_values.append(v)
+                else:
+                    logger.info(
+                        "Odrzucono nieuziemioną wartość dla %s/%s: brak cytatu '%s' w tekście użytkownika.",
+                        v.get("option_id"),
+                        v.get("criterion_id"),
+                        quote,
+                    )
+
+            return {
+                "title": parsed.get("title"),
+                "options": options,
+                "criteria": criteria,
+                "values": verified_values,
+                "unknowns": parsed.get("unknowns") or [],
+                "tradeoffs": parsed.get("tradeoffs") or [],
+                "priority_tokens": parsed.get("priority_tokens") or [],
+            }
+
+    # Offline deterministic fallback
+    advisor = LLMAdvisor()
+    case = advisor.heuristic_analyze(cleaned)
+    criteria_dicts = [
+        {"id": c.id, "name": c.name, "direction": c.direction, "weight": c.weight, "unit": c.unit}
+        for c in case.criteria
+    ]
+    options_dicts = [
+        {"id": o.id, "title": o.title, "description": o.description}
+        for o in case.options
+    ]
+    return {
+        "title": case.title,
+        "options": options_dicts,
+        "criteria": criteria_dicts,
+        "values": [],  # Empty by design — no fabricated values
+        "unknowns": [u.model_dump() for u in case.unknowns],
+        "tradeoffs": [t.model_dump() for t in case.tradeoffs],
+        "priority_tokens": case.priority_tokens,
+    }
 
 
 class LLMAdvisor:
@@ -93,10 +275,10 @@ class LLMAdvisor:
         unknowns: list[Unknown] = []
         tradeoffs: list[Tradeoff] = []
 
-        # 1. Detect dilemma or choices: "czy X, czy Y", "albo X albo Y", "X czy Y"
+        # 1. Detect dilemma or choices: "czy X, czy Y", "albo X albo Y", "X czy Y", "między X a Y"
         dilemma_match = re.search(r"czy\s+(.+?)(?:,|\s+)\s*czy\s+(.+)", text, re.IGNORECASE)
         if not dilemma_match:
-            dilemma_match = re.search(r"wybrać\s+między\s+(.+?)\s+a\s+(.+)", text, re.IGNORECASE)
+            dilemma_match = re.search(r"(?:wybrać|wybieram|wybór|wybor)?\s*(?:między|miedzy)\s+(.+?)\s+a\s+(.+)", text, re.IGNORECASE)
         if not dilemma_match:
             dilemma_match = re.search(r"albo\s+(.+?)\s+albo\s+(.+)", text, re.IGNORECASE)
 
@@ -247,10 +429,16 @@ class LLMAdvisor:
 
         status = "clarification" if (unknowns or quality.level != "sufficient") else "ready_for_modeling"
         priority_tokens = [
-            "💰 Wyższe zarobki",
+            "💰 Wyższe zarobki i finanse",
             "🌿 Spokój i kultura pracy",
             "🚀 Autonomia decyzyjna",
             "🛡️ Stabilność zatrudnienia",
+        ]
+        criteria = [
+            Criterion(id="crit_zarobki", name="Wynagrodzenie i finanse", direction="maximize", weight=0.25, unit="PLN"),
+            Criterion(id="crit_kultura", name="Spokój i kultura pracy", direction="maximize", weight=0.25, unit="skala 1-10"),
+            Criterion(id="crit_autonomia", name="Autonomia decyzyjna", direction="maximize", weight=0.25, unit="skala 1-10"),
+            Criterion(id="crit_stabilnosc", name="Stabilność zatrudnienia", direction="maximize", weight=0.25, unit="skala 1-10"),
         ]
 
         return DecisionCase(
@@ -275,7 +463,6 @@ class LLMAdvisor:
         from backend.domain.cognitive.quality_gate import assess_input_quality
         return assess_input_quality(text, options_count=options_count)
 
-
     def _generate_clean_title(self, text: str) -> str:
         """Create concise headline in sentence case."""
         t = text.strip()
@@ -285,193 +472,103 @@ class LLMAdvisor:
             return t[0].upper() + t[1:]
         return "Nowa decyzja"
 
-    def _call_gemini(self, text: str) -> DecisionCase | None:
-        """Call Gemini API to understand human situation and ask intelligent questions."""
-        if not self.gemini_api_key:
-            return None
-
-        prompt = f"""Jesteś doradcą decyzyjnym YourQuantum. Użytkownik przedstawia dylemat dotyczący DOWOLNEJ sfery życia (np. zakup nieruchomości/auta, zmiana pracy, wybór studiów, inwestycje, przeprowadzka, relacje, rozwój biznesu, organizacja czasu).
-Twoim zadaniem jest:
-1. Zrozumieć istotę dylematu (nawet przy skrótowym opisie, literówkach czy języku potocznym).
-2. Zidentyfikować konkretne opcje wyboru (np. 'Kupić mieszkanie' vs 'Wynajmować i inwestować', 'Wariant A' vs 'Wariant B'). Jeśli opcji nie podano wprost, wydziel minimum 2 logiczne, realistyczne opcje.
-3. Wykryć brakujące informacje i sformułować 2-3 konkretne, wnikliwe pytania (unknowns) specyficzne dla tego problemu (np. horyzont czasowy, budżet, priorytety, ryzyka).
-4. Wskazać kluczowe kompromisy (tradeoffs) — co człowiek zyskuje, a co ryzykuje lub z czego rezygnuje.
-5. Zaproponować 3-4 intuicyjne, konkretne pigułki priorytetów (priority_tokens) dopasowane do TEGO KONKRETNEGO dylematu (każda z trafnym emoji), np.:
-   - Zakup/Inwestycja: '💰 Niższy koszt całkowity', '🛡️ Bezpieczeństwo kapitału', '📈 Potencjał wzrostu', '🔄 Elastyczność'
-   - Życiowe/Edukacja: '❤️ Pasja i satysfakcja', '🎓 Perspektywy rynkowe', '🌿 Spokój ducha', '⏱️ Oszczędność czasu'
-   - Praca/Biznes: '💵 Wyższe dochody', '🚀 Autonomia decyzyjna', '🛡️ Stabilność', '⚖️ Równowaga z życiem prywatnym'
-
-Opis sytuacji od użytkownika:
-"{text}"
-
-Odpowiedz WYŁĄCZNIE jako poprawny JSON (application/json) o strukturze:
-{{
-  "title": "Tytuł dylematu w sentence case (np. Wybór między zakupem a wynajmem mieszkania)",
-  "options": [
-    {{"id": "opt_1", "title": "Nazwa opcji 1", "description": "Krótki opis"}},
-    {{"id": "opt_2", "title": "Nazwa opcji 2", "description": "Krótki opis"}}
-  ],
-  "unknowns": [
-    {{
-      "question": "Konkretne pytanie doprecyzowujące",
-      "impact_description": "Dlaczego ta informacja jest kluczowa dla podjęcia trafnej decyzji",
-      "default_assumption": "Rozsądne założenie, gdyby użytkownik nie odpowiedział"
-    }}
-  ],
-  "tradeoffs": [
-    {{
-      "description": "Krótki opis kompromisu",
-      "gain": "Co można zyskać",
-      "sacrifice": "Z czym wiąże się ryzyko lub koszt"
-    }}
-  ],
-  "priority_tokens": [
-    "Pigułka 1 z emoji dopasowana do tematu",
-    "Pigułka 2 z emoji dopasowana do tematu",
-    "Pigułka 3 z emoji dopasowana do tematu"
-  ]
-}}
-"""
-        model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.gemini_api_key}"
-        try:
-            with httpx.Client(timeout=25.0) as client:
-                resp = client.post(
-                    url,
-                    json={
-                        "contents": [{"parts": [{"text": prompt}]}],
-                        "generationConfig": {
-                            "response_mime_type": "application/json",
-                            "temperature": 0.2,
-                        },
-                    },
-                )
-            if resp.status_code != 200:
-                logger.warning(f"Gemini API returned {resp.status_code}: {resp.text[:200]}")
-                return None
-
-            return self._parse_gemini_response(resp.json(), text)
-        except Exception as e:
-            logger.warning(f"Failed to analyze case with Gemini: {e}")
-            return None
-
-    async def _call_gemini_async(self, text: str) -> DecisionCase | None:
-        """Asynchronous call to Gemini API to prevent event-loop blocking."""
-        model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.gemini_api_key}"
-        try:
-            async with httpx.AsyncClient(timeout=25.0) as client:
-                resp = await client.post(
-                    url,
-                    json={
-                        "contents": [{"parts": [{"text": self._build_prompt(text)}]}],
-                        "generationConfig": {
-                            "response_mime_type": "application/json",
-                            "temperature": 0.2,
-                        },
-                    },
-                )
-            if resp.status_code != 200:
-                logger.warning(f"Gemini API returned {resp.status_code}: {resp.text[:200]}")
-                return None
-
-            return self._parse_gemini_response(resp.json(), text)
-        except Exception as e:
-            logger.warning(f"Failed to analyze case with Gemini async: {e}")
-            return None
-
-    def _build_prompt(self, text: str) -> str:
-        return f"""Jesteś wnikliwym analitykiem decyzji i problemów życiowych YourQuantum.
-Twoim zadaniem jest pomóc człowiekowi rozłożyć dylemat decyzyjny lub sytuację problemową na czynniki pierwsze.
-
-Tekst użytkownika:
-\"\"\"{text}\"\"\"
-
-Wyodrębnij:
-1. Zwięzły, konkretny tytuł dylematu (np. 'Wybór oferty pracy: Korporacja vs Startup', 'Kupno mieszkania vs dalszy najem').
-2. Konkretne warianty wyboru (opcje).
-3. Brakujące informacje i kluczowe pytania doprecyzowujące.
-4. Główne kompromisy (tradeoffs) między wariantami.
-5. Kontekstowe priorytety decyzyjne z emoji.
-
-Odpowiedz WYŁĄCZNIE jako poprawny JSON (application/json):
-{{
-  "title": "Tytuł dylematu",
-  "options": [
-    {{"id": "opt_1", "title": "Krótki tytuł opcji 1", "description": "Opis wariantu"}},
-    {{"id": "opt_2", "title": "Krótki tytuł opcji 2", "description": "Opis wariantu"}}
-  ],
-  "unknowns": [
-    {{"question": "Konkretne pytanie doprecyzowujące", "impact_description": "Dlaczego ta informacja jest kluczowa", "default_assumption": "Domyślne założenie"}}
-  ],
-  "tradeoffs": [
-    {{"description": "Krótki opis kompromisu", "gain": "Co można zyskać", "sacrifice": "Z czym wiąże się ryzyko lub koszt"}}
-  ],
-  "priority_tokens": [
-    "Pigułka 1 z emoji", "Pigułka 2 z emoji", "Pigułka 3 z emoji"
-  ]
-}}
-"""
-
-    def _parse_gemini_response(self, data: dict[str, Any], text: str) -> DecisionCase:
-        raw_text = data["candidates"][0]["content"]["parts"][0]["text"]
-        parsed = json.loads(raw_text)
-
-        options: list[Option] = []
-        for i, o in enumerate(parsed.get("options", [])):
-            options.append(
-                Option(
-                    id=o.get("id", f"opt_{i+1}"),
-                    title=o.get("title", f"Opcja {i+1}"),
-                    description=o.get("description", ""),
-                )
+    def _build_case_from_structure(self, struct: dict[str, Any], text: str) -> DecisionCase:
+        options = [
+            Option(
+                id=o.get("id", f"opt_{i+1}"),
+                title=o.get("title", f"Opcja {i+1}"),
+                description=o.get("description", ""),
             )
-
-        unknowns: list[Unknown] = []
-        for i, u in enumerate(parsed.get("unknowns", [])):
-            unknowns.append(
-                Unknown(
-                    id=f"unk_{uuid.uuid4().hex[:8]}",
-                    question=u.get("question", ""),
-                    impact_description=u.get("impact_description", ""),
-                    default_assumption=u.get("default_assumption"),
-                )
-            )
-
-        tradeoffs: list[Tradeoff] = []
-        for tr in parsed.get("tradeoffs", []):
-            opt_a = options[0].id if options else "opt_1"
-            opt_b = options[1].id if len(options) > 1 else opt_a
-            tradeoffs.append(
-                Tradeoff(
-                    option_a_id=opt_a,
-                    option_b_id=opt_b,
-                    description=tr.get("description", ""),
-                    gain=tr.get("gain", ""),
-                    sacrifice=tr.get("sacrifice", ""),
-                )
-            )
-
-        priority_tokens = parsed.get("priority_tokens") or [
-            "💰 Wyższe zarobki",
-            "🌿 Spokój i kultura pracy",
-            "🚀 Autonomia i sprawczość",
-            "🛡️ Bezpieczeństwo i stabilność",
+            for i, o in enumerate(struct.get("options", []))
         ]
+        criteria = [
+            Criterion(
+                id=c.get("id", f"crit_{i+1}"),
+                name=c.get("name", f"Kryterium {i+1}"),
+                direction=c.get("direction", "maximize"),
+                weight=float(c.get("weight", 1.0 / max(len(struct.get("criteria", [])), 1))),
+                unit=c.get("unit"),
+            )
+            for i, c in enumerate(struct.get("criteria", []))
+        ]
+        unknowns = [
+            Unknown(
+                id=f"unk_{uuid.uuid4().hex[:8]}",
+                question=u.get("question", ""),
+                impact_description=u.get("impact_description", ""),
+                default_assumption=u.get("default_assumption"),
+            )
+            for u in struct.get("unknowns", [])
+            if u.get("question")
+        ]
+        tradeoffs = [
+            Tradeoff(
+                description=t.get("description", ""),
+                gain=t.get("gain", ""),
+                sacrifice=t.get("sacrifice", ""),
+            )
+            for t in struct.get("tradeoffs", [])
+            if t.get("description")
+        ]
+        priority_tokens = struct.get("priority_tokens") or [
+            "💰 Niższy koszt / Finanse",
+            "🌿 Spokój i komfort psychiczny",
+            "🛡️ Bezpieczeństwo i stabilność",
+            "🚀 Rozwój i perspektywy",
+        ]
+        score_matrix: dict[str, dict[str, ScoredValue]] = {}
+        for v in struct.get("values", []):
+            opt_id = v.get("option_id")
+            crit_id = v.get("criterion_id")
+            val = v.get("value")
+            if opt_id and crit_id and val is not None:
+                score_matrix.setdefault(opt_id, {})[crit_id] = ScoredValue(
+                    value=float(val),
+                    unit=v.get("unit"),
+                    provenance="user_supplied",
+                    source_ref="user_input",
+                    confidence=1.0,
+                )
 
-        title = parsed.get("title") or self._generate_clean_title(text)
+        title = struct.get("title") or self._generate_clean_title(text)
         quality = self._assess_input_quality(text, options_count=len(options))
+        status = "clarification" if (unknowns or quality.level != "sufficient") else "ready_for_modeling"
 
         return DecisionCase(
             title=title,
             context=text,
-            status="clarification" if (unknowns or quality.level != "sufficient") else "ready_for_modeling",
+            status=status,
             options=options,
+            criteria=criteria,
             unknowns=unknowns,
             tradeoffs=tradeoffs,
             priority_tokens=priority_tokens,
+            score_matrix=score_matrix,
             input_quality=quality,
         )
+
+    async def _call_gemini_async(self, text: str) -> DecisionCase | None:
+        """Asynchronous call to LLMGateway to structure decision case."""
+        gw = LLMGateway(api_key=self.gemini_api_key)
+        struct = await extract_decision_structure(text, gateway=gw)
+        if not struct.get("options") or not struct.get("criteria"):
+            return None
+        return self._build_case_from_structure(struct, text)
+
+    def _call_gemini(self, text: str) -> DecisionCase | None:
+        """Synchronous wrapper for extract_decision_structure."""
+        try:
+            import asyncio
+            try:
+                loop = asyncio.get_running_loop()
+                if loop.is_running():
+                    return None  # Avoid blocking current loop; caller should use analyze_case_async
+            except RuntimeError:
+                pass
+            return asyncio.run(self._call_gemini_async(text))
+        except Exception as e:
+            logger.warning("Failed to analyze case synchronously with Gemini: %s", e)
+            return None
 
     async def analyze_case_async(self, user_text: str) -> DecisionCase:
         """Asynchronous parsing of human dilemma without blocking event loop."""
@@ -485,6 +582,6 @@ Odpowiedz WYŁĄCZNIE jako poprawny JSON (application/json):
                 if res is not None:
                     return res
             except Exception as e:
-                logger.warning(f"Gemini async call failed: {e}; falling back to heuristic.")
+                logger.warning("Gemini async call failed: %s; falling back to heuristic.", e)
 
         return self.heuristic_analyze(cleaned)

@@ -209,7 +209,7 @@ class ActiveInferenceOrchestrator:
         # 4. Hypothesis formulation as DecisionCase (E1)
         from backend.domain.llm_advisor import LLMAdvisor
         advisor = LLMAdvisor()
-        case = advisor.analyze_case(query)
+        case = await advisor.analyze_case_async(query)
         case.input_quality = quality
         problem_class_name = classify_problem_class(query, options_count=len(case.options))
 

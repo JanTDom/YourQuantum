@@ -1,5 +1,12 @@
 import React, { useState } from 'react'
-import { DecisionCase, CaseUnknown, CaseOption } from '../api'
+import {
+  DecisionCase,
+  CaseUnknown,
+  CaseOption,
+  CaseCriterion,
+  ScoredValue,
+  researchEvidence,
+} from '../api'
 
 interface CaseWorkspaceProps {
   decisionCase: DecisionCase
@@ -33,6 +40,175 @@ export const CaseWorkspace: React.FC<CaseWorkspaceProps> = ({
   const [newOptionDesc, setNewOptionDesc] = useState('')
   const [showAddPriority, setShowAddPriority] = useState(false)
   const [customPriority, setCustomPriority] = useState('')
+
+  // Matrix and web research state (N2 / N3)
+  const [showAddCrit, setShowAddCrit] = useState(false)
+  const [newCritName, setNewCritName] = useState('')
+  const [newCritDirection, setNewCritDirection] = useState<'maximize' | 'minimize'>('maximize')
+  const [newCritUnit, setNewCritUnit] = useState('')
+
+  const [activeResearchCell, setActiveResearchCell] = useState<{ optionId: string; criterionId: string } | null>(null)
+  const [isSearchingWeb, setIsSearchingWeb] = useState(false)
+  const [researchNotice, setResearchNotice] = useState<string | null>(null)
+  const [manualUrlInput, setManualUrlInput] = useState('')
+  const [showManualUrl, setShowManualUrl] = useState(false)
+
+  const matrix = decisionCase.score_matrix || {}
+  const criteria = decisionCase.criteria || []
+  const options = decisionCase.options || []
+
+  // Validation according to DecisionCase.validate_for_modeling()
+  const validationErrors: string[] = []
+  if (criteria.length === 0) {
+    validationErrors.push('Zdefiniuj co najmniej jedno kryterium oceny opcji decyzyjnych.')
+  }
+  if (options.length < 2) {
+    validationErrors.push('Zdefiniuj co najmniej dwie opcje decyzyjne.')
+  }
+  for (const opt of options) {
+    for (const crit of criteria) {
+      const cell = matrix[opt.id]?.[crit.id]
+      if (!cell || cell.value === undefined || cell.value === null || isNaN(cell.value)) {
+        validationErrors.push(`Brak wartości dla opcji '${opt.title}' i kryterium '${crit.name}'.`)
+      } else if (!cell.source_ref) {
+        validationErrors.push(`Wartość dla opcji '${opt.title}' i kryterium '${crit.name}' nie posiada przypisanego źródła (source_ref).`)
+      }
+    }
+  }
+  const isValidForModeling = validationErrors.length === 0
+
+  const handleUpdateCell = (optionId: string, criterionId: string, updates: Partial<ScoredValue>): void => {
+    const currentMatrix = { ...(decisionCase.score_matrix || {}) }
+    const currentOptRow = { ...(currentMatrix[optionId] || {}) }
+    const currentCell = currentOptRow[criterionId] || {
+      value: 0,
+      unit: '',
+      provenance: 'user_supplied',
+      source_ref: 'Wprowadzone przez użytkownika',
+      confidence: 1.0,
+    }
+
+    currentOptRow[criterionId] = {
+      ...currentCell,
+      ...updates,
+    }
+    currentMatrix[optionId] = currentOptRow
+
+    onUpdateCase({
+      ...decisionCase,
+      score_matrix: currentMatrix,
+    })
+  }
+
+  const handleMarkAsAssumption = (optionId: string, criterionId: string): void => {
+    const currentCell = (decisionCase.score_matrix || {})[optionId]?.[criterionId]
+    const defaultVal = currentCell?.value !== undefined ? currentCell.value : 5.0
+    handleUpdateCell(optionId, criterionId, {
+      value: defaultVal,
+      provenance: 'assumed',
+      source_ref: 'Założenie robocze użytkownika',
+      confidence: 0.7,
+    })
+  }
+
+  const handleAddCriterionSubmit = (): void => {
+    const name = newCritName.trim()
+    if (!name) return
+    const newCrit: CaseCriterion = {
+      id: `crit_${Date.now()}`,
+      name,
+      direction: newCritDirection,
+      weight: 1.0,
+      unit: newCritUnit.trim() || undefined,
+      is_mandatory: false,
+    }
+    const updatedCriteria = [...criteria, newCrit]
+    const eqWeight = Math.round((1.0 / updatedCriteria.length) * 100) / 100
+    const rebalanced = updatedCriteria.map((c) => ({ ...c, weight: eqWeight }))
+
+    onUpdateCase({
+      ...decisionCase,
+      criteria: rebalanced,
+    })
+    setNewCritName('')
+    setNewCritUnit('')
+    setShowAddCrit(false)
+  }
+
+  const handleRemoveCriterion = (critId: string): void => {
+    if (criteria.length <= 1) return
+    const updated = criteria.filter((c) => c.id !== critId)
+    const eqWeight = Math.round((1.0 / updated.length) * 100) / 100
+    const rebalanced = updated.map((c) => ({ ...c, weight: eqWeight }))
+    onUpdateCase({
+      ...decisionCase,
+      criteria: rebalanced,
+    })
+  }
+
+  const handleWebResearch = async (optionId: string, criterionId: string): Promise<void> => {
+    const opt = options.find((o) => o.id === optionId)
+    const crit = criteria.find((c) => c.id === criterionId)
+    if (!opt || !crit) return
+
+    setActiveResearchCell({ optionId, criterionId })
+    setIsSearchingWeb(true)
+    setResearchNotice(null)
+    setShowManualUrl(false)
+
+    try {
+      const res = await researchEvidence({
+        case_id: decisionCase.id,
+        target_parameters: [
+          {
+            param_id: `${optionId}_${criterionId}`,
+            query_text: `${opt.title} ${crit.name}`,
+            expected_unit: crit.unit || undefined,
+          },
+        ],
+        max_results_per_param: 2,
+      })
+
+      if (res.evidence && res.evidence.length > 0) {
+        const ev = res.evidence[0]
+        const extractedVal = parseFloat(String(ev.value ?? '0'))
+        if (!isNaN(extractedVal) && extractedVal > 0) {
+          handleUpdateCell(optionId, criterionId, {
+            value: extractedVal,
+            unit: ev.unit || crit.unit || undefined,
+            provenance: 'web_sourced',
+            source_ref: ev.source_url || 'Sieć www',
+            confidence: ev.confidence ?? 0.85,
+          })
+          setResearchNotice(`✓ Pobrano dane z sieci: ${extractedVal} (${ev.source_url})`)
+        } else {
+          setResearchNotice(`Znaleziono źródło (${ev.source_url}), lecz brak jednoznacznej liczby. Wprowadź wartość ręcznie.`)
+        }
+      } else {
+        setResearchNotice('Wyszukiwarka nieskonfigurowana — możesz wkleić adres URL źródła:')
+        setShowManualUrl(true)
+      }
+    } catch {
+      setResearchNotice('Wyszukiwarka nieskonfigurowana — możesz wkleić adres URL źródła:')
+      setShowManualUrl(true)
+    } finally {
+      setIsSearchingWeb(false)
+    }
+  }
+
+  const handleApplyManualUrl = (): void => {
+    if (!activeResearchCell || !manualUrlInput.trim()) return
+    const { optionId, criterionId } = activeResearchCell
+    handleUpdateCell(optionId, criterionId, {
+      provenance: 'web_sourced',
+      source_ref: manualUrlInput.trim(),
+      confidence: 0.9,
+    })
+    setManualUrlInput('')
+    setShowManualUrl(false)
+    setResearchNotice('✓ Przypisano źródło URL do komórki.')
+    setActiveResearchCell(null)
+  }
 
   const handleAnswerChange = (id: string, text: string): void => {
     setAnswers((prev) => ({ ...prev, [id]: text }))
@@ -471,6 +647,298 @@ export const CaseWorkspace: React.FC<CaseWorkspaceProps> = ({
               </div>
             </div>
 
+            {/* ── 3. Decision Matrix (B1 / N2 / N3) ── */}
+            <div style={{ marginBottom: '2rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <div>
+                  <h3 style={{ fontSize: '0.9375rem', fontWeight: 800, color: 'oklch(92% 0.01 250)', margin: 0 }}>
+                    Macierz kryteriów i wartości (B1 / N2)
+                  </h3>
+                  <div style={{ fontSize: '0.78125rem', color: 'oklch(60% 0.02 250)' }}>
+                    Wymaga uzupełnienia wartości i pochodzenia dla każdej komórki przed uruchomieniem obliczeń.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAddCrit(true)}
+                  style={{
+                    background: 'oklch(18% 0.03 250)',
+                    border: '1px solid oklch(35% 0.05 250)',
+                    borderRadius: '6px',
+                    color: 'oklch(85% 0.08 80)',
+                    padding: '0.375rem 0.75rem',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  + Dodaj kryterium
+                </button>
+              </div>
+
+              {/* Add Criterion Form */}
+              {showAddCrit && (
+                <div style={{
+                  background: 'oklch(12% 0.025 250)',
+                  border: '1px solid oklch(28% 0.03 250)',
+                  borderRadius: '8px',
+                  padding: '1rem',
+                  marginBottom: '1rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.75rem',
+                }}>
+                  <div style={{ fontWeight: 700, fontSize: '0.8125rem', color: 'oklch(85% 0.08 80)' }}>
+                    Nowe kryterium decyzyjne
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <input
+                      type="text"
+                      placeholder="Nazwa kryterium (np. Koszt dojazdu, Czas wolny)..."
+                      value={newCritName}
+                      onChange={(e) => setNewCritName(e.target.value)}
+                      style={{ flex: 2, minWidth: '180px', fontSize: '0.8125rem', padding: '0.4rem 0.6rem' }}
+                    />
+                    <select
+                      value={newCritDirection}
+                      onChange={(e) => setNewCritDirection(e.target.value as 'maximize' | 'minimize')}
+                      style={{
+                        background: 'oklch(16% 0.02 250)',
+                        color: 'oklch(90% 0.01 250)',
+                        border: '1px solid oklch(28% 0.03 250)',
+                        borderRadius: '6px',
+                        padding: '0.4rem 0.6rem',
+                        fontSize: '0.8125rem',
+                      }}
+                    >
+                      <option value="maximize">Maksymalizuj (im więcej tym lepiej)</option>
+                      <option value="minimize">Minimalizuj (im mniej tym lepiej)</option>
+                    </select>
+                    <input
+                      type="text"
+                      placeholder="Jednostka (np. PLN, h, pkt)"
+                      value={newCritUnit}
+                      onChange={(e) => setNewCritUnit(e.target.value)}
+                      style={{ flex: 1, minWidth: '90px', fontSize: '0.8125rem', padding: '0.4rem 0.6rem' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddCriterionSubmit}
+                      style={{
+                        background: 'oklch(75% 0.12 80)',
+                        color: 'oklch(6% 0.01 250)',
+                        border: 'none',
+                        borderRadius: '6px',
+                        padding: '0.4rem 0.8rem',
+                        fontWeight: 700,
+                        fontSize: '0.8125rem',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Zapisz
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddCrit(false)}
+                      style={{
+                        background: 'none',
+                        border: '1px solid oklch(28% 0.03 250)',
+                        color: 'oklch(60% 0.02 250)',
+                        borderRadius: '6px',
+                        padding: '0.4rem 0.6rem',
+                        fontSize: '0.8125rem',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Anuluj
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Research notification banner */}
+              {researchNotice && (
+                <div style={{
+                  padding: '0.75rem 1rem',
+                  borderRadius: '8px',
+                  background: 'oklch(14% 0.03 250)',
+                  border: '1px solid oklch(25% 0.03 250)',
+                  marginBottom: '1rem',
+                  fontSize: '0.8125rem',
+                  color: 'oklch(80% 0.08 80)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.5rem',
+                }}>
+                  <div>{researchNotice}</div>
+                  {showManualUrl && (
+                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
+                      <input
+                        type="url"
+                        placeholder="https://... (adres źródła z danymi)"
+                        value={manualUrlInput}
+                        onChange={(e) => setManualUrlInput(e.target.value)}
+                        style={{ flex: 1, fontSize: '0.8125rem', padding: '0.35rem 0.6rem' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleApplyManualUrl}
+                        disabled={!manualUrlInput.trim()}
+                        style={{
+                          background: 'oklch(75% 0.12 80)',
+                          color: 'oklch(6% 0.01 250)',
+                          border: 'none',
+                          borderRadius: '6px',
+                          padding: '0 0.8rem',
+                          fontWeight: 700,
+                          fontSize: '0.8125rem',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Zastosuj URL
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* The Matrix Table */}
+              <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid oklch(22% 0.025 250)' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
+                  <thead>
+                    <tr style={{ background: 'oklch(12% 0.02 250)', borderBottom: '1px solid oklch(22% 0.025 250)' }}>
+                      <th style={{ padding: '0.75rem 1rem', textAlign: 'left', color: 'oklch(75% 0.02 250)', fontWeight: 700 }}>
+                        Wariant decyzyjny
+                      </th>
+                      {criteria.map((crit) => (
+                        <th key={crit.id} style={{ padding: '0.75rem 1rem', textAlign: 'center', color: 'oklch(85% 0.08 80)', fontWeight: 700 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}>
+                            <span>{crit.name}</span>
+                            <span style={{ fontSize: '0.6875rem', color: 'oklch(60% 0.02 250)', fontWeight: 400 }}>
+                              ({crit.direction === 'maximize' ? 'max' : 'min'}, waga: {Math.round(crit.weight * 100)}%)
+                            </span>
+                            {criteria.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveCriterion(crit.id)}
+                                title="Usuń kryterium"
+                                style={{ background: 'none', border: 'none', color: 'oklch(45% 0.02 250)', cursor: 'pointer', padding: 0, fontSize: '0.75rem' }}
+                              >
+                                ×
+                              </button>
+                            )}
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {options.map((opt) => (
+                      <tr key={opt.id} style={{ borderBottom: '1px solid oklch(18% 0.02 250)', background: 'oklch(9% 0.015 250)' }}>
+                        <td style={{ padding: '0.875rem 1rem', fontWeight: 600, color: 'oklch(90% 0.015 250)' }}>
+                          <div>{opt.title}</div>
+                          {opt.description && (
+                            <div style={{ fontSize: '0.71875rem', color: 'oklch(55% 0.018 250)', fontWeight: 400 }}>
+                              {opt.description}
+                            </div>
+                          )}
+                        </td>
+                        {criteria.map((crit) => {
+                          const cell = (decisionCase.score_matrix || {})[opt.id]?.[crit.id]
+                          const hasVal = cell && cell.value !== undefined && cell.value !== null && !isNaN(cell.value)
+                          const provenance = cell?.provenance || 'missing'
+                          const provenanceIcons: Record<string, string> = {
+                            user_supplied: '👤',
+                            web_sourced: '🌐',
+                            assumed: '⚠️',
+                            derived: '⚙️',
+                            llm_extracted: '⚙️',
+                            missing: '❓',
+                          }
+                          const icon = hasVal ? (provenanceIcons[provenance] || '✓') : '❓'
+                          const isResearching = isSearchingWeb && activeResearchCell?.optionId === opt.id && activeResearchCell?.criterionId === crit.id
+
+                          return (
+                            <td key={crit.id} style={{ padding: '0.75rem 0.5rem', textAlign: 'center', minWidth: '150px' }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.35rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                  <input
+                                    type="number"
+                                    step="any"
+                                    placeholder="Wartość..."
+                                    value={hasVal ? cell.value : ''}
+                                    onChange={(e) => {
+                                      const num = parseFloat(e.target.value)
+                                      if (!isNaN(num)) {
+                                        handleUpdateCell(opt.id, crit.id, {
+                                          value: num,
+                                          provenance: 'user_supplied',
+                                          source_ref: 'Wprowadzone ręcznie przez użytkownika',
+                                          confidence: 1.0,
+                                        })
+                                      }
+                                    }}
+                                    style={{
+                                      width: '80px',
+                                      padding: '0.3rem 0.4rem',
+                                      fontSize: '0.8125rem',
+                                      textAlign: 'right',
+                                      borderRadius: '4px',
+                                      background: hasVal ? 'oklch(14% 0.02 250)' : 'oklch(13% 0.03 35 / 0.3)',
+                                      border: `1px solid ${hasVal ? 'oklch(28% 0.03 250)' : 'oklch(38% 0.08 35)'}`,
+                                    }}
+                                  />
+                                  <span style={{ fontSize: '0.75rem', color: 'oklch(60% 0.02 250)' }}>
+                                    {crit.unit || cell?.unit || ''}
+                                  </span>
+                                  <span title={`Pochodzenie: ${cell?.source_ref || 'brak'}`} style={{ cursor: 'help' }}>
+                                    {icon}
+                                  </span>
+                                </div>
+                                <div style={{ display: 'flex', gap: '0.3rem', fontSize: '0.6875rem' }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMarkAsAssumption(opt.id, crit.id)}
+                                    title="Oznacz jako założenie robocze"
+                                    style={{
+                                      background: 'none',
+                                      border: '1px solid oklch(25% 0.03 250)',
+                                      borderRadius: '3px',
+                                      color: 'oklch(70% 0.05 80)',
+                                      padding: '0.15rem 0.35rem',
+                                      cursor: 'pointer',
+                                    }}
+                                  >
+                                    ⚠️ Założenie
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleWebResearch(opt.id, crit.id)}
+                                    disabled={isResearching}
+                                    title="Dozbierz dane z sieci www (N3)"
+                                    style={{
+                                      background: 'none',
+                                      border: '1px solid oklch(25% 0.03 250)',
+                                      borderRadius: '3px',
+                                      color: 'oklch(70% 0.05 200)',
+                                      padding: '0.15rem 0.35rem',
+                                      cursor: isResearching ? 'wait' : 'pointer',
+                                    }}
+                                  >
+                                    {isResearching ? '...' : '🌐 Sieć'}
+                                  </button>
+                                </div>
+                              </div>
+                            </td>
+                          )
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
             {/* Clarification questions */}
             {decisionCase.unknowns.length > 0 && (
               <div style={{
@@ -556,18 +1024,40 @@ export const CaseWorkspace: React.FC<CaseWorkspaceProps> = ({
             )}
 
             {/* Action */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '1.25rem', borderTop: '1px solid oklch(18% 0.022 250)' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem', alignItems: 'flex-end', paddingTop: '1.25rem', borderTop: '1px solid oklch(18% 0.022 250)' }}>
+              {!isValidForModeling && (
+                <div style={{
+                  width: '100%',
+                  padding: '0.75rem 1rem',
+                  borderRadius: '8px',
+                  background: 'oklch(16% 0.04 35 / 0.5)',
+                  border: '1px solid oklch(40% 0.12 35)',
+                  color: 'oklch(80% 0.12 35)',
+                  fontSize: '0.8125rem',
+                  lineHeight: 1.5,
+                }}>
+                  <div style={{ fontWeight: 700, marginBottom: '0.25rem' }}>
+                    ⚠️ Wymagane uzupełnienie macierzy przed uruchomieniem solvera:
+                  </div>
+                  <ul style={{ margin: 0, paddingLeft: '1.25rem' }}>
+                    {validationErrors.map((err, idx) => (
+                      <li key={idx}>{err}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               <button
                 type="button"
                 onClick={onProceedToModeling}
-                disabled={isLoading}
+                disabled={isLoading || !isValidForModeling}
                 style={{
-                  background: isLoading ? 'oklch(50% 0.08 80)' : 'oklch(75% 0.12 80)',
-                  color: 'oklch(5% 0.01 250)', border: 'none',
+                  background: (!isValidForModeling || isLoading) ? 'oklch(35% 0.04 80)' : 'oklch(75% 0.12 80)',
+                  color: (!isValidForModeling || isLoading) ? 'oklch(60% 0.02 250)' : 'oklch(5% 0.01 250)',
+                  border: 'none',
                   padding: '0.9375rem 2rem', borderRadius: '8px',
-                  fontWeight: 800, fontSize: '1rem', cursor: isLoading ? 'not-allowed' : 'pointer',
+                  fontWeight: 800, fontSize: '1rem', cursor: (!isValidForModeling || isLoading) ? 'not-allowed' : 'pointer',
                   letterSpacing: '-0.015em', display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
-                  boxShadow: isLoading ? 'none' : '0 0 28px oklch(75% 0.12 80 / 0.4)',
+                  boxShadow: (!isValidForModeling || isLoading) ? 'none' : '0 0 28px oklch(75% 0.12 80 / 0.4)',
                   transition: 'background 200ms, box-shadow 200ms',
                 }}
               >
