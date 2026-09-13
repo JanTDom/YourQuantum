@@ -875,9 +875,11 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                     borderRadius: '6px',
                     background: 'oklch(15% 0.04 240 / 0.9)',
                     border: '1px solid oklch(30% 0.06 240 / 0.5)',
-                    color: 'oklch(80% 0.05 240)',
+                    color: result.verification?.hmac_signature ? 'oklch(80% 0.05 240)' : 'oklch(75% 0.12 60)',
                   }}>
-                    SHA-256: {result.verification?.sha256_hash ? `${result.verification.sha256_hash.slice(0, 16)}...` : 'CERT-VERIFIED'}
+                    {result.verification?.hmac_signature
+                      ? `SHA-256: ${result.verification.sha256_hash ? `${result.verification.sha256_hash.slice(0, 16)}...` : 'CERT-VERIFIED'} (HMAC)`
+                      : 'odcisk SHA-256 (bez podpisu serwera)'}
                   </span>
                 </div>
 

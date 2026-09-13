@@ -291,3 +291,94 @@ def test_r2_no_master_secret_literal_in_repo():
                 pass
 
     assert invalid_hits == [], f"Found forbidden master secret literal in repo: {invalid_hits}"
+
+
+# ---------------------------------------------------------------------------
+# R3: Signing Key Has No Default, Unsigned Reports Flagged
+# ---------------------------------------------------------------------------
+
+def test_r3_signing_key_has_no_default(monkeypatch):
+    """
+    R3: Verify YQ_SIGNING_KEY has no default fallback.
+    Without key: hmac_signature is None, limitations contains 'raport niepodpisany'.
+    With key: hmac_signature is a 64-character hex digest.
+    Also verifies 0 instances of getenv('YQ_SIGNING_KEY', '...') and getenv('YQ_MASTER_API_SECRET', '...').
+    """
+    from backend.verifier.verifier import (
+        get_signing_key,
+        compute_verification_signatures,
+        IndependentVerifier,
+        SolverCandidate,
+    )
+    from backend.domain.problem_ir import (
+        ProblemIR, Variable, VariableDomain, ObjectiveDirection,
+        ExpressionRegistry, ExprNode, Objective
+    )
+    from datetime import datetime, timezone
+
+    # 1. Unset key
+    monkeypatch.delenv("YQ_SIGNING_KEY", raising=False)
+    assert get_signing_key() is None
+
+    sha, hmac_sig = compute_verification_signatures("sample_canonical_string")
+    assert sha is not None
+    assert len(sha) == 64
+    assert hmac_sig is None
+
+    # 2. IndependentVerifier with unset key
+    reg = ExpressionRegistry()
+    reg.add(ExprNode(id="obj_node", op="var", value="x"))
+    problem = ProblemIR(
+        problem_id="prob_test_r3",
+        description_raw="Test problem for R3",
+        description_formalised="Formalized test problem for R3",
+        variables=[Variable(id="x", name="x", domain=VariableDomain.BINARY)],
+        expressions=reg,
+        objectives=[Objective(id="obj", direction=ObjectiveDirection.MINIMIZE, expression_id="obj_node")],
+        approved=True,
+        approved_at=datetime.now(timezone.utc),
+    )
+    candidate = SolverCandidate(
+        candidate_id="cand_1",
+        assignment={"x": 1},
+        claimed_objective=1.0,
+        claimed_status="optimal",
+    )
+    verifier = IndependentVerifier(problem)
+    report = verifier.verify(candidate)
+
+    assert report.hmac_signature is None
+    assert any("raport niepodpisany" in lim for lim in report.limitations)
+
+    # 3. With key set
+    monkeypatch.setenv("YQ_SIGNING_KEY", "test_audit_key_secret_2026")
+    assert get_signing_key() == "test_audit_key_secret_2026"
+
+    sha2, hmac_sig2 = compute_verification_signatures("sample_canonical_string")
+    assert hmac_sig2 is not None
+    assert len(hmac_sig2) == 64
+
+    report_signed = verifier.verify(candidate)
+    assert report_signed.hmac_signature is not None
+    assert len(report_signed.hmac_signature) == 64
+    assert not any("raport niepodpisany" in lim for lim in report_signed.limitations)
+
+    # 4. Grep check for backend getenv defaults
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    backend_dir = os.path.join(repo_root, "backend")
+
+    signing_hits = []
+    master_hits = []
+    for root, _, files in os.walk(backend_dir):
+        for f in files:
+            if f.endswith(".py"):
+                path = os.path.join(root, f)
+                with open(path, "r", encoding="utf-8") as file:
+                    content = file.read()
+                    if 'getenv("YQ_SIGNING_KEY", "' in content:
+                        signing_hits.append(path)
+                    if 'getenv("YQ_MASTER_API_SECRET", "' in content:
+                        master_hits.append(path)
+
+    assert signing_hits == [], f"Found default in getenv YQ_SIGNING_KEY: {signing_hits}"
+    assert master_hits == [], f"Found default in getenv YQ_MASTER_API_SECRET: {master_hits}"

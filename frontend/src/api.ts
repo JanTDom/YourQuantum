@@ -207,6 +207,7 @@ export interface VerificationReport {
   numerical_residual: number | null
   limitations: string[]
   sha256_hash?: string
+  hmac_signature?: string | null
   optimality_proven?: boolean
   dual_bound?: number | null
   optimality_gap_percent?: number | null

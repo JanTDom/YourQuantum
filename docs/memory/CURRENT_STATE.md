@@ -71,6 +71,14 @@ WYNIK KOŃCOWY: 22 BRAMEK CZERWONYCH (FAIL)
 
 ---
 
+### Stan po wdrożeniu R3 (`fix(R3)`)
+- **Bramka G-R3**: PASS (0 wartości domyślnych dla `YQ_SIGNING_KEY` i `YQ_MASTER_API_SECRET` w katalogu `backend/`).
+- **Weryfikator**: Usunięto wartość domyślną z `get_signing_key()`. Bez zmiennej `YQ_SIGNING_KEY` raport ma `hmac_signature = None` oraz limitation `raport niepodpisany – brak YQ_SIGNING_KEY`.
+- **Frontend**: `RecommendationView.tsx` wyświetla `odcisk SHA-256 (bez podpisu serwera)` w przypadku braku podpisu HMAC.
+- **Test regresyjny R3**: `tests/test_v4_regressions.py::test_r3_signing_key_has_no_default` PASS.
+
+---
+
 ## Wyniki weryfikacji empirycznej (Evidence-First DoD)
 
 - **Backend Pytest Suite**: `.venv/bin/pytest tests/ -v` → **157/157 passed in 39.41s** (zero błędów, zero regresji, 100% zielonych testów).

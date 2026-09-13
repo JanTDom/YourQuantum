@@ -39,7 +39,7 @@ from backend.verifier.verifier import IndependentVerifier, SolverCandidate, Verd
 
 def get_master_api_secret() -> str | None:
     """Retrieve master API secret from environment without hardcoded fallback."""
-    val = os.getenv("YQ_MASTER_API_SECRET", "").strip()
+    val = (os.getenv("YQ_MASTER_API_SECRET") or "").strip()
     return val if val else None
 
 

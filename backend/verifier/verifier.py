@@ -23,8 +23,8 @@ from backend.domain.problem_ir import (
 from backend.domain.evaluator import ExpressionEvaluator
 
 
-def get_signing_key() -> str:
-    return os.getenv("YQ_SIGNING_KEY", "yourquantum_audit_master_seal_2026")
+def get_signing_key() -> str | None:
+    return os.getenv("YQ_SIGNING_KEY")
 
 
 def build_verification_canonical_string(
@@ -43,14 +43,17 @@ def build_verification_canonical_string(
     )
 
 
-def compute_verification_signatures(canonical_str: str) -> tuple[str, str]:
+def compute_verification_signatures(canonical_str: str) -> tuple[str, str | None]:
     """
     Returns (sha256_hash, hmac_signature).
     - sha256_hash: Content integrity digest
-    - hmac_signature: Cryptographic server signature proving authentic YourQuantum provenance (B3)
+    - hmac_signature: Cryptographic server signature proving authentic YourQuantum provenance (B3), or None if YQ_SIGNING_KEY is not set
     """
     sha256_hash = hashlib.sha256(canonical_str.encode("utf-8")).hexdigest()
-    signing_key = get_signing_key().encode("utf-8")
+    key_str = get_signing_key()
+    if not key_str:
+        return sha256_hash, None
+    signing_key = key_str.encode("utf-8")
     hmac_signature = hmac.new(signing_key, canonical_str.encode("utf-8"), hashlib.sha256).hexdigest()
     return sha256_hash, hmac_signature
 
@@ -91,7 +94,7 @@ class VerificationReport(BaseModel):
 
     # Mathematical Certificate & Supremacy Stamping (B3)
     sha256_hash: str = ""
-    hmac_signature: str = ""
+    hmac_signature: str | None = None
     optimality_proven: bool = False
     dual_bound: float | None = None
     optimality_gap_percent: float | None = None
@@ -230,6 +233,8 @@ class IndependentVerifier:
         limitations = self._build_limitations(
             candidate, objective_recomputed, opt_proven, gap_percent, extra_reason=opt_note
         )
+        if hmac_signature is None:
+            limitations.append("raport niepodpisany – brak YQ_SIGNING_KEY")
 
         return VerificationReport(
             problem_id=self._problem.problem_id,
