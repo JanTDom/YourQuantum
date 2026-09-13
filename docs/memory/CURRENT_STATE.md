@@ -62,6 +62,15 @@ WYNIK KOŃCOWY: 22 BRAMEK CZERWONYCH (FAIL)
 
 ---
 
+### Stan po wdrożeniu R2 (`fix(R2)`)
+- **Bramka G-R2**: PASS (0 niedozwolonych wystąpień sekretu master w repozytorium poza dokumentami audytowymi).
+- **Frontend**: Usunięto 6 wystąpień hasła w `ApiPortalModal.tsx` oraz podpowiedź w `AppHeader.tsx`. Wprowadzono modal z autoryzacją użytkownika.
+- **SDK & MCP**: Oczyszczono `yourquantum_client.ts`, `yourquantum_sdk.py`, `smoke_test.py`, `mcp_server/README.md`.
+- **Testy**: Zastąpiono statyczne hasło dynamicznym `TEST_RANDOM_SECRET` w `tests/test_universal_api.py`.
+- **Test regresyjny R2**: `tests/test_v4_regressions.py::test_r2_no_master_secret_literal_in_repo` PASS.
+
+---
+
 ## Wyniki weryfikacji empirycznej (Evidence-First DoD)
 
 - **Backend Pytest Suite**: `.venv/bin/pytest tests/ -v` → **157/157 passed in 39.41s** (zero błędów, zero regresji, 100% zielonych testów).

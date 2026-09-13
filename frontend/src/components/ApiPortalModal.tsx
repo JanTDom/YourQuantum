@@ -162,7 +162,8 @@ export const ApiPortalModal: React.FC<ApiPortalModalProps> = ({ isOpen, onClose 
   }
 
   const handleCopyKey = () => {
-    const keyToCopy = authToken || 'A132a132!'
+    const keyToCopy = authToken || ''
+    if (!keyToCopy) return
     navigator.clipboard.writeText(keyToCopy)
     setCopiedKey(true)
     setTimeout(() => setCopiedKey(false), 2000)
@@ -172,7 +173,7 @@ export const ApiPortalModal: React.FC<ApiPortalModalProps> = ({ isOpen, onClose 
 
   // Generate code snippet according to language and active domain
   const generatedCode = useMemo(() => {
-    const key = authToken || 'A132a132!'
+    const key = authToken || 'YOUR_API_TOKEN'
     const reqJson = JSON.stringify(activePreset, null, 2)
 
     if (activeLang === 'PYTHON') {
@@ -242,8 +243,11 @@ runOptimization();`
     setComputeResult(null)
 
     try {
-      const token = authToken || 'A132a132!'
-      const res = await api.runUniversalCompute(activePreset, token)
+      if (!authToken) {
+        setComputeError('Wymagane uwierzytelnienie: wprowadź hasło dostępu')
+        return
+      }
+      const res = await api.runUniversalCompute(activePreset, authToken)
       setComputeResult(res)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Błąd podczas obliczeń API'
@@ -307,66 +311,66 @@ runOptimization();`
             <>
               {/* API Key Banner */}
               <div className={s.keyBanner}>
-                <div>
-                  <div className={s.keyLabel}>Twój Klucz Autoryzacyjny API</div>
-                  <div className={s.keyValue}>{authToken || 'A132a132!'}</div>
-                </div>
-                <button className={s.copyBtn} onClick={handleCopyKey}>
-                  {copiedKey ? '✓ Skopiowano' : '📋 Kopiuj Klucz API'}
-                </button>
-              </div>
+                 <div>
+                   <div className={s.keyLabel}>Twój Klucz Autoryzacyjny API</div>
+                   <div className={s.keyValue}>{authToken || 'Brak aktywnego tokenu'}</div>
+                 </div>
+                 <button className={s.copyBtn} onClick={handleCopyKey} disabled={!authToken}>
+                   {copiedKey ? '✓ Skopiowano' : '📋 Kopiuj Klucz API'}
+                 </button>
+               </div>
 
-              {/* SDK Download Section */}
-              <div>
-                <h3 className={s.sectionTitle}>
-                  <span>📥</span> Pobierz Gotowe Biblioteki SDK (Zero-Dependency)
-                </h3>
-                <div className={s.sdkGrid} style={{ marginTop: '0.75rem' }}>
-                  {/* Python SDK */}
-                  <div className={s.sdkCard}>
-                    <div className={s.sdkCardTop}>
-                      <div className={s.sdkName}>
-                        <span>🐍 Python SDK</span>
-                        <span className={s.sdkBadge}>v1.0.0</span>
-                      </div>
-                      <div className={s.sdkDesc}>
-                        Oficjalny klient zero-dependency dla Pythona. Działa z biblioteką standardową
-                        (urllib/json), gotowy do wdrożenia w FastAPI, Django, skryptach Data Science
-                        i potokach agentów AI.
-                      </div>
-                    </div>
-                    <a
-                      href={api.getSdkDownloadUrl('python', authToken || 'A132a132!')}
-                      download="yourquantum_sdk.py"
-                      className={s.downloadBtn}
-                    >
-                      <span>📥</span> Pobierz yourquantum_sdk.py
-                    </a>
-                  </div>
+               {/* SDK Download Section */}
+               <div>
+                 <h3 className={s.sectionTitle}>
+                   <span>📥</span> Pobierz Gotowe Biblioteki SDK (Zero-Dependency)
+                 </h3>
+                 <div className={s.sdkGrid} style={{ marginTop: '0.75rem' }}>
+                   {/* Python SDK */}
+                   <div className={s.sdkCard}>
+                     <div className={s.sdkCardTop}>
+                       <div className={s.sdkName}>
+                         <span>🐍 Python SDK</span>
+                         <span className={s.sdkBadge}>v1.0.0</span>
+                       </div>
+                       <div className={s.sdkDesc}>
+                         Oficjalny klient zero-dependency dla Pythona. Działa z biblioteką standardową
+                         (urllib/json), gotowy do wdrożenia w FastAPI, Django, skryptach Data Science
+                         i potokach agentów AI.
+                       </div>
+                     </div>
+                     <a
+                       href={api.getSdkDownloadUrl('python', authToken || '')}
+                       download="yourquantum_sdk.py"
+                       className={s.downloadBtn}
+                     >
+                       <span>📥</span> Pobierz yourquantum_sdk.py
+                     </a>
+                   </div>
 
-                  {/* TypeScript SDK */}
-                  <div className={s.sdkCard}>
-                    <div className={s.sdkCardTop}>
-                      <div className={s.sdkName}>
-                        <span>⚡ TypeScript / Node.js</span>
-                        <span className={s.sdkBadge}>v1.0.0</span>
-                      </div>
-                      <div className={s.sdkDesc}>
-                        Oficjalny silnie typowany klient zero-dependency. Działa z natywnym fetch
-                        w środowiskach Node.js 18+, Bun, Deno oraz bezpośrednio w aplikacjach
-                        przeglądarkowych React, Vue, Next.js.
-                      </div>
-                    </div>
-                    <a
-                      href={api.getSdkDownloadUrl('typescript', authToken || 'A132a132!')}
-                      download="yourquantum_client.ts"
-                      className={s.downloadBtn}
-                    >
-                      <span>📥</span> Pobierz yourquantum_client.ts
-                    </a>
-                  </div>
-                </div>
-              </div>
+                   {/* TypeScript SDK */}
+                   <div className={s.sdkCard}>
+                     <div className={s.sdkCardTop}>
+                       <div className={s.sdkName}>
+                         <span>⚡ TypeScript / Node.js</span>
+                         <span className={s.sdkBadge}>v1.0.0</span>
+                       </div>
+                       <div className={s.sdkDesc}>
+                         Oficjalny silnie typowany klient zero-dependency. Działa z natywnym fetch
+                         w środowiskach Node.js 18+, Bun, Deno oraz bezpośrednio w aplikacjach
+                         przeglądarkowych React, Vue, Next.js.
+                       </div>
+                     </div>
+                     <a
+                       href={api.getSdkDownloadUrl('typescript', authToken || '')}
+                       download="yourquantum_client.ts"
+                       className={s.downloadBtn}
+                     >
+                       <span>📥</span> Pobierz yourquantum_client.ts
+                     </a>
+                   </div>
+                 </div>
+               </div>
 
               {/* Multi-Domain Code Examples */}
               <div>

@@ -135,7 +135,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               e.currentTarget.style.background = 'linear-gradient(135deg, oklch(18% 0.05 80 / 0.9), oklch(16% 0.04 240 / 0.9))'
               e.currentTarget.style.borderColor = 'oklch(50% 0.12 80 / 0.5)'
             }}
-            title="Otwórz Portal API & Pobierz SDK (zabezpieczone hasłem A132a132!)"
+            title="Otwórz Portal API & Pobierz SDK (wymaga uwierzytelnienia)"
           >
             <span>⚡</span>
             <span>API & SDK</span>

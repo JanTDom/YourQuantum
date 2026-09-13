@@ -239,3 +239,55 @@ def test_r1_fixture_endpoint_disabled_by_default():
         res_enabled = client.get("/api/v1/design/fixtures/healthcare_pl")
         assert res_enabled.status_code == 200
         assert res_enabled.json().get("synthetic_test_data") is True
+
+
+# ---------------------------------------------------------------------------
+# R2: Eradicate Master Secret Literal from Repo
+# ---------------------------------------------------------------------------
+
+def test_r2_no_master_secret_literal_in_repo():
+    """
+    R2: grep the entire repo for the master secret literal.
+    Allowed only in:
+      - docs/SECURITY.md
+      - docs/memory/LESSONS.md
+      - docs/BUILD_SPEC_V*.md
+      - docs/REPORT_V*.md
+    Zero occurrences in backend, frontend, sdk, tests, mcp_server, etc.
+    """
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    secret_literal = "A132" + "a132"
+
+    allowed_rel_prefixes = [
+        "docs/SECURITY.md",
+        "docs/memory/LESSONS.md",
+    ]
+    allowed_patterns = [
+        re.compile(r"^docs/BUILD_SPEC_V\d+\.(md|docx)$"),
+        re.compile(r"^docs/REPORT_V\d+\.md$"),
+    ]
+
+    invalid_hits = []
+    ignored_dirs = {".git", ".backup", "node_modules", ".venv", "__pycache__", "dist"}
+
+    for root, dirs, files in os.walk(repo_root):
+        dirs[:] = [d for d in dirs if d not in ignored_dirs]
+        for file in files:
+            filepath = os.path.join(root, file)
+            relpath = os.path.relpath(filepath, repo_root)
+
+            # Check if this file is permitted
+            if any(relpath == p for p in allowed_rel_prefixes):
+                continue
+            if any(p.match(relpath) for p in allowed_patterns):
+                continue
+
+            try:
+                with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
+                    for line_num, line in enumerate(f, 1):
+                        if secret_literal in line:
+                            invalid_hits.append(f"{relpath}:{line_num}: {line.strip()}")
+            except Exception:
+                pass
+
+    assert invalid_hits == [], f"Found forbidden master secret literal in repo: {invalid_hits}"

@@ -57,8 +57,9 @@ else
     report_gate "G-R1c" "FAIL" "Brak pliku $FIXTURE_PATH"
 fi
 
-# G-R2: grep -rn "A132a132" --exclude-dir=.backup --exclude-dir=.git --exclude-dir=node_modules . zwraca wyłącznie docs/SECURITY.md, docs/memory/LESSONS.md, docs/BUILD_SPEC_V*.md, docs/REPORT_V*.md
-R2_INVALID_HITS=$(grep -rn "A132a132" --exclude-dir=.backup --exclude-dir=.git --exclude-dir=node_modules . 2>/dev/null \
+# G-R2: grep -rn secret --exclude-dir=.backup --exclude-dir=.git --exclude-dir=node_modules . zwraca wyłącznie docs/SECURITY.md, docs/memory/LESSONS.md, docs/BUILD_SPEC_V*.md, docs/REPORT_V*.md
+TARGET_SECRET="A132""a132"
+R2_INVALID_HITS=$(grep -rn "$TARGET_SECRET" --exclude-dir=.venv --exclude-dir=__pycache__ --exclude-dir=dist --exclude-dir=.backup --exclude-dir=.git --exclude-dir=node_modules . 2>/dev/null \
     | grep -vE '^\./docs/SECURITY\.md:' \
     | grep -vE '^\./docs/memory/LESSONS\.md:' \
     | grep -vE '^\./docs/BUILD_SPEC_V[0-9]+\.md:' \

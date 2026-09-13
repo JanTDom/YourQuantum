@@ -101,4 +101,4 @@ W środowiskach uruchamianych z linii poleceń serwer można zarejestrować kome
 ```bash
 claude mcp add yourquantum -- /Users/macbookpro/PROJEKTY/YOURQUANTUM/.venv/bin/python -m mcp_server
 ```
-*(z ustawioną wcześniej zmienną środowiskową `export YQ_API_KEY="A132a132!"`)*
+*(z ustawioną wcześniej zmienną środowiskową `export YQ_API_KEY="twoj_klucz_api"`)*

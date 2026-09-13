@@ -5,7 +5,7 @@ Universal Multi-Domain Quantum & Classical Decision Optimization Client.
 Usage:
     from yourquantum_sdk import YourQuantumClient
 
-    client = YourQuantumClient(api_key="A132a132!", base_url="https://yourquantum.pl")
+    client = YourQuantumClient(api_key="YOUR_API_TOKEN", base_url="https://yourquantum.pl")
     
     # Example 1: Multi-Project Capital Allocation
     result = client.solve_portfolio(
@@ -26,6 +26,7 @@ Usage:
 from __future__ import annotations
 
 import json
+import os
 import urllib.error
 import urllib.request
 from typing import Any, Dict, List, Optional, Union
@@ -41,11 +42,11 @@ class YourQuantumClient:
 
     def __init__(
         self,
-        api_key: str = "A132a132!",
+        api_key: str = "",
         base_url: str = "https://yourquantum.pl",
         timeout: float = 30.0,
     ):
-        self.api_key = api_key.strip()
+        self.api_key = (api_key or os.getenv("YQ_API_KEY", "")).strip()
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
 
