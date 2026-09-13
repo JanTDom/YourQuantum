@@ -976,6 +976,32 @@ def test_n9_problem_ir_schema_version_is_0_3():
     assert res.returncode == 0, "schema_version is not 0.3 in problem_ir.py"
 
 
+# ---------------------------------------------------------------------------
+# N11: End-to-End Playwright Suite with Real Uvicorn Backend
+# ---------------------------------------------------------------------------
+
+def test_n11_e2e_playwright_configuration_and_real_backend_spec():
+    """
+    N11: Verify that frontend/e2e/v4-real-backend.spec.ts exists,
+    and frontend/playwright.config.ts configures a webServer launching real uvicorn.
+    """
+    from pathlib import Path
+    repo_root = Path(__file__).parent.parent
+    spec_path = repo_root / "frontend" / "e2e" / "v4-real-backend.spec.ts"
+    assert spec_path.exists(), f"Missing spec file: {spec_path}"
+
+    content = spec_path.read_text(encoding="utf-8")
+    assert "/api/v1/health" in content
+    assert "hero-problem-input" in content
+    assert "OBLICZ ROZWIĄZANIE KWANTOWE" in content
+
+    config_path = repo_root / "frontend" / "playwright.config.ts"
+    config_content = config_path.read_text(encoding="utf-8")
+    assert "webServer" in config_content
+    assert "uvicorn" in config_content
+
+
+
 
 
 
