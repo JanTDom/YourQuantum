@@ -27,6 +27,7 @@ from backend.domain.problem_ir import (
 from backend.worker.runner import SOLVER_REGISTRY, enqueue_job
 from backend.api.universal_engine import UniversalComputeRequest
 from backend.domain.capabilities import get_capabilities_registry
+from backend.api.security_guard import verify_security_limits, create_session_token, get_client_ip
 
 router = APIRouter()
 
@@ -416,7 +417,10 @@ class CaseAnalyzeRequest(BaseModel):
 
 
 @router.post("/cases/analyze")
-async def analyze_case(req: CaseAnalyzeRequest) -> dict[str, Any]:
+async def analyze_case(
+    req: CaseAnalyzeRequest,
+    client_key: str = Depends(verify_security_limits),
+) -> dict[str, Any]:
     """Analyze everyday dilemma or situation into structured DecisionCase."""
     from backend.domain.llm_advisor import LLMAdvisor
     advisor = LLMAdvisor()
@@ -469,7 +473,10 @@ async def get_case(
 
 
 @router.post("/cases/formalize")
-async def formalize_case(case_data: dict[str, Any]) -> dict[str, Any]:
+async def formalize_case(
+    case_data: dict[str, Any],
+    client_key: str = Depends(verify_security_limits),
+) -> dict[str, Any]:
     """Compile structured DecisionCase with options and user answers into FormalizationResult."""
     from backend.domain.decision_case import DecisionCase
     from backend.domain.formalizer import ProblemFormalizer
@@ -761,7 +768,10 @@ class EvidenceResearchRequest(BaseModel):
 
 
 @router.post("/evidence/research")
-async def conduct_evidence_research(req: EvidenceResearchRequest) -> dict[str, Any]:
+async def conduct_evidence_research(
+    req: EvidenceResearchRequest,
+    client_key: str = Depends(verify_security_limits),
+) -> dict[str, Any]:
     """
     C1-C5: Research missing parameters across the public web using ResearchPlanner.
     Enforces quote verification and returns validated Evidence records and conflicts.
@@ -858,4 +868,28 @@ async def synthesize_design_problem(design_data: dict[str, Any]) -> dict[str, An
     except Exception as e:
         logger.exception("Design synthesis failed: %s", e)
         raise HTTPException(status_code=400, detail=f"Błąd syntezy DESIGN: {str(e)}")
+
+
+# ---------------------------------------------------------------------------
+# H1 / H2: Anonymous Session Issuance
+# ---------------------------------------------------------------------------
+
+class SessionTokenRequest(BaseModel):
+    session_id: str | None = None
+
+
+@router.post("/auth/session")
+async def issue_session_token(req: SessionTokenRequest, request: Request) -> dict[str, Any]:
+    """
+    H1 / H2: Issue an HMAC-signed session token for anonymous client session rate budgeting.
+    """
+    client_ip = get_client_ip(request)
+    sess_id = req.session_id or f"sess_{uuid.uuid4().hex[:10]}"
+    token = create_session_token(sess_id, client_ip)
+    return {
+        "session_id": sess_id,
+        "session_token": token,
+        "client_ip": client_ip,
+        "expires_in_hours": 12,
+    }
 

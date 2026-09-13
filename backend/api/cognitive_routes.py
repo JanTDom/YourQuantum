@@ -21,6 +21,7 @@ from backend.domain.cognitive.cognitive_port import FormalizationResult
 from backend.domain.cognitive.episodic_memory import EpisodicMemoryRepository
 from backend.domain.cognitive.workspace import EnergyBudget, GlobalWorkspace, WorkingMemory
 from backend.infrastructure.gemini_cognitive_adapter import GeminiCognitiveAdapter
+from backend.api.security_guard import verify_security_limits
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +64,7 @@ class CognitiveSessionTelemetry(BaseModel):
 async def cognitive_intake(
     req: CognitiveIntakeRequest,
     session: AsyncSession = Depends(get_session),
+    client_key: str = Depends(verify_security_limits),
 ) -> FormalizationResult:
     """
     Główny punkt wejściowy systemu (Phase E1).
