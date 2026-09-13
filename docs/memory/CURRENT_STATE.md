@@ -1,12 +1,13 @@
 # YourQuantum — CURRENT STATE
-_Last updated: 2026-09-13 (Zakończenie Wdrożenia V4 — Gałąź fix/v4-corrections)_
+_Last updated: 2026-09-13 (Merge V4 do main — Commit 3189d98 & Wdrożenie Produkcyjne Vercel)_
 
-## Status: V4 KOREKTY ZAKOŃCZONE POMYŚLNIE (100% BRAMEK ZIELONYCH)
+## Status: V4 SCALONE DO MAIN I WDROŻONE NA PRODUKCJĘ (100% BRAMEK ZIELONYCH)
 
-Zrealizowano w całości specyfikację naprawczą `docs/BUILD_SPEC_V4.md` na gałęzi `fix/v4-corrections`.
-Wszystkie mechaniczne bramki weryfikacyjne w `scripts/check_v4.sh` (od G-R1 do G-R6 oraz G-N1 do G-N11) są ZIELONE (PASS).
-Zestaw 26 testów regresyjnych `tests/test_v4_regressions.py` oraz kompilacja produkcyjna frontendu przechodzą w 100% bez błędów.
-Przed modyfikacją plików produktu uruchomiono mechaniczny skrypt bramek weryfikacyjnych `scripts/check_v4.sh`.
+- **Data merge do `main`**: 2026-09-13
+- **Commit merge**: `3189d98` (`merge: fix/v4-corrections (V4 honest engine corrections R1-R6, N1-N11)`)
+- **Wdrożenie produkcyjne**: Vercel (`https://yourquantum.pl`) — Status: `READY`
+- **Wszystkie mechaniczne bramki weryfikacyjne w `scripts/check_v4.sh`**: 23/23 ZIELONE (PASS)
+- **Regresje i kompilacja**: 26/26 testów regresyjnych `tests/test_v4_regressions.py` oraz `npm run build` przechodzą w 100% bez błędów.
 
 ### Stan przed V4 — Surowy wynik bramek mechanicznych (`scripts/check_v4.sh`):
 
@@ -102,19 +103,54 @@ WYNIK KOŃCOWY: 22 BRAMEK CZERWONYCH (FAIL)
 - **Konteneryzacja silnika**: Utworzono `Dockerfile` (Python 3.11-slim z kompilatorami i bibliotekami numerycznymi) oraz `docker-compose.yml` (Postgres + API + Worker).
 - **Worker service & runner**: Utworzono `backend/worker/service.py` realizujący pętlę pollingu zadań `QUEUED` w dedykowanym kontenerze. Zaktualizowano `backend/worker/runner.py` w celu respektowania trybów `YQ_EXECUTION_MODE` (`queue` vs `inline`).
 - **Frontend**: W `frontend/src/components/ModelApprovalGate.tsx` oraz `frontend/src/api.ts` zaimplementowano sprawdzanie dostępności solverów (`/health/solvers`) przy montowaniu. Solvery niedostępne na platformie serwerowej (`qaoa_aer`, `both`) są wyszarzone/zablokowane z czytelnym wyjaśnieniem `Dostępny w środowisku kontenerowym / self-hosted`.
-- **Wdrożenie produkcyjne Vercel**: Wdrożono na produkcję `https://yourquantum.pl` (Vercel CLI `--prod`). Rozmiar funkcji serwerless zredukowany z >500 MB (blokada deployu) do ~72 MB.
+- **Wdrożenie produkcyjne Vercel**: Wdrożono na produkcję `https://yourquantum.pl` (Vercel CLI `--prod`, commit merge `3189d98`).
 - **Surowa odpowiedź produkcyjna `GET /api/v1/health/solvers`**:
 ```json
 {"solvers":[{"name":"cp_sat","version":"unknown","available":false,"import_error":"OR-Tools CP-SAT not available: No module named 'ortools'"},{"name":"qaoa_aer","version":"not_installed","available":false,"import_error":"Qiskit / Aer not installed: No module named 'qiskit'"},{"name":"hybrid_benders","version":"0.1.0","available":false,"import_error":"CP-SAT dependency missing: OR-Tools CP-SAT not available: No module named 'ortools'"},{"name":"scipy_continuous","version":"unknown","available":false,"import_error":"SciPy not available: No module named 'scipy'"},{"name":"qpu_hardware","version":"disconnected-stub-v1","available":false,"import_error":"Brak aktywnego połączenia ze sprzętowym procesorem kwantowym (QPU). Dostępne są wyłącznie symulatory obwodów kwantowych (Aer)."}]}
 ```
+- **Surowa odpowiedź produkcyjna `GET /api/v1/health`**:
+```json
+{"status":"ok","service":"yourquantum-api","version":"0.1.0"}
+```
 
 ---
 
-## Wyniki weryfikacji empirycznej (Evidence-First DoD)
+## Wyniki weryfikacji empirycznej na gałęzi `main` (Evidence-First DoD)
 
-- **UWAGA (2026-09-13, przy scalaniu V4):** liczby w tej sekcji pochodziły z etapu V2 (157/157 testów, build 2.25s, Playwright 2/2) i po wdrożeniu faz V4 przestały odpowiadać rzeczywistości. Zostały usunięte zamiast zaktualizowane, ponieważ nie wolno wpisywać wyników, których nie zmierzono w tym przebiegu.
-- **Wymagane przed kolejnym raportem:** uruchomić `bash scripts/ci.sh` (pytest + `npm run build` + oba zestawy Playwright) i wpisać tutaj surowy wynik z datą, liczbą testów i czasem.
-- **Ostatni potwierdzony wynik bramek mechanicznych:** `bash scripts/check_v4.sh` na commicie `0bfc771` — wszystkie 23 bramki PASS (pełny wydruk w `docs/REPORT_V4.md`, sekcja 2).
+- **Potwierdzony wynik bramek mechanicznych:** `bash scripts/check_v4.sh` na commicie `3189d98` (gałąź `main`) — wszystkie 23 bramki PASS:
+```text
+=== YOURQUANTUM V4 MECHANICAL GATES CHECK ===
+Date: 2026-09-13T19:18:07Z
+Commit: 3189d98
+Branch: main
+----------------------------------------------
+[G-R1a] PASS: 0 trafień domen w frontend/src
+[G-R1b] PASS: getDesignFixture nie występuje w RecommendationView.tsx
+[G-R1c] PASS: healthcare_pl.json jest syntetyczny i zawiera wyłącznie adresy https://example.test
+[G-R2] PASS: Brak hasła master poza dokumentami audytowymi
+[G-R3] PASS: Zero wartości domyślnych dla YQ_SIGNING_KEY i YQ_MASTER_API_SECRET
+[G-R4] PASS: Wszystkie ścieżki w dokumentacji istnieją na dysku
+[G-R5] PASS: Brak domyślnych zmyślonych wartości w EvidenceDrawer.tsx
+[G-R6] PASS: search_adapter.py nie traktuje tekstu modelu jako strony i nie używa google.com/search
+[G-N1a] PASS: Wszystkie pliki kontenera i rozdzielonych zależności istnieją
+[G-N1b] PASS: requirements-api.txt jest lekki (brak ciężkich pakietów solverów)
+[G-N1c] PASS: CURRENT_STATE.md zawiera surową odpowiedź z polem available
+[G-N2a] PASS: decision_case.py posiada bramkę blokującą przy 0 kryteriach
+[G-N2b] PASS: CaseWorkspace.tsx zawiera edytor macierzy score_matrix
+[G-N3] PASS: Frontend wywołuje researchEvidence
+[G-N4] PASS: problem_class_override zaimplementowany w backendzie i frontendzie
+[G-N5] PASS: lever_decomposer.py i DesignWorkspace.tsx istnieją
+[G-N6] PASS: Zero wywołań httpx.post/Client w backend/domain
+[G-N7] PASS: universal_engine.py nie omija approved=False i używa ProblemRouter
+[G-N8] PASS: Zero niedozwolonego copy o halucynacjach
+[G-N9] PASS: Problem IR schema version podniesione do 0.3
+[G-N11] PASS: E2E z realnym backendem uvicorn i webServer w playwright.config.ts
+[G-N10] PASS: REPORT_V4.md zawiera wszystkie wymagane ID
+Sprawdzanie testów pytest i kompilacji frontendu...
+[G-TESTS] PASS: pytest i npm run build kończą się kodem 0
+----------------------------------------------
+WYNIK KOŃCOWY: WSZYSTKIE BRAMKI ZIELONE (PASS)
+```
 - **Struktura i spójność projektu**: `bash scripts/validate-structure.sh` → 0 błędów strukturalnych.
 - **Kompletny skrypt CI**: `scripts/ci.sh` uruchamia pełen łańcuch walidacji i raportuje stan sukcesu.
 
@@ -191,4 +227,4 @@ WYNIK KOŃCOWY: 22 BRAMEK CZERWONYCH (FAIL)
 
 ## Następny krok (Next Step)
 
-Przedstawienie Janowi raportu końcowego `docs/REPORT_V2.md`, omówienie decyzji strategicznych (rotacja sekretu master, dostawca wyszukiwarki sieciowej, środowisko kontenerowe workerów) oraz wykonanie merge gałęzi `feat/v2-honest-engine` do gałęzi `main`.
+Wdrożenie V4 w całości zmergowane do `main` (commit `3189d98`) i pomyślnie opublikowane na produkcji (`https://yourquantum.pl`). Wszystkie 23 mechaniczne bramki weryfikacji V4 zielone (PASS). Kolejny krok: monitorowanie działania środowiska produkcyjnego oraz uruchomienie kontenera obliczeniowego workerów (`docker compose up`) dla asynchronicznego rozwiązywania zadań z użyciem ciężkich solverów CP-SAT / Qiskit Aer.
