@@ -94,7 +94,20 @@ class ProblemFormalizer:
                 missing_information=["Opis problemu jest pusty."],
             )
 
-        # First attempt: if LLM configured, try LLM extraction with deterministic fallback
+        lower = cleaned.lower()
+        # If text matches known domain archetypes, use deterministic heuristic parser
+        # to guarantee zero hallucinations and accurate constraint / missing data extraction
+        is_archetype = (
+            (("czy" in lower and any(w in lower for w in ["zmienić", "zmienic", "zostać", "zostac", "kupić", "kupic", "wynająć", "nie wiem", "wahać"])) or
+             ("wybór między" in lower or "wybor miedzy" in lower or ("albo" in lower and "albo" in lower[lower.find("albo")+4:]))) or
+            any(w in lower for w in ["plecak", "knapsack", "udźwig", "pojemność", "pojemnosc", "ciężar"]) or
+            any(w in lower for w in ["max-cut", "max cut", "cięcie grafu", "ciecie grafu", "podział grafu", "podzial grafu", "rozcięcie"]) or
+            any(w in lower for w in ["projekt", "portfel", "inwestycj", "aktyw", "roi", "spośród", "sposrod"])
+        )
+        if is_archetype:
+            return self._heuristic_formalize(cleaned)
+
+        # For general unstructured text without explicit archetype, attempt LLM extraction
         if self.gemini_api_key or self.openai_api_key:
             try:
                 llm_res = self._try_llm_formalize(cleaned)
@@ -286,23 +299,57 @@ class ProblemFormalizer:
         )
 
     def _extract_knapsack(self, text: str, lower: str) -> FormalizationResult:
-        """Extract knapsack-style problem."""
-        vars_list = ["item_0", "item_1", "item_2", "item_3"]
-        weights = {"item_0": 2.0, "item_1": 3.0, "item_2": 4.0, "item_3": 5.0}
-        values = {"item_0": 3.0, "item_1": 4.0, "item_2": 5.0, "item_3": 8.0}
-        capacity = 7.0
+        """Extract knapsack-style problem requiring real text/data."""
+        cap_match = re.search(r"(?:udźwig[a-z]*|udzwig[a-z]*|pojemnoś[a-z]*|pojemnos[a-z]*|maksymaln[a-z]* wag[a-z]*|limit[a-z]*)\s*(?:wynosi|to|:|=)?\s*(\d+(?:\.\d+)?)", lower)
+        capacity = float(cap_match.group(1)) if cap_match else None
 
-        cap_match = re.search(r"(?:udźwig|pojemność|pojemnosc|maksymalna waga|limit)\s*(?:wynosi|to|:|=)?\s*(\d+)", lower)
-        if cap_match:
-            capacity = float(cap_match.group(1))
+        # Look for explicit items with weight and value
+        item_matches = re.findall(
+            r"([A-Za-z0-9_\-]+)[^\n,;]*(?:waga|koszt|ciężar)\s*[:=]?\s*(\d+(?:\.\d+)?)[^\n,;]*(?:wartość|wartosc|zysk)\s*[:=]?\s*(\d+(?:\.\d+)?)",
+            lower,
+        )
+        if not item_matches:
+            item_matches = [
+                (m[0], m[2], m[1]) for m in re.findall(
+                    r"([A-Za-z0-9_\-]+)[^\n,;]*(?:wartość|wartosc|zysk)\s*[:=]?\s*(\d+(?:\.\d+)?)[^\n,;]*(?:waga|koszt|ciężar)\s*[:=]?\s*(\d+(?:\.\d+)?)",
+                    lower,
+                )
+            ]
+
+        missing: list[str] = []
+        if not item_matches:
+            missing.append("Nie podano listy przedmiotów z ich wagami i wartościami (wymaga uzupełnienia przed rozwiązaniem — BLOCKS_SOLVING).")
+        if capacity is None:
+            missing.append("Nie podano limitu udźwigu / pojemności plecaka (BLOCKS_SOLVING).")
+
+        if missing:
+            return FormalizationResult(
+                description_raw=text,
+                description_formalised=(
+                    f"Twoja sytuacja: {text}\n\n"
+                    f"Wykryto strukturę problemu plecakowego, lecz brakuje kluczowych danych liczbowych. "
+                    f"System nie fabrykuje wag ani wartości — podaj przedmioty, ich wagi i wartości oraz dopuszczalny limit."
+                ),
+                binary_variables=[],
+                objective_direction="maximize",
+                objective_coefficients={},
+                equality_constraints=[],
+                inequality_constraints=[],
+                assumptions=[],
+                missing_information=missing,
+                identified_archetype="knapsack",
+            )
+
+        vars_list = [f"item_{m[0]}" for m in item_matches]
+        weights = {f"item_{m[0]}": float(m[1]) for m in item_matches}
+        values = {f"item_{m[0]}": float(m[2]) for m in item_matches}
 
         return FormalizationResult(
             description_raw=text,
             description_formalised=(
                 f"Twoja sytuacja: {text}\n\n"
-                f"System rozważy 4 przedmioty przy limicie wagi {capacity} kg. "
-                f"Sprawdzi każdą kombinację i wskaże zestaw o największej łącznej wartości, "
-                f"który mieści się w podanym limicie."
+                f"System rozważy {len(vars_list)} przedmiotów przy limicie wagi {capacity} kg. "
+                f"Wskaże zestaw o największej łącznej wartości mieszczący się w limicie."
             ),
             binary_variables=vars_list,
             objective_direction="maximize",
@@ -310,9 +357,10 @@ class ProblemFormalizer:
             equality_constraints=[],
             inequality_constraints=[{"lhs": weights, "rhs": capacity}],
             assumptions=[
-                f"Przyjęto 4 przedmioty o wagach: {', '.join(str(w) for w in weights.values())} kg.",
+                "Wagi przedmiotów wyekstrahowane z tekstu użytkownika.",
                 f"Limit wagi: {capacity} kg.",
             ],
+            missing_information=[],
             identified_archetype="knapsack",
         )
 
@@ -485,62 +533,99 @@ Zwróć WYŁĄCZNIE poprawny JSON (application/json):
             return None
 
     def formalize_case(self, case: DecisionCase) -> FormalizationResult:
-        """Compile a structured DecisionCase (with options and user answers) into FormalizationResult."""
-        if self.gemini_api_key:
-            try:
-                res = self._try_llm_formalize_case(case)
-                if res is not None:
-                    return res
-            except Exception as e:
-                logger.warning(f"Gemini formalize_case failed: {e}; using heuristic fallback")
+        """
+        Compile a structured DecisionCase into a mathematically rigorous FormalizationResult
+        using deterministic multi-criteria utility aggregation and analytical break-even calculation.
+        Eliminates subjective LLM attractiveness scoring (B1).
+        """
+        from backend.domain.decision_matrix import (
+            compute_option_utilities,
+            calculate_analytical_break_even,
+            calculate_criteria_weights,
+        )
 
-        # Deterministic fallback using the real options from the case
-        if case.options:
-            var_names: list[str] = []
-            seen: set[str] = set()
-            for opt in case.options:
-                slug = self._slugify(opt.title)
-                cur = slug
-                idx = 2
-                while cur in seen:
-                    cur = f"{slug}_{idx}"
-                    idx += 1
-                seen.add(cur)
-                var_names.append(cur)
-
-            coeffs = {v: 1.0 for v in var_names}
-            opt_titles = ", ".join(f"'{o.title}'" for o in case.options)
-            count = len(case.options)
-
-            desc = (
-                f"Dylemat: {case.title}\n\n"
-                f"Rozpatrywane opcje ({count}): {opt_titles}.\n"
-                f"System dokona wyboru najkorzystniejszej opcji na podstawie podanych kryteriów i ograniczeń."
-            )
-
+        if not case.options:
             return FormalizationResult(
                 description_raw=case.context or case.title,
-                description_formalised=desc,
-                binary_variables=var_names,
+                description_formalised="Brak zdefiniowanych opcji do wyboru.",
+                binary_variables=[],
                 objective_direction="maximize",
-                objective_coefficients=coeffs,
-                equality_constraints=[{"lhs": {v: 1.0 for v in var_names}, "rhs": 1.0}],
-                inequality_constraints=[],
-                assumptions=[
-                    f"Wymóg decyzyjny: należy wybrać dokładnie jedną z rozważanych opcji ({count})."
-                ],
-                missing_information=[u.question for u in case.unknowns if not u.is_resolved],
+                objective_coefficients={},
+                missing_information=["Zdefiniuj co najmniej dwie opcje decyzyjne."],
                 identified_archetype="decision_dilemma",
-                break_even_point=(
-                    f"Gdyby druga oferta podniosła kluczowe warunki (np. zaoferowała wyższą stawkę lub większą swobodę decyzyjną), "
-                    f"wynik analizy przechyliłby się na jej korzyść."
-                ),
             )
 
-        return self.formalize(case.context or case.title)
+        var_names: list[str] = []
+        slug_to_opt: dict[str, Option] = {}
+        seen: set[str] = set()
+        for opt in case.options:
+            slug = self._slugify(opt.title)
+            cur = slug
+            idx = 2
+            while cur in seen:
+                cur = f"{slug}_{idx}"
+                idx += 1
+            seen.add(cur)
+            var_names.append(cur)
+            slug_to_opt[cur] = opt
+
+        # Calculate multi-criteria utilities if criteria are defined
+        assumptions: list[str] = [
+            f"Wymóg wyboru dokładnie jednej opcji spośród {len(case.options)} wariantów (one-hot)."
+        ]
+        if case.criteria:
+            raw_utilities = compute_option_utilities(case)
+            coeffs = {slug: float(raw_utilities.get(opt.id, 1.0)) for slug, opt in slug_to_opt.items()}
+            weights = calculate_criteria_weights(case)
+            assumptions.append(
+                f"Wagi kryteriów wyznaczone jawnie z preferencji użytkownika: "
+                + ", ".join(f"{c.name}: {weights.get(c.id, 0.0):.2f}" for c in case.criteria)
+            )
+        else:
+            coeffs = {v: 1.0 for v in var_names}
+
+        # For <= 3 options in an additive linear model, note that combinatorial solvers are not required (DEC-003)
+        if len(case.options) <= 3:
+            assumptions.append(
+                "Dla 3 lub mniej opcji w addytywnym modelu wielokryterialnym optymalny wybór wynika bezpośrednio z analitycznej sumy ważonej; heurystyczny solver kwantowy nie jest wymagany (DEC-003)."
+            )
+
+        # Calculate analytical break-even point (DEC-015)
+        be_analysis = calculate_analytical_break_even(case)
+        break_even_point = be_analysis.summary_pl if be_analysis else None
+
+        # Check missing information from unknowns and matrix cells
+        is_valid, matrix_errs = case.validate_for_modeling()
+        unknown_errs = [u.question for u in case.unknowns if not u.is_resolved]
+        missing_info = unknown_errs + matrix_errs
+
+        opt_titles = ", ".join(f"'{o.title}'" for o in case.options)
+        desc = (
+            f"Dylemat: {case.title}\n\n"
+            f"Rozpatrywane opcje ({len(case.options)}): {opt_titles}.\n"
+            f"Ocena użyteczności oparta na znormalizowanej macierzy kryteriów i preferencjach użytkownika."
+        )
+
+        return FormalizationResult(
+            description_raw=case.context or case.title,
+            description_formalised=desc,
+            binary_variables=var_names,
+            objective_direction="maximize",
+            objective_coefficients=coeffs,
+            equality_constraints=[{"lhs": {v: 1.0 for v in var_names}, "rhs": 1.0}],
+            inequality_constraints=[],
+            assumptions=assumptions,
+            missing_information=missing_info,
+            identified_archetype="decision_dilemma",
+            break_even_point=break_even_point,
+        )
 
     def _try_llm_formalize_case(self, case: DecisionCase) -> FormalizationResult | None:
-        """Call Gemini to evaluate options in light of user answers and priority tokens, and construct mathematical model."""
+        """
+        DEPRECATED (A7): To be replaced in Phase B1 with explicit DecisionMatrix.
+        Violates 'LLM output != solver result' by assigning 1-10 subjective attractiveness.
+        Retained temporarily until B1 decision matrix model is fully operational.
+        """
         if not self.gemini_api_key or not case.options:
             return None
 

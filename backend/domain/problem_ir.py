@@ -49,6 +49,8 @@ class Provenance(str, Enum):
     USER_SUPPLIED = "user_supplied"
     DERIVED = "derived"
     ASSUMED = "assumed"
+    WEB_SOURCED = "web_sourced"
+    LLM_EXTRACTED = "llm_extracted"
 
 
 class MissingInfoImpact(str, Enum):

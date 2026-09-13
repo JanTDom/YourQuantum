@@ -18,13 +18,21 @@ from httpx import ASGITransport, AsyncClient
 
 from backend.main import app
 from backend.db.database import init_db
-from backend.api.universal_engine import verify_master_secret, MASTER_API_SECRET
+import os
+from backend.api.universal_engine import verify_master_secret, get_master_api_secret
 
 
-def test_master_secret_verification():
+@pytest.fixture(autouse=True)
+def setup_test_api_secret(monkeypatch):
+    monkeypatch.setenv("YQ_MASTER_API_SECRET", "A132a132!")
+
+
+def test_master_secret_verification(monkeypatch):
     """Testuje stałoczasową weryfikację hasła."""
-    assert verify_master_secret("A132a132!") is True
-    assert verify_master_secret("Bearer A132a132!") is True
+    test_secret = "test_master_secret_123"
+    monkeypatch.setenv("YQ_MASTER_API_SECRET", test_secret)
+    assert verify_master_secret(test_secret) is True
+    assert verify_master_secret(f"Bearer {test_secret}") is True
     assert verify_master_secret("zle_haslo") is False
     assert verify_master_secret("") is False
 
@@ -50,7 +58,7 @@ async def test_auth_verify_api_access_endpoint():
         assert res_ok.status_code == 200
         data = res_ok.json()
         assert data["valid"] is True
-        assert data["token"].startswith("yq_live_master_")
+        assert data["token"].startswith("yq_exp_") or data["token"].startswith("yq_live_master_")
 
 
 @pytest.mark.asyncio

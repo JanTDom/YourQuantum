@@ -127,6 +127,35 @@ export class YourQuantumClient {
   }
 
   /**
+   * Kognitywna formalizacja problemu decyzyjnego w architekturze inspirowanej ludzkim mózgiem
+   * (Prefrontal Working Memory, Episodic Hippocampus, Active Inference).
+   */
+  public async cognitiveIntake(params: {
+    query: string;
+    sessionId?: string;
+  }): Promise<Record<string, any>> {
+    const url = `${this.baseUrl}/api/v1/cognitive/intake`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.apiKey}`,
+        'X-API-Key': this.apiKey,
+        'User-Agent': 'YourQuantum-TS-SDK/1.0.0',
+      },
+      body: JSON.stringify({
+        query: params.query,
+        session_id: params.sessionId,
+      }),
+    });
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`YourQuantum Cognitive API error [HTTP ${res.status}]: ${errText}`);
+    }
+    return (await res.json()) as Record<string, any>;
+  }
+
+  /**
    * Szybka optymalizacja portfela inwestycji / budżetu.
    */
   public async solvePortfolio(params: {

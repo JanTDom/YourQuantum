@@ -69,6 +69,7 @@ class SolverResult:
     lower_bound: float | None = None
     optimality_gap: float | None = None
     certificate: dict[str, Any] | None = None
+    numerical_residual: float | None = None
 
     # Metadata
     solver_backend_status: str = ""    # raw status string from backend
@@ -80,6 +81,53 @@ class SolverResult:
     completed_at: datetime = field(
         default_factory=lambda: datetime.now(timezone.utc)
     )
+    execution_evidence: dict[str, Any] | None = None
+
+    def _validate_quantum_evidence(self) -> None:
+        if getattr(self, "source", None) == ComputeSource.QUANTUM_CIRCUIT_SIMULATION:
+            evidence = getattr(self, "execution_evidence", None)
+            meta = getattr(self, "metadata", {}) or {}
+            if not evidence and meta.get("qaoa_run_record"):
+                rec = meta["qaoa_run_record"]
+                if isinstance(rec, dict):
+                    evidence = {
+                        "backend_name": rec.get("backend_name"),
+                        "shots": rec.get("shots"),
+                        "n_qubits": rec.get("n_qubits"),
+                        "depth": rec.get("circuit_depth"),
+                        "seed": rec.get("seed"),
+                        "histogram": rec.get("sample_distribution"),
+                    }
+                    object.__setattr__(self, "execution_evidence", evidence)
+
+            if not evidence:
+                raise ValueError(
+                    "Integrity violation: source cannot be QUANTUM_CIRCUIT_SIMULATION "
+                    "without execution_evidence containing real circuit simulation parameters."
+                )
+
+            required_keys = {"backend_name", "shots", "n_qubits", "depth", "seed"}
+            missing = required_keys - set(evidence.keys())
+            if missing:
+                raise ValueError(
+                    f"Integrity violation: execution_evidence missing required quantum metrics: {sorted(missing)}"
+                )
+
+            if not ("histogram" in evidence or "sample_distribution" in evidence):
+                raise ValueError(
+                    "Integrity violation: execution_evidence must contain 'histogram' or 'sample_distribution'."
+                )
+
+    _initialized: bool = field(default=False, init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        self._validate_quantum_evidence()
+        object.__setattr__(self, "_initialized", True)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        super().__setattr__(name, value)
+        if getattr(self, "_initialized", False) and name in ("source", "execution_evidence") and getattr(self, "source", None) == ComputeSource.QUANTUM_CIRCUIT_SIMULATION:
+            self._validate_quantum_evidence()
 
 
 class SolverAdapter(ABC):
@@ -124,6 +172,13 @@ class SolverAdapter(ABC):
         - Populate limitations honestly.
         """
         ...
+
+    def check_available(self) -> tuple[bool, str | None]:
+        """
+        Verify that underlying solver libraries and dependencies are installed and accessible.
+        Returns: (True, None) if available, or (False, "error message") if missing dependencies.
+        """
+        return True, None
 
     def _base_limitations(self, math_status: MathStatus) -> list[str]:
         lims: list[str] = []

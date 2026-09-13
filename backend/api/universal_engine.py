@@ -7,6 +7,7 @@ and produces cryptographically stamped, independently verified results.
 
 from __future__ import annotations
 
+import hashlib
 import hmac
 import os
 import time
@@ -36,24 +37,51 @@ from backend.solvers.hybrid_benders import HybridBendersAdapter
 from backend.solvers.quantum.qaoa import QAOAAdapter
 from backend.verifier.verifier import IndependentVerifier, SolverCandidate, Verdict, VerificationReport
 
-# Secret master password / key for universal API access
-MASTER_API_SECRET = os.getenv("YQ_MASTER_API_SECRET", "A132a132!").strip()
+def get_master_api_secret() -> str | None:
+    """Retrieve master API secret from environment without hardcoded fallback."""
+    val = os.getenv("YQ_MASTER_API_SECRET", "").strip()
+    return val if val else None
+
+
+def create_expiring_token(secret: str, ttl_hours: int = 24) -> str:
+    """Issue HMAC-signed token containing expiry timestamp."""
+    exp = int(time.time()) + ttl_hours * 3600
+    payload = f"{exp}"
+    sig = hmac.new(secret.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()[:24]
+    return f"yq_exp_{exp}_{sig}"
 
 
 def verify_master_secret(key_or_password: str) -> bool:
-    """Constant-time verification of master access password or derived API key."""
-    if not key_or_password:
+    """Constant-time verification of master access password or HMAC-signed expiring token."""
+    secret = get_master_api_secret()
+    if not secret or not key_or_password:
         return False
     candidate = key_or_password.strip()
-    # Accept direct password or Bearer yq_...
     if candidate.startswith("Bearer "):
         candidate = candidate[len("Bearer ") :].strip()
+
+    # Expiring HMAC token
+    if candidate.startswith("yq_exp_"):
+        parts = candidate.split("_")
+        if len(parts) == 4:
+            try:
+                exp = int(parts[2])
+                if time.time() <= exp:
+                    payload = f"{exp}"
+                    expected_sig = hmac.new(secret.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()[:24]
+                    if hmac.compare_digest(parts[3], expected_sig):
+                        return True
+            except (ValueError, TypeError):
+                pass
+        return False
+
+    # Legacy static token
     if candidate.startswith("yq_live_master_"):
-        # Match against hash of secret
-        import hashlib
-        expected_token = "yq_live_master_" + hashlib.sha256(MASTER_API_SECRET.encode()).hexdigest()[:24]
+        expected_token = "yq_live_master_" + hashlib.sha256(secret.encode()).hexdigest()[:24]
         return hmac.compare_digest(candidate, expected_token)
-    return hmac.compare_digest(candidate, MASTER_API_SECRET)
+
+    # Direct password comparison
+    return hmac.compare_digest(candidate, secret)
 
 
 class VariableDef(BaseModel):
@@ -314,11 +342,11 @@ class UniversalEngine:
             approved_at=datetime.now(timezone.utc),
         )
 
-    def _solve_exact_state_space(self, ir: ProblemIR, req: UniversalComputeRequest) -> SolverResult:
+    def _solve_exhaustive_enumeration(self, ir: ProblemIR, req: UniversalComputeRequest) -> SolverResult:
         """
-        Pure NumPy / Python State-Space Optimizer.
-        Searches all 2^N quantum basis states, evaluates exact objective and constraints,
-        and produces a mathematically proven optimum.
+        Pure NumPy / Python Classical Exhaustive State-Space Optimizer.
+        Searches all 2^N binary assignments, evaluates exact objective and constraints,
+        and produces a classical brute-force verified optimum.
         Guarantees zero-dependency execution in cloud/serverless environments (Vercel, AWS Lambda)
         where external compiled C++ libraries (ortools, qiskit-aer) are omitted.
         """
@@ -326,6 +354,17 @@ class UniversalEngine:
         evaluator = ExpressionEvaluator(ir.expressions)
         var_ids = [v.id for v in ir.variables]
         n = len(var_ids)
+        if n > 22:
+            return SolverResult(
+                solver_name="exhaustive_enumeration",
+                solver_version="1.0.0",
+                problem_id=ir.problem_id,
+                execution_status=ExecutionStatus.FAILED,
+                math_status=MathStatus.UNSUPPORTED,
+                source=ComputeSource.CLASSICAL_SOLVER,
+                error_message=f"Exhaustive enumeration unsupported for n={n} > 22 (state space 2^{n} exceeds safe budget).",
+            )
+
         is_min = (ir.objectives and ir.objectives[0].direction == ObjectiveDirection.MINIMIZE)
 
         best_assignment: Dict[str, float] | None = None
@@ -379,15 +418,16 @@ class UniversalEngine:
 
         if not feasible_found or best_assignment is None:
             return SolverResult(
-                solver_name="quantum_state_space_exact",
+                solver_name="exhaustive_enumeration",
                 solver_version="1.0.0",
                 problem_id=ir.problem_id,
                 execution_status=ExecutionStatus.COMPLETED,
                 math_status=MathStatus.INFEASIBLE,
+                source=ComputeSource.CLASSICAL_SOLVER,
             )
 
         return SolverResult(
-            solver_name="quantum_state_space_exact",
+            solver_name="exhaustive_enumeration",
             solver_version="1.0.0",
             problem_id=ir.problem_id,
             execution_status=ExecutionStatus.COMPLETED,
@@ -396,12 +436,36 @@ class UniversalEngine:
             objective_value=best_obj,
             lower_bound=best_obj,
             optimality_gap=0.0,
-            source=ComputeSource.QUANTUM_CIRCUIT_SIMULATION,
+            source=ComputeSource.CLASSICAL_SOLVER,
         )
 
     def execute(self, req: UniversalComputeRequest) -> UniversalComputeResponse:
         start_time = time.perf_counter()
         ir = self.compile_to_ir(req)
+
+        # Cognitive Constraint Sanity Pre-Check (Active Inference early fast-fail)
+        from backend.domain.cognitive.constraint_sanity import check_constraints_sanity
+        sanity = check_constraints_sanity(ir)
+        if not sanity.passed:
+            elapsed_ms = (time.perf_counter() - start_time) * 1000.0
+            return UniversalComputeResponse(
+                status="INFEASIBLE",
+                title=req.title,
+                domain=req.domain,
+                solver_used="cognitive_constraint_sanity",
+                compute_time_ms=round(elapsed_ms, 2),
+                optimal_assignment={},
+                optimal_selection=[],
+                total_objective_value=0.0,
+                sha256_passport="",
+                verification={
+                    "feasible": False,
+                    "verdict": "FAIL",
+                    "residual": 1.0,
+                    "prediction_errors": sanity.errors,
+                    "sanity_check_failed": True,
+                },
+            )
 
         # Solver selection
         solver_choice = req.solver
@@ -426,7 +490,7 @@ class UniversalEngine:
             MathStatus.FEASIBLE,
         ):
             # Fallback to pure state-space exact optimizer (guaranteed zero external C++ dependencies)
-            fallback_res = self._solve_exact_state_space(ir, req)
+            fallback_res = self._solve_exhaustive_enumeration(ir, req)
             if fallback_res.execution_status == ExecutionStatus.COMPLETED and fallback_res.math_status in (
                 MathStatus.OPTIMAL,
                 MathStatus.FEASIBLE,

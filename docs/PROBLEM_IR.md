@@ -1,6 +1,6 @@
 # PROBLEM_IR.md — Versioned Problem Intermediate Representation
 
-**Status:** PLANNED · **Last updated:** 2026-09-09
+**Status:** IMPLEMENTED (v0.3) · **Last updated:** 2026-09-13
 
 ---
 
@@ -21,30 +21,53 @@ correctable before computation starts.
 
 ---
 
-## Schema (v0 — draft, not yet implemented)
+## Problem Class Taxonomy (v0.3)
+
+Every problem is explicitly classified into one of five fundamental classes:
+
+- `CHOICE`: Selection of 1 from $N$ discrete options with multi-criteria analytical weighting and break-even shifts.
+- `ALLOCATION`: Portfolio, knapsack, scheduling under resource budgets and logical dependencies.
+- `DESIGN`: Multi-lever combinatorial system synthesis (e.g. healthcare reform) with one-hot choice, empirical option evidence, and non-zero synergies requiring verified provenance.
+- `PARAMETER`: Continuous parameter optimization (SciPy HiGHS / minimize) with exact numerical residuals.
+- `NOT_COMPUTABLE`: Value judgment, speculative forecast, or existential query; the system provides an honest refusal with constructive reframing suggestions into computable models.
+
+---
+
+## Schema (v0.3)
 
 ```typescript
 interface ProblemIR {
-  schema_version: "0.1";          // incremented on breaking changes
+  schema_version: "0.3";          // incremented on breaking changes
   problem_id: string;             // UUID, generated at intake
+  parent_problem_id: string | null;
+  version: number;
   created_at: string;             // ISO 8601
   description_raw: string;        // verbatim user input
   description_formalised: string; // structured restatement for user review
+  mode: "satisfy" | "optimize" | "enumerate_all" | "pareto_frontier";
+  problem_class?: "CHOICE" | "ALLOCATION" | "DESIGN" | "PARAMETER" | "NOT_COMPUTABLE";
 
   variables: Variable[];
-  data: DataSource[];
+  data_sources: DataSource[];
+  expressions: ExpressionRegistry; // Safe expression tree without eval/exec
   objectives: Objective[];
   constraints: Constraint[];
   assumptions: Assumption[];
   missing_information: MissingInfo[];
+  budget: ComputeBudget;
+  approved: boolean;              // Requires deliberate human confirmation
+  approved_at: string | null;
 }
 
 interface Variable {
   id: string;
   name: string;
-  domain: Domain;      // continuous, integer, binary, categorical, set
+  domain: "binary" | "integer" | "continuous" | "categorical" | "set";
+  lower_bound?: number | null;
+  upper_bound?: number | null;
   unit: string | null;
-  provenance: "user_supplied" | "derived" | "assumed";
+  provenance: "user_supplied" | "derived" | "assumed" | "web_sourced" | "llm_extracted";
+  description?: string | null;
 }
 
 interface Objective {

@@ -5,10 +5,13 @@ No business logic in route handlers.
 """
 from __future__ import annotations
 
+import logging
 import os
 import uuid
 from datetime import datetime, timezone
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
@@ -23,12 +26,14 @@ from backend.domain.problem_ir import (
 )
 from backend.worker.runner import SOLVER_REGISTRY, enqueue_job
 from backend.api.universal_engine import UniversalComputeRequest
+from backend.domain.capabilities import get_capabilities_registry
+from backend.api.security_guard import verify_security_limits, create_session_token, get_client_ip
 
 router = APIRouter()
 
 
 # ---------------------------------------------------------------------------
-# Health
+# Health & Capabilities
 # ---------------------------------------------------------------------------
 
 @router.get("/health")
@@ -38,15 +43,25 @@ async def health() -> dict[str, str]:
 
 @router.get("/health/solvers")
 async def health_solvers() -> dict[str, Any]:
-    """Report which solvers are available."""
+    """Report real availability and installation status for all registered solvers."""
+    results = []
+    for a in SOLVER_REGISTRY:
+        avail, err = a.check_available()
+        results.append({
+            "name": a.name,
+            "version": a.version,
+            "available": avail,
+            "import_error": err,
+        })
+    return {"solvers": results}
+
+
+@router.get("/capabilities")
+async def get_capabilities() -> dict[str, Any]:
+    """Return live registry of engine capabilities with honest status and test references."""
+    records = get_capabilities_registry()
     return {
-        "solvers": [
-            {
-                "name": a.name,
-                "version": a.version,
-            }
-            for a in SOLVER_REGISTRY
-        ]
+        "capabilities": [r.model_dump(mode="json") for r in records]
     }
 
 
@@ -293,6 +308,7 @@ class JobCreateRequest(BaseModel):
     problem_id: str
     solver: str = "cp_sat"
     budget: ComputeBudget = Field(default_factory=ComputeBudget)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class JobStatusResponse(BaseModel):
@@ -333,8 +349,9 @@ async def create_job(
     if not rec.approved:
         raise HTTPException(status_code=422, detail="Problem must be approved before solving.")
 
-    job_id = await enqueue_job(req.problem_id, req.solver, req.budget)
+    job_id = await enqueue_job(req.problem_id, req.solver, req.budget, metadata=req.metadata)
     return {"job_id": job_id, "status": "QUEUED"}
+
 
 
 @router.get("/jobs/{job_id}", response_model=JobStatusResponse)
@@ -387,6 +404,7 @@ async def get_job_result(
         "solver_result": job.result_json,
         "verification": job.verification_json,
         "error_message": job.error_message,
+        "metadata": job.metadata_json or {},
     }
 
 
@@ -399,7 +417,10 @@ class CaseAnalyzeRequest(BaseModel):
 
 
 @router.post("/cases/analyze")
-async def analyze_case(req: CaseAnalyzeRequest) -> dict[str, Any]:
+async def analyze_case(
+    req: CaseAnalyzeRequest,
+    client_key: str = Depends(verify_security_limits),
+) -> dict[str, Any]:
     """Analyze everyday dilemma or situation into structured DecisionCase."""
     from backend.domain.llm_advisor import LLMAdvisor
     advisor = LLMAdvisor()
@@ -452,7 +473,10 @@ async def get_case(
 
 
 @router.post("/cases/formalize")
-async def formalize_case(case_data: dict[str, Any]) -> dict[str, Any]:
+async def formalize_case(
+    case_data: dict[str, Any],
+    client_key: str = Depends(verify_security_limits),
+) -> dict[str, Any]:
     """Compile structured DecisionCase with options and user answers into FormalizationResult."""
     from backend.domain.decision_case import DecisionCase
     from backend.domain.formalizer import ProblemFormalizer
@@ -569,15 +593,24 @@ class ApiAccessVerifyRequest(BaseModel):
 
 @router.post("/auth/verify-api-access")
 async def verify_api_access(req: ApiAccessVerifyRequest) -> dict[str, Any]:
-    """Verify master password A132a132! and issue bearer token."""
-    import hashlib
-    from backend.api.universal_engine import MASTER_API_SECRET, verify_master_secret
+    """Verify master API access secret and issue expiring HMAC-signed bearer token."""
+    from backend.api.universal_engine import (
+        create_expiring_token,
+        get_master_api_secret,
+        verify_master_secret,
+    )
+    secret = get_master_api_secret()
+    if not secret:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Autoryzacja API nie jest skonfigurowana na serwerze (brak zmiennej środowiskowej YQ_MASTER_API_SECRET).",
+        )
     if not verify_master_secret(req.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Nieprawidłowe hasło dostępu do Kwantowego API i SDK.",
         )
-    token = "yq_live_master_" + hashlib.sha256(MASTER_API_SECRET.encode()).hexdigest()[:24]
+    token = create_expiring_token(secret, ttl_hours=24)
     return {
         "valid": True,
         "token": token,
@@ -654,11 +687,209 @@ async def universal_compute(
         result = engine.execute(req)
         return result.model_dump()
     except Exception as e:
-        logger.exception("Błąd silnika obliczeniowego universal_compute")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Błąd silnika YourQuantum: {str(e)}",
         )
 
 
+class VerificationCheckRequest(BaseModel):
+    problem_id: str
+    candidate_id: str
+    assignment: dict[str, Any]
+    objective_value: float | None = None
+    residual: float = 0.0
+    verdict: str
+    sha256_hash: str
+    hmac_signature: str | None = None
+
+
+@router.post("/verification/check")
+async def verify_audit_passport_endpoint(req: VerificationCheckRequest) -> dict[str, Any]:
+    """
+    B3: Independently verifies SHA-256 integrity hash and server HMAC signature of a verification report.
+    Guarantees mathematically that the result was stamped by YourQuantum without tampering.
+    """
+    from backend.verifier.verifier import (
+        build_verification_canonical_string,
+        compute_verification_signatures,
+    )
+    import hmac
+
+    canonical = build_verification_canonical_string(
+        problem_id=req.problem_id,
+        candidate_id=req.candidate_id,
+        assignment=req.assignment,
+        objective_value=req.objective_value,
+        residual=req.residual,
+        verdict=req.verdict,
+    )
+
+    expected_sha256, expected_hmac = compute_verification_signatures(canonical)
+
+    sha256_valid = hmac.compare_digest(expected_sha256.lower(), req.sha256_hash.lower())
+    hmac_valid = False
+    if req.hmac_signature:
+        hmac_valid = hmac.compare_digest(expected_hmac.lower(), req.hmac_signature.lower())
+
+    if sha256_valid and hmac_valid:
+        overall_status = "AUTHENTIC_VERIFIED"
+        details = "Pełna weryfikacja pomyślna: integralność danych SHA-256 oraz kryptograficzna pieczęć serwera HMAC są autentyczne."
+    elif sha256_valid and not req.hmac_signature:
+        overall_status = "INTEGRITY_VERIFIED_UNSIGNED"
+        details = "Odcisk integralności SHA-256 poprawny (dane nie uległy zmianie), brak podpisu serwera HMAC."
+    elif sha256_valid and not hmac_valid:
+        overall_status = "SIGNATURE_MISMATCH"
+        details = "Odcisk SHA-256 zgadza się, lecz podpis serwera HMAC jest nieprawidłowy."
+    else:
+        overall_status = "TAMPERED"
+        details = "Odcisk integralności SHA-256 nie zgadza się z zawartością raportu — dane zostały zmodyfikowane."
+
+    return {
+        "sha256_valid": sha256_valid,
+        "hmac_valid": hmac_valid,
+        "status": overall_status,
+        "details": details,
+        "canonical_string": canonical,
+    }
+
+
+# ---------------------------------------------------------------------------
+# C1-C6: Evidence Layer Endpoints
+# ---------------------------------------------------------------------------
+
+GLOBAL_EVIDENCE_STORE: dict[str, Any] = {}
+
+
+class EvidenceResearchRequest(BaseModel):
+    case_id: str | None = None
+    target_parameters: list[dict[str, Any]] | None = None
+    max_results_per_param: int = 2
+
+
+@router.post("/evidence/research")
+async def conduct_evidence_research(
+    req: EvidenceResearchRequest,
+    client_key: str = Depends(verify_security_limits),
+) -> dict[str, Any]:
+    """
+    C1-C5: Research missing parameters across the public web using ResearchPlanner.
+    Enforces quote verification and returns validated Evidence records and conflicts.
+    """
+    from backend.domain.evidence.models import Evidence, ResearchQuery
+    from backend.domain.evidence.planner import ResearchPlanner
+    from backend.infrastructure.web_research.search_adapter import WebResearchAdapter
+    from backend.infrastructure.web_research.extractor import EvidenceExtractor
+
+    adapter = WebResearchAdapter()
+    extractor = EvidenceExtractor()
+    planner = ResearchPlanner(evidence_port=adapter, extractor=extractor)
+
+    queries: list[ResearchQuery] = []
+    if req.target_parameters:
+        for idx, tp in enumerate(req.target_parameters):
+            param_id = str(tp.get("param_id") or f"param_{idx+1}")
+            q_text = str(tp.get("query_text") or tp.get("name") or param_id)
+            queries.append(
+                ResearchQuery(
+                    id=f"rq_{uuid.uuid4().hex[:8]}",
+                    target_param=param_id,
+                    query_text=q_text,
+                    expected_unit=tp.get("expected_unit"),
+                    rationale=tp.get("rationale", ""),
+                )
+            )
+
+    evidence_list, conflicts = await planner.execute_research_plan(
+        queries=queries,
+        max_results_per_query=req.max_results_per_param,
+    )
+
+    for ev in evidence_list:
+        GLOBAL_EVIDENCE_STORE[ev.id] = ev
+
+    return {
+        "status": "COMPLETED",
+        "evidence_count": len(evidence_list),
+        "conflict_count": len(conflicts),
+        "evidence": [ev.model_dump() for ev in evidence_list],
+        "conflicts": [c.model_dump() for c in conflicts],
+        "port_status": adapter.get_status(),
+    }
+
+
+@router.get("/evidence/{evidence_id}")
+async def get_evidence_record(evidence_id: str) -> dict[str, Any]:
+    """
+    C2: Retrieve detailed Evidence record by ID.
+    """
+    ev = GLOBAL_EVIDENCE_STORE.get(evidence_id)
+    if not ev:
+        raise HTTPException(status_code=404, detail=f"Evidence '{evidence_id}' not found")
+
+    return ev.model_dump() if hasattr(ev, "model_dump") else dict(ev)
+
+
+# ---------------------------------------------------------------------------
+# D3 / G4: DESIGN Problem Synthesis & Pareto Frontier Endpoints
+# ---------------------------------------------------------------------------
+
+@router.get("/design/fixtures/{fixture_name}")
+async def get_design_fixture(fixture_name: str) -> dict[str, Any]:
+    """
+    Retrieve built-in DESIGN problem fixtures (e.g. healthcare_pl).
+    """
+    safe_name = re.sub(r"[^a-zA-Z0-9_\-]", "", fixture_name)
+    fixture_path = os.path.join(
+        os.path.dirname(__file__), "..", "..", "tests", "fixtures", "design", f"{safe_name}.json"
+    )
+    if not os.path.exists(fixture_path):
+        raise HTTPException(status_code=404, detail=f"Design fixture '{safe_name}' not found")
+
+    with open(fixture_path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+@router.post("/design/synthesize")
+async def synthesize_design_problem(design_data: dict[str, Any]) -> dict[str, Any]:
+    """
+    D3 / G4: Compute full multi-lever combinatorial synthesis:
+    Non-dominated Pareto frontier, lever sensitivity ranking, and optimal configuration.
+    """
+    from backend.domain.problem_classes import DesignProblem, compute_design_synthesis
+    try:
+        problem = DesignProblem.model_validate(design_data)
+        synthesis = compute_design_synthesis(problem)
+        return {
+            "status": "COMPLETED",
+            "synthesis": synthesis.model_dump(mode="json"),
+            "problem": problem.model_dump(mode="json"),
+        }
+    except Exception as e:
+        logger.exception("Design synthesis failed: %s", e)
+        raise HTTPException(status_code=400, detail=f"Błąd syntezy DESIGN: {str(e)}")
+
+
+# ---------------------------------------------------------------------------
+# H1 / H2: Anonymous Session Issuance
+# ---------------------------------------------------------------------------
+
+class SessionTokenRequest(BaseModel):
+    session_id: str | None = None
+
+
+@router.post("/auth/session")
+async def issue_session_token(req: SessionTokenRequest, request: Request) -> dict[str, Any]:
+    """
+    H1 / H2: Issue an HMAC-signed session token for anonymous client session rate budgeting.
+    """
+    client_ip = get_client_ip(request)
+    sess_id = req.session_id or f"sess_{uuid.uuid4().hex[:10]}"
+    token = create_session_token(sess_id, client_ip)
+    return {
+        "session_id": sess_id,
+        "session_token": token,
+        "client_ip": client_ip,
+        "expires_in_hours": 12,
+    }
 

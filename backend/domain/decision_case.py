@@ -71,6 +71,18 @@ class InputQuality(BaseModel):
     suggestions: list[str] = Field(default_factory=list)
 
 
+class ScoredValue(BaseModel):
+    """
+    A single cell in the multi-criteria decision matrix.
+    Provenance and source reference are strictly tracked to eliminate hallucinations.
+    """
+    value: float
+    unit: str | None = None
+    provenance: Literal["user_supplied", "derived", "assumed", "web_sourced", "llm_extracted"] = "user_supplied"
+    source_ref: str | None = None  # fact_id | evidence_id | "assumption" | "user_input"
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0)
+
+
 class DecisionCase(BaseModel):
     """
     Primary human-centric problem representation.
@@ -93,10 +105,26 @@ class DecisionCase(BaseModel):
     tradeoffs: list[Tradeoff] = Field(default_factory=list)
     priority_tokens: list[str] = Field(default_factory=list)
     selected_priority_tokens: list[str] = Field(default_factory=list)
+    score_matrix: dict[str, dict[str, ScoredValue]] = Field(default_factory=dict)
     break_even_point: str | None = None
     # Quality gate: populated by LLMAdvisor before any solver work starts
     input_quality: InputQuality = Field(default_factory=InputQuality)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     problem_ir_id: str | None = None
+
+    def validate_for_modeling(self) -> tuple[bool, list[str]]:
+        """
+        Validates whether all option-criterion pairs have a valid ScoredValue with source_ref.
+        Returns (is_valid, missing_errors).
+        """
+        missing_errors: list[str] = []
+        for opt in self.options:
+            for crit in self.criteria:
+                cell = self.score_matrix.get(opt.id, {}).get(crit.id)
+                if cell is None:
+                    missing_errors.append(f"Brak wartości w macierzy dla opcji '{opt.title}' i kryterium '{crit.name}'.")
+                elif not cell.source_ref:
+                    missing_errors.append(f"Wartość dla opcji '{opt.title}' i kryterium '{crit.name}' nie posiada przypisanego źródła (source_ref).")
+        return len(missing_errors) == 0, missing_errors
 

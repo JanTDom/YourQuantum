@@ -28,7 +28,9 @@ export const App: React.FC = () => {
   const [isApiPortalOpen, setIsApiPortalOpen] = useState(false)
 
   // Current session data
+  const [sessionId, setSessionId] = useState<string>(() => 'sess_' + Math.random().toString(36).substring(2, 12))
   const [userQuery, setUserQuery] = useState('')
+  const [problemClass, setProblemClass] = useState<string>('CHOICE')
   const [decisionCase, setDecisionCase] = useState<DecisionCase | null>(null)
   const [formalized, setFormalized] = useState<FormalizeResponse | null>(null)
   const [primaryResult, setPrimaryResult] = useState<JobResult | null>(null)
@@ -36,7 +38,9 @@ export const App: React.FC = () => {
 
   const handleReset = () => {
     setStage('INTAKE')
+    setSessionId('sess_' + Math.random().toString(36).substring(2, 12))
     setUserQuery('')
+    setProblemClass('CHOICE')
     setDecisionCase(null)
     setFormalized(null)
     setPrimaryResult(null)
@@ -45,25 +49,46 @@ export const App: React.FC = () => {
     setStatusMessage(null)
   }
 
-  // 1. Analyze case from user intake text
+  // 1. Analyze case from user intake text (E1: Single Intake Pathway via /cognitive/intake)
   const handleIntakeSubmit = async (text: string) => {
     setIsLoading(true)
     setErrorMessage(null)
     setUserQuery(text)
-    setStatusMessage('Analizowanie sytuacji i mapowanie wariantów...')
+    setStatusMessage('Percepcja kognitywna i formalizacja zadania (Active Inference)...')
 
     try {
-      // Parallel: analyze human case and formalize mathematical rules
-      const [caseData, formalData] = await Promise.all([
-        api.analyzeCase(text),
-        api.formalizeProblem(text),
-      ])
+      const intakeRes = await api.cognitiveIntake({
+        query: text,
+        session_id: sessionId,
+      })
 
-      setDecisionCase(caseData)
-      setFormalized(formalData)
+      if (intakeRes.session_id) {
+        setSessionId(intakeRes.session_id)
+      }
+
+      if (intakeRes.status === 'not_computable') {
+        const reason = intakeRes.not_computable_report?.reason ||
+          'Zadanie nie ma charakteru obliczeniowego (kwestia etyczna, światopoglądowa lub emocjonalna).'
+        const suggested = intakeRes.not_computable_report?.reframe_suggestions?.join(' ') ||
+          'Zalecana dyskusja ludzka lub zdefiniowanie mierzalnych wskaźników zastępczych.'
+        setErrorMessage(`[Brak możliwości obliczeniowej] ${reason} ${suggested}`)
+        return
+      }
+
+      if (intakeRes.problem_class) {
+        setProblemClass(intakeRes.problem_class)
+      }
+
+      if (intakeRes.decision_case) {
+        setDecisionCase(intakeRes.decision_case)
+      }
+      if (intakeRes.formalized) {
+        setFormalized(intakeRes.formalized)
+      }
+
       setStage('CASE_WORKSPACE')
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Wystąpił błąd podczas analizy'
+      const msg = err instanceof Error ? err.message : 'Wystąpił błąd podczas analizy kognitywnej'
       setErrorMessage(msg)
     } finally {
       setIsLoading(false)
@@ -100,18 +125,22 @@ export const App: React.FC = () => {
   }
 
   // 4. Approve model and run solver
-  const handleApproveAndSolve = async (solverChoice: 'cp_sat' | 'qaoa_aer' | 'both') => {
+  const handleApproveAndSolve = async (
+    solverChoice: 'cp_sat' | 'qaoa_aer' | 'both',
+    editedWeights?: Record<string, number>
+  ) => {
     if (!formalized) return
     setIsLoading(true)
     setErrorMessage(null)
     setStatusMessage('Tworzenie i rejestracja modelu zadania...')
 
     try {
+      const objCoeffs = editedWeights || formalized.objective_coefficients
       // 1. Create Problem in backend (starts unapproved)
       const probRes = await api.createProblem({
         description: userQuery || formalized.description_raw,
         binary_variables: formalized.binary_variables,
-        objective_coefficients: formalized.objective_coefficients,
+        objective_coefficients: objCoeffs,
         objective_direction: formalized.objective_direction,
         equality_constraints: formalized.equality_constraints,
         approved: false,
@@ -139,6 +168,7 @@ export const App: React.FC = () => {
         const job = await api.createJob({
           problem_id: probRes.problem_id,
           solver: solverChoice,
+          metadata: sessionId ? { session_id: sessionId } : undefined,
         })
 
         const res = await pollJobResult(job.job_id)
@@ -243,6 +273,7 @@ export const App: React.FC = () => {
         {stage === 'MODEL_APPROVAL' && formalized && (
           <ModelApprovalGate
             formalized={formalized}
+            decisionCase={decisionCase}
             onApproveAndSolve={handleApproveAndSolve}
             onBack={() => setStage('CASE_WORKSPACE')}
             isSolving={isLoading}
@@ -256,6 +287,8 @@ export const App: React.FC = () => {
             comparisonResult={comparisonResult}
             onStartNew={handleReset}
             breakEvenPoint={formalized?.break_even_point || decisionCase?.break_even_point}
+            sessionId={sessionId}
+            problemClass={problemClass}
           />
         )}
       </main>

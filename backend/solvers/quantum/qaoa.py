@@ -107,6 +107,16 @@ class QAOAAdapter(SolverAdapter):
     DEFAULT_SHOTS = 1024
     DEFAULT_SEED = 42
 
+    def __init__(
+        self,
+        mode: str = "ideal_statevector",
+        depolarizing_p1: float = 0.002,
+        depolarizing_p2: float = 0.02,
+    ):
+        self.mode = mode
+        self.depolarizing_p1 = depolarizing_p1
+        self.depolarizing_p2 = depolarizing_p2
+
     @property
     def name(self) -> str:
         return "qaoa_aer"
@@ -120,6 +130,11 @@ class QAOAAdapter(SolverAdapter):
             return f"qiskit-aer-{qiskit_aer.__version__}"
         except Exception:
             return "unknown"
+
+    def check_available(self) -> tuple[bool, str | None]:
+        if not QISKIT_AVAILABLE:
+            return False, f"Qiskit / Aer not installed: {_QISKIT_IMPORT_ERROR}"
+        return True, None
 
     def supports(self, problem: ProblemIR) -> bool:
         if not QISKIT_AVAILABLE:
@@ -154,7 +169,7 @@ class QAOAAdapter(SolverAdapter):
             solver_name=self.name,
             solver_version=self.version,
             problem_id=problem.problem_id,
-            source=ComputeSource.QUANTUM_CIRCUIT_SIMULATION,
+            source=ComputeSource.CLASSICAL_SOLVER,
         )
         if not QISKIT_AVAILABLE:
             result.execution_status = ExecutionStatus.FAILED
@@ -166,6 +181,24 @@ class QAOAAdapter(SolverAdapter):
         try:
             record, result = self._run_qaoa(problem, budget, result)
             result.metadata["qaoa_run_record"] = record.__dict__
+            if result.execution_status == ExecutionStatus.COMPLETED:
+                evidence: dict[str, Any] = {
+                    "backend_name": record.backend_name,
+                    "shots": record.shots,
+                    "n_qubits": record.n_qubits,
+                    "depth": record.circuit_depth or 0,
+                    "seed": record.seed,
+                    "histogram": record.sample_distribution,
+                    "execution_mode": record.execution_mode,
+                }
+                if record.execution_mode == "noise_simulation":
+                    evidence["noise_model"] = {
+                        "type": "depolarizing",
+                        "p1": self.depolarizing_p1,
+                        "p2": self.depolarizing_p2,
+                    }
+                result.execution_evidence = evidence
+                result.source = ComputeSource.QUANTUM_CIRCUIT_SIMULATION
         except Exception as exc:
             result.execution_status = ExecutionStatus.FAILED
             result.math_status = MathStatus.UNKNOWN
@@ -186,6 +219,7 @@ class QAOAAdapter(SolverAdapter):
     ) -> tuple[QAOARunRecord, SolverResult]:
         record = QAOARunRecord(
             problem_id=problem.problem_id,
+            execution_mode=self.mode,
             shots=budget.quantum_shots,
             seed=self.DEFAULT_SEED,
         )
@@ -247,7 +281,18 @@ class QAOAAdapter(SolverAdapter):
 
         # Step 3: Optimise parameters
         t2 = time.monotonic()
-        simulator = AerSimulator(method="statevector")
+        if self.mode == "noise_simulation":
+            from qiskit_aer.noise import NoiseModel, depolarizing_error
+            noise_model = NoiseModel()
+            if self.depolarizing_p1 > 0:
+                err1 = depolarizing_error(self.depolarizing_p1, 1)
+                noise_model.add_all_qubit_quantum_error(err1, ["rx", "ry", "rz", "h"])
+            if self.depolarizing_p2 > 0:
+                err2 = depolarizing_error(self.depolarizing_p2, 2)
+                noise_model.add_all_qubit_quantum_error(err2, ["cx"])
+            simulator = AerSimulator(noise_model=noise_model)
+        else:
+            simulator = AerSimulator(method="statevector")
         n_evals = [0]
         eval_times = []
         time_limit = budget.wall_time_seconds - (time.monotonic() - t1)
@@ -577,13 +622,14 @@ class QAOAAdapter(SolverAdapter):
         return np.array(bits, dtype=np.float64)
 
     def _qaoa_limitations(self) -> list[str]:
+        noise_desc = (
+            f"Circuit simulation with depolarizing noise model (p1={self.depolarizing_p1}, p2={self.depolarizing_p2})."
+            if self.mode == "noise_simulation"
+            else "Ideal statevector quantum circuit simulation without physical noise."
+        )
         return [
             "QAOA is a heuristic — global optimality is not guaranteed.",
-            "Results come from quantum circuit simulation (Qiskit Aer), "
-            "not a physical QPU.",
-            "QAOA performance depends on the number of layers (p) and "
-            "the optimiser. p=1 is a shallow circuit with limited expressibility.",
-            "Measurement noise is not simulated (ideal statevector mode).",
-            "All candidates must be independently verified against the "
-            "original ProblemIR.",
+            f"Results come from quantum circuit simulation (Qiskit Aer), not a physical QPU. {noise_desc}",
+            "QAOA performance depends on the number of layers (p) and the optimiser. p=1 is a shallow circuit with limited expressibility.",
+            "All candidates must be independently verified against the original ProblemIR.",
         ]

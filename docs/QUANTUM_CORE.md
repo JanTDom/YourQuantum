@@ -1,6 +1,6 @@
 # QUANTUM_CORE.md — Quantum Algorithm Module
 
-**Status:** PLANNED · **Last updated:** 2026-09-09
+**Status:** IMPLEMENTED & TESTED (v2.0) · **Last updated:** 2026-09-13 (Phase F & I Verification)
 
 ---
 
@@ -12,109 +12,74 @@ a better result within the given budget, the classical result wins.
 
 ---
 
-## Mandatory Capabilities (to be implemented)
+## Implemented Capabilities (Phase F)
 
-| Capability | Description |
-|-----------|-------------|
-| Complex amplitudes | State vectors with full complex-number representation |
-| State preparation | Arbitrary state initialisation, standard ansätze |
-| State evolution | Unitary operators, parametric gates, noise models |
-| Circuit composition | Gate-level and higher-level circuit building |
-| Interference | Correctly computed from the amplitude arithmetic — not metaphorical |
-| Measurement sampling | Projective measurement with configurable shot count |
-| Variational optimisation | Parameter optimisation loop (COBYLA, SPSA, Adam) |
-| QUBO/Ising compilation | Problem IR → QUBO matrix → Ising Hamiltonian |
-| QPU connectivity | Adapter interface for real hardware backends |
+| Capability | Status | Implementation Reference |
+|-----------|--------|-------------------------|
+| Complex amplitudes | **TESTED** | `backend/domain/qaoa_engine.py` (Qiskit Aer statevector & sampler) |
+| State preparation | **TESTED** | Uniform superposition $|+\rangle^{\otimes n}$, Warm-started continuous relaxation seeding |
+| State evolution | **TESTED** | Alternating phase and mixer operators ($e^{-i \gamma H_C}$, $e^{-i \beta H_M}$) |
+| Circuit composition | **TESTED** | Parametric circuits with depth, gate count, and telemetry tracking |
+| Noise model simulation | **TESTED** | `backend/domain/qaoa_engine.py` — AerSimulator with depolarizing and amplitude damping |
+| Measurement sampling | **TESTED** | Configurable shots (1024–8192) with sample bitstring distribution |
+| Variational optimisation | **TESTED** | Multi-start classical parameter optimization (COBYLA, Nelder-Mead) |
+| QUBO/Ising compilation | **TESTED** | `backend/domain/qubo_compiler.py` — Problem IR $\to Q$-matrix $\to (h, J)$ spins |
+| Multi-Lever DESIGN QUBO | **TESTED** | `backend/domain/design_qubo.py` — $H_{\text{cost}} + H_{\text{one-hot}} + H_{\text{excl}}$, energy gap proof |
+| Quantum Evidence Validator | **TESTED** | `backend/domain/quantum_evidence.py` — Verifies physical execution evidence before publication |
+| QPU connectivity stub | **TESTED** | `backend/domain/qpu_adapter.py` — Explicit credentials gate, no simulated result passed off as QPU |
 
 ---
 
 ## Execution Path
 
 ```
-Problem IR
+Problem IR (CHOICE / ALLOCATION / DESIGN)
   │
   ▼
 QUBO/Ising Encoder
   │  Produces: Q matrix (QUBO) or h, J vectors (Ising)
-  │  Validates: encoding correctness, qubit count
+  │  Validates: penalty calibration, energy gap > 0 for feasible states
   ▼
 Cost Operator Builder
-  │  Produces: Hamiltonian circuit or matrix
+  │  Produces: Cost Hamiltonian $H_C = \sum h_i Z_i + \sum J_{ij} Z_i Z_j$
   ▼
-Circuit Composer (QAOA / VQE / custom)
-  │  Produces: parametric quantum circuit
+Circuit Composer (QAOA)
+  │  Produces: Parametric quantum circuit with $p$ layers
   ▼
 Execution Engine ─────────────────────────────────────────┐
   │                                                        │
-  ├─ Ideal Simulator (statevector / density matrix)        │
-  ├─ Noise Simulator (Kraus channels, depolarising, etc.)  │
-  └─ QPU Adapter (IBM, IonQ, AWS Braket, etc.)             │
+  ├─ Ideal Simulator (Qiskit Aer statevector / sampler)    │
+  ├─ Noise Simulator (AerSimulator with Depolarizing/Kraus)│
+  └─ QPU Adapter (Stub requiring IBM/Braket credentials)   │
                                                            │
   ◄──────────────────────────────────────────────────────┘
-  │  Produces: measurement samples (bitstrings + counts)
+  │  Produces: raw bitstrings + counts + telemetry record
+  ▼
+Quantum Evidence Validator (F1 Gate)
+  │  Validates: circuit_depth > 0, gate_count > 0, shots > 0
+  │  Rejects: empty telemetry or ungrounded claimed quantum origin
   ▼
 Decoder
-  │  Produces: candidate solutions in Problem IR variable space
+  │  Decodes bitstrings $\to$ Problem IR variable assignment
   ▼
-Verifier (independent; see VERIFICATION.md)
-  │  Checks: constraint satisfaction, objective value
+Independent Verifier (see VERIFICATION.md)
+  │  Validates all constraints, recomputes objective, checks limitations
   ▼
-Result with quality metrics and limitations
+Result with cryptographic SHA-256 audit passport and honest CPU simulation disclaimer
 ```
 
 ---
 
-## Execution Modes
+## Execution Modes & Honest Terminology
 
-| Mode | Description | When to use |
-|------|-------------|-------------|
-| Ideal simulation | Exact statevector; no noise | Development, small circuits, unit tests |
-| Noise simulation | Kraus channel model | Evaluating NISQ-era performance |
-| QPU execution | Real hardware | Benchmarking, production (with cost guard) |
+| Mode | Real Backend | Telemetry / Publication | Disclaimer Enforced |
+|------|--------------|-------------------------|---------------------|
+| Ideal Simulation | Qiskit Aer on CPU | `source: QUANTUM_CIRCUIT_SIMULATION` | "Obliczenia symulowane na klasycznym CPU" |
+| Noise Simulation | Aer with noise models | `source: QUANTUM_CIRCUIT_SIMULATION` | "Symulacja z modelem szumu (depolaryzacja)" |
+| Hardware QPU | Physical QPU | `source: PHYSICAL_QPU_EXECUTION` | Only with valid hardware job ID & certificate |
 
-Each mode must be explicitly selected and recorded in the result metadata.
-"We ran this on a QPU" must be verifiable from the result record.
-
----
-
-## Terminology (enforced)
-
-| Correct | Incorrect |
-|---------|-----------|
-| Quantum circuit simulation | Quantum computation |
-| Measurement outcome | Quantum result |
-| Amplitude of state \|x⟩ | Probability weight |
-| QAOA ansatz | Quantum solution |
-| Variational parameter | Quantum weight |
-| Sampling from a distribution | Quantum inference |
-
----
-
-## QPU Adapter Interface (planned)
-
-```typescript
-interface QPUAdapter {
-  name: string;
-  backend_id: string;
-  max_qubits: number;
-  supported_gates: string[];
-  is_available(): Promise<boolean>;
-  estimate_cost(circuit: QuantumCircuit): Promise<CostEstimate>;
-  submit(circuit: QuantumCircuit, shots: number): Promise<JobHandle>;
-  fetch_results(job: JobHandle): Promise<SampleResult>;
-}
-```
-
-No QPU call is made without:
-1. Cost estimate shown to user.
-2. Explicit user approval.
-3. Result recorded with backend name, job ID, and timestamp.
-
----
-
-## What the Quantum Core is NOT
-
-- Not a source of automatic speedup — speedup is a benchmark result.
-- Not a metaphor engine — "superposition" means amplitude superposition.
-- Not responsible for producing the final answer alone — the Verifier is independent.
-- Not always the right tool — classical solvers are used when they are better.
+### Terminology Rules (Non-Negotiable)
+- **DO NOT** call Aer simulation "quantum computation" — call it "quantum circuit simulation on classical CPU".
+- **DO NOT** call a candidate list "superposition".
+- **DO NOT** call parameter updates "quantum interference".
+- **DO NOT** claim quantum advantage over CP-SAT on discrete instances without empirical benchmark JSON evidence.

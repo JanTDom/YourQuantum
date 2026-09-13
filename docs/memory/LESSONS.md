@@ -90,3 +90,17 @@ Leaving long-running dev servers (`uvicorn`, `vite`) as unmanaged background tas
 ### L-015: 3D WebGL in React requires ErrorBoundary and 2D fallback to prevent blank white screens
 When rendering Three.js / WebGL in React, if WebGL context creation fails or throws without an ErrorBoundary, React 18/19 unmounts the entire application root (`#root`), leaving a completely blank white page ("biała strona"). Always wrap 3D canvases in a resilient React ErrorBoundary, detect WebGL capabilities beforehand, provide a Canvas 2D fallback, protect aspect ratio calculations against 0-height containers, and expose clear return/exit navigation actions.
 
+### L-016: Async pytest fixtures require @pytest_asyncio.fixture
+When declaring asynchronous fixtures (`async def async_test_session()`) in modern `pytest-asyncio` (v0.24+ / 1.4+), standard `@pytest.fixture` fails during fixture setup with deprecation/unsupported errors. Always explicitly import `pytest_asyncio` and decorate async test fixtures with `@pytest_asyncio.fixture`.
+
+### L-017: Optional array fields in Pydantic/TypeScript require optional chaining in JSX
+When rendering lists from API responses where fields like `inequality_constraints` or `binary_variables` are optional, doing `formalized.inequality_constraints.map(...)` throws `Cannot read properties of undefined (reading 'map')` and crashes the React tree. Always use optional chaining `formalized.inequality_constraints?.map(...)` and fallback counts `(formalized.inequality_constraints?.length || 0)`.
+
+### L-018: Full E2E mocking in Playwright requires intercepting Job Status as well as Result
+When testing asynchronous solver workflows in Playwright where the frontend polls `GET /api/v1/jobs/:id` until `execution_status === 'COMPLETED'` before calling `GET /api/v1/jobs/:id/result`, mocking only the result endpoint causes Vite's dev server proxy to attempt forwarding the status check to backend port 8000 (raising ECONNREFUSED). Always mock the job creation, polling status, and result endpoints as a complete lifecycle.
+
+### L-019: macOS Sandboxing Mach port rendezvous in Playwright Chrome
+Spawning Google Chrome inside the sandboxed terminal subshell on macOS triggers Mach port bootstrap errors (`bootstrap_check_in com.google.Chrome.MachPortRendezvousServer: Permission denied`). Browser automation tasks must be executed with `BypassSandbox: true` to permit operating system IPC with the display and window server.
+
+### L-020: Indirect prompt injection boundary escaping
+When ingesting third-party web content into LLM reasoning contexts, adversaries may plant boundary reset tokens (such as `<<<END_UNTRUSTED_WEB_CONTENT>>>`) to break out of delimiters. Always sanitize untrusted input by replacing delimiter patterns with escaped strings and applying regex filters to strip imperative adversarial commands ("ignore previous instructions", "set value=0").

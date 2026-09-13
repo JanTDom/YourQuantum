@@ -1,0 +1,195 @@
+{
+  "title": "Optymalizacja reformy systemu ochrony zdrowia w Polsce",
+  "description": "Wielodźwigniowa synteza reformy architektury ochrony zdrowia w oparciu o mierzalne kryteria kosztu, dostępności i równości.",
+  "levers": [
+    {
+      "id": "lever_finansowanie",
+      "name": "Model Finansowania",
+      "description": "Sposób gromadzenia i redystrybucji środków publicznych",
+      "options": [
+        {
+          "id": "skladkowy_nfz",
+          "title": "Model składkowy (ubezpieczeniowy)",
+          "description": "Składka powiązana z dochodem, zarządzana centralnie",
+          "evidence_ref": "https://stat.gov.pl/zdrowie/raport-2025.html",
+          "is_hypothetical": false
+        },
+        {
+          "id": "budzetowy_centralny",
+          "title": "Model budżetowy (Beveridge)",
+          "description": "Finansowanie bezpośrednio z podatków ogólnych państwa",
+          "evidence_ref": "https://who.int/beveridge-systems",
+          "is_hypothetical": false
+        },
+        {
+          "id": "wielofunduszowy_konkurencyjny",
+          "title": "Konkurencyjne kasy chorych",
+          "description": "Wiele konkurujących funduszy ubezpieczeniowych",
+          "evidence_ref": "https://oecd.org/health/multi-fund",
+          "is_hypothetical": false
+        }
+      ]
+    },
+    {
+      "id": "lever_platnik",
+      "name": "Rola Płatnika",
+      "description": "Monopson vs konkurencja po stronie płatnika",
+      "options": [
+        {
+          "id": "monopson_jeden_nfz",
+          "title": "Pojedynczy płatnik publiczny",
+          "description": "Jednolity cennik i koszyk świadczeń gwarantowanych",
+          "evidence_ref": "https://nfz.gov.pl/o-nas",
+          "is_hypothetical": false
+        },
+        {
+          "id": "kasy_regionalne",
+          "title": "Regionalne kasy chorych",
+          "description": "Decentralizacja kontraktowania do 16 województw",
+          "evidence_ref": "https://stat.gov.pl/regiony",
+          "is_hypothetical": false
+        }
+      ]
+    },
+    {
+      "id": "lever_wspolplacenie",
+      "name": "Współpłacenie Pacjenta",
+      "description": "Współfinansowanie drobnych świadczeń medycznych",
+      "options": [
+        {
+          "id": "brak_wspolplacenia",
+          "title": "Pełne finansowanie publiczne (brak opłat)",
+          "description": "Zero opłat pacjenta przy wejściu do systemu",
+          "evidence_ref": "https://who.int/free-access",
+          "is_hypothetical": false
+        },
+        {
+          "id": "ryczalt_wizyty",
+          "title": "Niewielki ryczałt za wizytę / teleporadę",
+          "description": "Symboliczna opłata 15 PLN ograniczająca puste wizyty",
+          "evidence_ref": "https://oecd.org/copayment-copay",
+          "is_hypothetical": false
+        }
+      ]
+    },
+    {
+      "id": "lever_gatekeeping",
+      "name": "Gatekeeping POZ",
+      "description": "Rola lekarza pierwszego kontaktu jako odźwiernego systemu",
+      "options": [
+        {
+          "id": "scisly_gatekeeping",
+          "title": "Ścisły gatekeeping lekarza rodzinnego",
+          "description": "Skierowanie wymagane do wszystkich specjalistów",
+          "evidence_ref": "https://stat.gov.pl/zdrowie/raport-2025.html",
+          "is_hypothetical": false
+        },
+        {
+          "id": "otwarty_dostep",
+          "title": "Częściowo otwarty dostęp",
+          "description": "Bezpośredni dostęp do kluczowych specjalistów bez skierowania",
+          "evidence_ref": "https://oecd.org/open-access-care",
+          "is_hypothetical": false
+        }
+      ]
+    }
+  ],
+  "criteria": [
+    {
+      "id": "crit_koszt",
+      "name": "Koszt Publiczny",
+      "direction": "minimize",
+      "weight": 0.5,
+      "unit": "mld PLN"
+    },
+    {
+      "id": "crit_dostepnosc",
+      "name": "Dostępność i Czas Oczekiwania",
+      "direction": "maximize",
+      "weight": 0.3,
+      "unit": "pkt"
+    },
+    {
+      "id": "crit_rownosc",
+      "name": "Równość Dostępu",
+      "direction": "maximize",
+      "weight": 0.2,
+      "unit": "pkt"
+    }
+  ],
+  "scores": {
+    "lever_finansowanie": {
+      "skladkowy_nfz": {
+        "crit_koszt": {"value": 175.2, "unit": "mld PLN", "provenance": "web_sourced", "source_ref": "gus_2025"},
+        "crit_dostepnosc": {"value": 65.0, "unit": "pkt", "provenance": "web_sourced", "source_ref": "oecd_2024"},
+        "crit_rownosc": {"value": 80.0, "unit": "pkt", "provenance": "web_sourced", "source_ref": "who_2024"}
+      },
+      "budzetowy_centralny": {
+        "crit_koszt": {"value": 190.0, "unit": "mld PLN", "provenance": "web_sourced", "source_ref": "beveridge_comp"},
+        "crit_dostepnosc": {"value": 72.0, "unit": "pkt", "provenance": "web_sourced", "source_ref": "beveridge_comp"},
+        "crit_rownosc": {"value": 90.0, "unit": "pkt", "provenance": "web_sourced", "source_ref": "beveridge_comp"}
+      },
+      "wielofunduszowy_konkurencyjny": {
+        "crit_koszt": {"value": 210.0, "unit": "mld PLN", "provenance": "web_sourced", "source_ref": "nl_de_model"},
+        "crit_dostepnosc": {"value": 85.0, "unit": "pkt", "provenance": "web_sourced", "source_ref": "nl_de_model"},
+        "crit_rownosc": {"value": 70.0, "unit": "pkt", "provenance": "web_sourced", "source_ref": "nl_de_model"}
+      }
+    },
+    "lever_platnik": {
+      "monopson_jeden_nfz": {
+        "crit_koszt": {"value": 0.0, "unit": "mld PLN", "provenance": "web_sourced", "source_ref": "nfz_stats"},
+        "crit_dostepnosc": {"value": 0.0, "unit": "pkt", "provenance": "web_sourced", "source_ref": "nfz_stats"},
+        "crit_rownosc": {"value": 5.0, "unit": "pkt", "provenance": "web_sourced", "source_ref": "nfz_stats"}
+      },
+      "kasy_regionalne": {
+        "crit_koszt": {"value": 10.0, "unit": "mld PLN", "provenance": "web_sourced", "source_ref": "nfz_overhead"},
+        "crit_dostepnosc": {"value": 10.0, "unit": "pkt", "provenance": "web_sourced", "source_ref": "region_flex"},
+        "crit_rownosc": {"value": -5.0, "unit": "pkt", "provenance": "web_sourced", "source_ref": "region_flex"}
+      }
+    },
+    "lever_wspolplacenie": {
+      "brak_wspolplacenia": {
+        "crit_koszt": {"value": 15.0, "unit": "mld PLN", "provenance": "web_sourced", "source_ref": "copay_study"},
+        "crit_dostepnosc": {"value": -5.0, "unit": "pkt", "provenance": "web_sourced", "source_ref": "copay_study"},
+        "crit_rownosc": {"value": 10.0, "unit": "pkt", "provenance": "web_sourced", "source_ref": "copay_study"}
+      },
+      "ryczalt_wizyty": {
+        "crit_koszt": {"value": -15.0, "unit": "mld PLN", "provenance": "web_sourced", "source_ref": "copay_study"},
+        "crit_dostepnosc": {"value": 15.0, "unit": "pkt", "provenance": "web_sourced", "source_ref": "copay_study"},
+        "crit_rownosc": {"value": -5.0, "unit": "pkt", "provenance": "web_sourced", "source_ref": "copay_study"}
+      }
+    },
+    "lever_gatekeeping": {
+      "scisly_gatekeeping": {
+        "crit_koszt": {"value": -20.0, "unit": "mld PLN", "provenance": "web_sourced", "source_ref": "gatekeep_report"},
+        "crit_dostepnosc": {"value": 10.0, "unit": "pkt", "provenance": "web_sourced", "source_ref": "gatekeep_report"},
+        "crit_rownosc": {"value": 0.0, "unit": "pkt", "provenance": "web_sourced", "source_ref": "gatekeep_report"}
+      },
+      "otwarty_dostep": {
+        "crit_koszt": {"value": 20.0, "unit": "mld PLN", "provenance": "web_sourced", "source_ref": "gatekeep_report"},
+        "crit_dostepnosc": {"value": -10.0, "unit": "pkt", "provenance": "web_sourced", "source_ref": "gatekeep_report"},
+        "crit_rownosc": {"value": 0.0, "unit": "pkt", "provenance": "web_sourced", "source_ref": "gatekeep_report"}
+      }
+    }
+  },
+  "interactions": [
+    {
+      "lever_a_id": "lever_finansowanie",
+      "option_a_id": "budzetowy_centralny",
+      "lever_b_id": "lever_platnik",
+      "option_b_id": "kasy_regionalne",
+      "compatible": false,
+      "synergy": 0.0,
+      "source_ref": "konstytucja_art68"
+    },
+    {
+      "lever_a_id": "lever_finansowanie",
+      "option_a_id": "skladkowy_nfz",
+      "lever_b_id": "lever_gatekeeping",
+      "option_b_id": "scisly_gatekeeping",
+      "compatible": true,
+      "synergy": 12.5,
+      "source_ref": "badanie_nfz_poz_2024"
+    }
+  ]
+}

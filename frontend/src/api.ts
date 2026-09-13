@@ -40,7 +40,9 @@ export interface JobCreateRequest {
   problem_id: string
   solver: 'cp_sat' | 'qaoa_aer'
   budget?: ComputeBudget
+  metadata?: Record<string, unknown>
 }
+
 
 export interface JobStatus {
   job_id: string
@@ -121,11 +123,50 @@ export interface DecisionCase {
   tradeoffs: CaseTradeoff[]
   priority_tokens?: string[]
   selected_priority_tokens?: string[]
+  score_matrix?: Record<string, Record<string, ScoredValue>>
   break_even_point?: string | null
   input_quality?: InputQuality
   created_at: string
   updated_at: string
   problem_ir_id?: string | null
+}
+
+export interface ScoredValue {
+  value: number
+  unit?: string | null
+  provenance: 'user_supplied' | 'derived' | 'assumed' | 'web_sourced' | 'llm_extracted'
+  source_ref?: string | null
+  confidence: number
+}
+
+export interface Evidence {
+  id: string
+  claim: string
+  value: number | string | null
+  unit?: string | null
+  source_url: string
+  source_title: string
+  publisher?: string | null
+  published_at?: string | null
+  retrieved_at: string
+  content_hash: string
+  quote: string
+  extraction_method: 'llm_extracted' | 'api_field' | 'table_cell' | 'user_verified'
+  confidence: number
+  conflicts_with: string[]
+  target_param?: string | null
+}
+
+export interface EvidenceConflict {
+  id: string
+  target_param: string
+  evidence_ids: string[]
+  divergent_values: (number | string)[]
+  spread_min?: number | null
+  spread_max?: number | null
+  resolution_method: string
+  resolved_value?: number | string | null
+  notes: string
 }
 
 export interface ConstraintResult {
@@ -239,8 +280,72 @@ export interface FormalizeResponse {
   break_even_point?: string | null
 }
 
+export interface CognitiveIntakeResponse {
+  status: 'ready_for_review' | 'needs_clarification' | 'not_computable'
+  problem_ir?: Record<string, unknown> | null
+  decision_case?: DecisionCase | null
+  problem_class: string
+  input_quality?: InputQuality | null
+  not_computable_report?: {
+    is_computable: boolean
+    reason: string
+    reframe_suggestions: string[]
+    suggested_computable_class?: string | null
+  } | null
+  research_queries: Array<{
+    query_id?: string
+    target_param?: string
+    search_query?: string
+    expected_unit?: string | null
+    priority?: number
+  }>
+  break_even_point?: string | null
+  questions: string[]
+  explanation: string
+  raw_query: string
+  fingerprint: string
+  session_id?: string | null
+  formalized?: FormalizeResponse | null
+}
+
+export interface CognitiveEnergyBudget {
+  tokens_used: number
+  max_tokens: number
+  search_queries_used: number
+  max_search_queries: number
+  solver_seconds_used: number
+  max_solver_seconds: number
+  daily_tokens_used: number
+  daily_token_limit: number
+  is_exhausted: boolean
+  exhaustion_reason?: string | null
+  simplification_suggestions: string[]
+}
+
+export interface CognitiveSessionTelemetry {
+  session_id: string
+  goal: string
+  current_cycle: number
+  energy_budget: CognitiveEnergyBudget
+  prediction_errors: string[]
+  focus_variables: string[]
+  cycle_history: Array<Record<string, unknown>>
+  has_active_hypothesis: boolean
+  active_problem_id?: string | null
+  interaction_history: Array<Record<string, unknown>>
+  created_at: string
+  updated_at: string
+}
+
+export interface ConsolidateResponse {
+  status: 'consolidated' | 'skipped'
+  trace_id?: string | null
+  message: string
+}
+
 export interface BenchmarkResponse {
   problem_id: string
+
   cp_sat_job_id: string
   qaoa_job_id: string
   status: string
@@ -264,6 +369,7 @@ export interface JobResult {
   } | null
   verification: VerificationReport | null
   error_message: string | null
+  metadata?: Record<string, any>
 }
 
 async function request<T>(
@@ -348,6 +454,32 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(req),
     }),
+
+  cognitiveIntake: (req: {
+    query: string
+    session_id?: string | null
+    owner_id?: string | null
+    workspace_id?: string | null
+  }) =>
+    request<CognitiveIntakeResponse>('/cognitive/intake', {
+      method: 'POST',
+      body: JSON.stringify(req),
+    }),
+
+  getCognitiveSession: (sessionId: string) =>
+    request<CognitiveSessionTelemetry>(`/cognitive/session/${sessionId}`),
+
+  deleteCognitiveSession: (sessionId: string) =>
+    request<{ status: string; session_id: string }>(`/cognitive/session/${sessionId}`, {
+      method: 'DELETE',
+    }),
+
+  consolidateTrace: (sessionId: string, consent: boolean) =>
+    request<ConsolidateResponse>('/cognitive/consolidate', {
+      method: 'POST',
+      body: JSON.stringify({ session_id: sessionId, consent }),
+    }),
+
 
   getHelpKnowledge: () =>
     request<HelpResponse>('/help'),
@@ -467,5 +599,82 @@ export interface HelpResponse {
   glossary: Array<{ term: string; meaning: string }>
 }
 
+export async function researchEvidence(params: {
+  case_id?: string
+  target_parameters?: Array<{ param_id: string; query_text: string; expected_unit?: string; rationale?: string }>
+  max_results_per_param?: number
+}): Promise<{
+  status: string
+  evidence_count: number
+  conflict_count: number
+  evidence: Evidence[]
+  conflicts: EvidenceConflict[]
+  port_status: Record<string, unknown>
+}> {
+  const res = await fetch(`${BASE_URL}/evidence/research`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  })
+  if (!res.ok) {
+    throw new Error(`Błąd badania źródeł: ${res.statusText}`)
+  }
+  return res.json()
+}
 
+export async function getEvidenceRecord(id: string): Promise<Evidence> {
+  const res = await fetch(`${BASE_URL}/evidence/${id}`)
+  if (!res.ok) {
+    throw new Error(`Nie znaleziono rekordu dowodu: ${id}`)
+  }
+  return res.json()
+}
 
+export interface ParetoPoint {
+  configuration: Record<string, string>
+  objective_values: Record<string, number>
+  is_pareto_optimal: boolean
+}
+
+export interface LeverRankingItem {
+  lever_id: string
+  lever_name: string
+  sensitivity_impact: number
+  options_count: number
+  relative_impact_percent: number
+}
+
+export interface DesignSynthesisResult {
+  problem_id: string
+  optimal_configuration: Record<string, string>
+  optimal_titles: Record<string, string>
+  model_optimal_label: string
+  pareto_frontier: ParetoPoint[]
+  lever_importance_ranking: LeverRankingItem[]
+  unknowns_and_decisive_assumptions: string[]
+  practical_manifestation: string
+}
+
+export async function getDesignFixture(fixtureName: string): Promise<any> {
+  const res = await fetch(`${BASE_URL}/design/fixtures/${fixtureName}`)
+  if (!res.ok) {
+    throw new Error(`Nie znaleziono wzorca konfiguracji: ${fixtureName}`)
+  }
+  return res.json()
+}
+
+export async function synthesizeDesign(designData: any): Promise<{
+  status: string
+  synthesis: DesignSynthesisResult
+  problem: any
+}> {
+  const res = await fetch(`${BASE_URL}/design/synthesize`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(designData),
+  })
+  if (!res.ok) {
+    throw new Error(`Błąd syntezy wariantów DESIGN: ${res.statusText}`)
+  }
+  return res.json()
+}

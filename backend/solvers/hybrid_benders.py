@@ -12,7 +12,9 @@ from typing import Any
 
 from backend.domain.problem_ir import (
     ComputeBudget,
+    Constraint,
     ConstraintType,
+    ExprNode,
     ObjectiveDirection,
     ProblemIR,
     VariableDomain,
@@ -46,6 +48,15 @@ class HybridBendersAdapter(SolverAdapter):
     def version(self) -> str:
         return "0.1.0"
 
+    def check_available(self) -> tuple[bool, str | None]:
+        q_avail, q_err = QAOAAdapter().check_available()
+        cp_avail, cp_err = CPSATAdapter().check_available()
+        if not cp_avail:
+            return False, f"CP-SAT dependency missing: {cp_err}"
+        if not q_avail:
+            return False, f"QAOA dependency missing: {q_err}"
+        return True, None
+
     def supports(self, problem: ProblemIR) -> bool:
         """Supported if problem has variables and is ready to solve."""
         return problem.is_ready_to_solve and len(problem.variables) > 0
@@ -65,7 +76,7 @@ class HybridBendersAdapter(SolverAdapter):
             solver_name=self.name,
             solver_version=self.version,
             problem_id=problem.problem_id,
-            source=ComputeSource.QUANTUM_CIRCUIT_SIMULATION,
+            source=ComputeSource.CLASSICAL_SOLVER,
         )
 
         qaoa = QAOAAdapter()
@@ -120,6 +131,46 @@ class HybridBendersAdapter(SolverAdapter):
                     "type": "INFEASIBILITY_CUT",
                     "assignment": qaoa_res.assignment,
                 })
+                # Add no-good cut constraint to current_problem for subsequent QAOA iterations
+                cut_id = f"benders_cut_{iteration}"
+                terms_nodes: list[str] = []
+                s1_count = 0
+                for v in current_problem.variables:
+                    val = float(qaoa_res.assignment.get(v.id, 0.0))
+                    if val > 0.5:
+                        s1_count += 1
+                        coeff = 1.0
+                    else:
+                        coeff = -1.0
+                    var_node_id = f"{cut_id}_var_{v.id}"
+                    const_node_id = f"{cut_id}_coeff_{v.id}"
+                    mul_node_id = f"{cut_id}_mul_{v.id}"
+                    current_problem.expressions.add(ExprNode(id=var_node_id, op="var", variable_id=v.id))
+                    current_problem.expressions.add(ExprNode(id=const_node_id, op="const", value=coeff))
+                    current_problem.expressions.add(ExprNode(id=mul_node_id, op="mul", children=[const_node_id, var_node_id]))
+                    terms_nodes.append(mul_node_id)
+
+                lhs_id = f"{cut_id}_lhs"
+                if len(terms_nodes) == 1:
+                    lhs_id = terms_nodes[0]
+                elif len(terms_nodes) > 1:
+                    current_problem.expressions.add(ExprNode(id=lhs_id, op="sum", children=terms_nodes))
+                else:
+                    current_problem.expressions.add(ExprNode(id=lhs_id, op="const", value=0.0))
+
+                rhs_id = f"{cut_id}_rhs"
+                current_problem.expressions.add(ExprNode(id=rhs_id, op="const", value=float(s1_count - 1)))
+
+                current_problem.constraints.append(
+                    Constraint(
+                        id=cut_id,
+                        type=ConstraintType.INEQUALITY_LE,
+                        lhs_expression_id=lhs_id,
+                        rhs_expression_id=rhs_id,
+                        hard=True,
+                        description=f"Benders Infeasibility Cut #{iteration}",
+                    )
+                )
 
         # Step 3: If QAOA found a feasible solution, return it; otherwise run CP-SAT to guarantee exactness
         if best_solution and best_solution.math_status == MathStatus.FEASIBLE:
@@ -131,7 +182,7 @@ class HybridBendersAdapter(SolverAdapter):
         else:
             final_res = cpsat.solve(problem, budget)
             final_res.solver_name = self.name
-            final_res.source = ComputeSource.QUANTUM_CIRCUIT_SIMULATION
+            final_res.source = ComputeSource.CLASSICAL_SOLVER
             final_res.metadata["benders_iterations"] = len(benders_cuts) + 1
             final_res.metadata["benders_cuts"] = benders_cuts
             final_res.metadata["decomposition_mode"] = "HYBRID_CP_ASSISTED"

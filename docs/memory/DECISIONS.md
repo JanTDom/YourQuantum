@@ -291,19 +291,155 @@ LLM chatbots generate plausible probabilistic text but cannot guarantee constrai
 
 ---
 
-## DEC-019 — Hardware-Accelerated 3D Quantum Manifold Hero Animation
+---
+
+## DEC-020 — Official Model Context Protocol (MCP) Server Integration for Claude and Cowork
 
 **Date:** 2026-09-12
 **Status:** ACTIVE
 
 **Decision:**
-Replace the jittery CSS keyframe panning image in the landing page hero with a bespoke WebGL Three.js interactive 3D quantum manifold (`QuantumHero3D.tsx`).
-1. Renders a pulsating quantum nucleus, 18 entangled qubit nodes with Fibonacci spherical distribution, real-time dynamic interference geodesics, and dual counter-rotating QAOA parameter rings.
-2. Supports smooth mouse pointer parallax, dynamic OKLCH/RGB color gradients, a live 60 FPS telemetry badge, and direct modal interaction (`Otwórz mózg 3D`).
-3. Fully protected trade secrets: visualizes abstract state spaces and interference without displaying private algebraic formulas or solver weights.
+Implement an official Model Context Protocol (MCP) server in Python (`mcp_server/`) operating over stdio transport. Expose 4 core tools:
+1. `yq_optimize_options`: general multi-criteria discrete optimization with strict input validation and zero silent defaults.
+2. `yq_solve_portfolio`: capital / project portfolio allocation under hard budget limits.
+3. `yq_analyze_dilemma`: Input Quality Gate assessing completeness, options, and numbers in natural language.
+4. `yq_get_engine_status`: API connectivity and active solver telemetry.
+
+**Non-Negotiable Honesty Rule:**
+The MCP server strictly enforces that the returned result is a mathematical optimum relative ONLY to the explicitly provided criteria, weights, and constraints. It never poses as an absolute oracle, never silently substitutes default weights or parameters, and reports failures with actionable human guidance.
 
 **Rationale:**
-Eliminates layout shifts and jerky image translations, providing an Awwwards/FWA-grade high-tech instrument aesthetic.
+Allows AI workflows in Claude Desktop, Claude Code, and Cowork to delegate combinatorial and multi-criteria optimization to YourQuantum with SHA-256 audit passports and stress-testing sensitivity reports.
 
+---
 
+## DEC-021 — Brain-Inspired Cognitive Architecture (Prefrontal Working Memory, Episodic Hippocampus & Active Inference with Gemini & Offline Fallback)
 
+**Date:** 2026-09-13
+**Status:** ACTIVE
+
+**Decision:**
+Implement a neurobiology-inspired cognitive orchestration layer (Stage 4) using:
+1. **Prefrontal Cortex / Working Memory & Cybernetic Homeostasis**: `EnergyBudget` preventing runaway token/cycle usage and `GlobalWorkspace` managing active goal, focal variables, hypotheses (`ProblemIR`), and prediction errors in process RAM.
+2. **Hippocampal Episodic Memory**: Persistent database storage in `cognitive_traces` table with associative recall based on structural problem fingerprints, ranking historical high-reward patterns.
+3. **Karl Friston Active Inference Loop**: Initial hypothesis formulation, static constraint sanity checking to fast-fail obvious contradictions, and reflection on independent verifier failure signals as prediction errors to iteratively adjust models and penalty weights.
+4. **Hexagonal Reasoning Port & Gemini Adapter**: `CognitiveReasoningPort` domain interface with `GeminiCognitiveAdapter` (Gemini 2.5 Flash, structured JSON, temperature 0.0) and seamless local deterministic rule-based offline fallback when `GEMINI_API_KEY` is missing or when network errors occur.
+
+**Rationale:**
+Provides transparent, biologically motivated problem intake and formulation while preserving the core scientific boundary: LLMs only help translate and calibrate hypotheses, while hard solvers compute solutions and independent verifiers certify them.
+
+---
+
+## DEC-022 — Kontenerowa architektura serwisów obliczeniowych (Compute Worker Container)
+
+**Date:** 2026-09-13
+**Status:** ACTIVE
+
+**Decision:**
+Rozdzielić architekturę wdrożeniową YourQuantum na dwie odrębne warstwy:
+1. **Frontend & API Gateway (Vercel / Edge)**: statyczny interfejs React/Vite, lightweight proxy API, intake parsers i routing.
+2. **Dedicated Compute Worker Container (Docker / Cloud Run / Fly.io / Kubernetes)**: asynchroniczny kontener wykonawczy z pełnym stosem obliczeniowym (Python 3.11+, Google OR-Tools C++ extensions, Qiskit Aer C++ simulator, SciPy, HiGHS, Z3). Komunikacja za pośrednictwem kolejki zadań (PostgreSQL jobs table / Redis BullMQ) z pollingiem lub WebSockets/SSE.
+
+**Rationale:**
+Platformy serverless (takie jak Vercel Functions czy AWS Lambda) nakładają twarde ograniczenia:
+- Maksymalny czas wykonania (execution timeout): 10–60 sekund, co uniemożliwia wielominutowe optymalizacje kombinatoryczne, przeszukiwania branch-and-bound czy symulacje obwodów QAOA.
+- Maksymalny rozmiar spakowanego artefaktu (bundle limit): 250 MB (rozpakowane) / 50 MB (zip). Stos obliczeniowy (`ortools`, `qiskit`, `qiskit_aer`, `scipy`, `numpy`) przekracza 650 MB i wymaga natywnych bibliotek C++ (glibc, OpenMP).
+Dedykowany kontener roboczy (Worker Container) eliminuje limity rozmiaru pamięci podręcznej i czasu wykonania, gwarantując determinizm środowiska numerycznego.
+
+**Alternatives considered:**
+- Uruchamianie solverów bezpośrednio w Vercel Serverless Functions: odrzucone z powodu przekroczenia limitu rozmiaru paczki (bundle size > 500MB) oraz timeoutów przy trudnych instancjach NP-trudnych.
+- Client-side WebAssembly (Pyodide): odrzucone, brak pełnej obsługi wielowątkowego Qiskit Aer i OR-Tools CP-SAT w środowisku przeglądarki.
+
+**Consequences:**
+- Obliczenia backendowe działają asynchronicznie (`JobRecord` ze statusem `QUEUED` -> `RUNNING` -> `COMPLETED`/`FAILED`).
+- `Dockerfile` w repozytorium definiuje oficjalny kontener obliczeniowy.
+---
+
+## DEC-023 — Rozszerzenie Problem IR o 5 klas problemów (Taxonomy v0.3)
+
+**Date:** 2026-09-13
+**Status:** ACTIVE
+
+**Decision:**
+Rozszerzyć Problem IR do wersji 0.3 wprowadzając taksonomię 5 fundamentalnych klas problemów:
+1. `CHOICE` — wielokryterialny wybór z dyskretnej listy opcji (wagi od użytkownika, analityczny próg zwrotny).
+2. `ALLOCATION` — podział zasobu/budżetu (plecak, portfel, harmonogramowanie) z ograniczeniami pojemności.
+3. `DESIGN` — synteza architektoniczna wielodźwigniowa (równoczesny dobór opcji z synergią i wykluczeniami).
+4. `PARAMETER` — ciągłe dostrajanie parametrów (SciPy HiGHS / minimalizacja ciągła).
+5. `NOT_COMPUTABLE` — dylematy etyczne/światopoglądowe; system odmawia fałszywych obliczeń i oferuje konstruktywne przekształcenie w mierzalne kryteria.
+
+**Rationale:**
+Zapobiega sztucznemu wtłaczaniu każdego pytania w jeden schemat (np. unikanie wymuszania QUBO tam, gdzie naturalny jest CP-SAT lub problem jest nieobliczalny).
+
+---
+
+## DEC-024 — Warstwa dowodowa, obrona przed wstrzyknięciem promptu i ochrona SSRF
+
+**Date:** 2026-09-13
+**Status:** ACTIVE
+
+**Decision:**
+Wprowadzić warstwę `Evidence Layer` pobierającą fakty z internetu wyłącznie przez utwardzony `SafeWebFetcher` z pre-rezolucją DNS i filtrem SSRF (blokującym loopback, link-local, RFC 1918 i adresy metadata chmury `169.254.169.254`). Treść stron zewnętrznych podlega sanityzacji w `EvidenceExtractor`: ucieczce markerów granicznych, neutralizacji poleceń prompt injection oraz heurystycznemu filtrowaniu zdań atakujących.
+
+**Rationale:**
+Zewnętrzne strony internetowe są z natury niezaufane na granicy systemu. Nieostrożne wstrzyknięcie tekstu strony w kontekst LLM mogłoby zafałszować liczby w modelu decyzyjnym (np. zerując koszty).
+
+---
+
+## DEC-025 — Synteza wielodźwigniowa (DESIGN Class) z frontem Pareto i rankingiem ważności
+
+**Date:** 2026-09-13
+**Status:** ACTIVE
+
+**Decision:**
+Dla klasy `DESIGN` interfejs i backend zwracają:
+1. Konfigurację optymalną z dowodem spójności reguł wykluczenia.
+2. Interaktywny 2D front Pareto punktów niezdominowanych (wielokryterialny trade-off).
+3. Ranking wrażliwości dźwigni (procentowy udział każdej dźwigni w zmienności wyniku systemu).
+4. Obowiązkowe zastrzeżenie formalne: *"Rozwiązanie model-optymalne (optymalne dla zdefiniowanego modelu i wag, nie absolutnie optymalne dla świata)"*.
+
+**Rationale:**
+Złożone decyzje publiczne i architektoniczne (np. reforma ochrony zdrowia) nie mają jednego „magicznego" punktu bez kompromisów; użytkownik musi widzieć przestrzeń wariantów Pareto i wiedzieć, która dźwignia decyduje o wyniku.
+
+---
+
+## DEC-026 — Rygorystyczna walidacja dowodu wykonania obwodu kwantowego (F1 Quantum Execution Evidence)
+
+**Date:** 2026-09-13
+**Status:** ACTIVE
+
+**Decision:**
+Wprowadzić moduł `backend/domain/quantum_evidence.py`. Żaden wynik oznaczony jako `source == QUANTUM_CIRCUIT_SIMULATION` lub `PHYSICAL_QPU_EXECUTION` nie może zostać opublikowany bez weryfikowalnego rekordu telemetrii obwodu: `circuit_depth > 0`, `gate_count > 0`, `shots > 0`, backend name.
+
+**Rationale:**
+Zgodnie z regułą dowodową AGENTS.md §7 i eliminacją błędu A1, zabrania się podszywania obliczeń klasycznych lub losowych liczb pod obwody kwantowe.
+
+---
+
+## DEC-027 — Wielopoziomowe limity zapytań (Sliding Window, Quotas, Circuit Breaker) i tokeny sesyjne
+
+**Date:** 2026-09-13
+**Status:** ACTIVE
+
+**Decision:**
+Wdrożyć `RateLimiter` w `backend/api/security_guard.py`:
+1. Ruchomy bufor czasowy (Sliding Window): 15 zapytań/min dla sesji anonimowych, 150 dla uwierzytelnionych.
+2. Dzienny limit per klient: 60 zapytań/dzień anonimowo, 600 zapytań/dzień autoryzowany.
+3. Globalny bezpiecznik kosztowy (Circuit Breaker): 600 wywołań LLM dziennie na całą instalację.
+4. Podpisywane kryptograficznie tokeny sesyjne HMAC-SHA256 (`yq_sess_<exp>_<hash>_<sig>`).
+
+**Rationale:**
+Ochrona budżetu API przed atakami Denial-of-Wallet oraz wyczerpaniem limitów zewnętrznych modeli bez autoryzacji.
+
+---
+
+## DEC-028 — Ścisła izolacja dzierżawców i bramka zgody w pamięci epizodycznej
+
+**Date:** 2026-09-13
+**Status:** ACTIVE
+
+**Decision:**
+Pamięć robocza sesji (`WorkingMemory`) jest trwała w ramach aktywnej sesji użytkownika w SQLite, natomiast pamięć epizodyczna (`EpisodicMemory`) podlega ścisłemu zakresowaniu per dzierżawca (`tenant_id`) i wymaga jednoznacznej, uprzedniej zgody użytkownika (`consent=True`). Przy braku zgody konsolidacja zostaje pominięta (`skipped`).
+
+**Rationale:**
+Zgodność z RODO/GDPR oraz eliminacja ryzyka przecieku danych wrażliwych i dylematów decyzyjnych między różnymi użytkownikami platformy.

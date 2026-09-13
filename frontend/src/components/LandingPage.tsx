@@ -67,8 +67,12 @@ const COMPARISONS = [
     yq: 'Silnik przeszukuje przestrzeń stanów algorytmem kwantowym QAOA',
   },
   {
+    ai: 'Typowy agent to czarna skrzynka bez kontroli homeostazy i pamięci roboczej',
+    yq: 'Mózg kognitywny: Pamięć robocza, hipokamp i pętla Active Inference',
+  },
+  {
     ai: 'Halucynuje sprzeczne fakty i łamie twarde ograniczenia',
-    yq: 'Solver CP-SAT gwarantuje 100% spełnienia każdego ograniczenia',
+    yq: 'Solver CP-SAT rygorystycznie weryfikuje spełnienie każdego ograniczenia',
   },
   {
     ai: 'Generuje subiektywne, nieweryfikowalne opinie',
@@ -90,14 +94,14 @@ const STEPS = [
   {
     step: '01',
     title: 'Opisujesz swoją sytuację',
-    body: 'Zwykłymi słowami. Bez żargonu. System rozumie kontekst — zawodowy dylemat, wybór inwestycji, problem optymalizacji zasobów.',
+    body: 'Zwykłymi słowami. Bez żargonu. Kognitywna pamięć robocza natychmiast wychwytuje cel, warianty i ukryte kompromisy.',
     img: '/images/scientist-holo.jpg',
     imgAlt: 'Naukowiec pracujący z holograficznym interfejsem danych kwantowych',
   },
   {
     step: '02',
-    title: 'System formalizuje i oblicza',
-    body: 'Problem zostaje zamieniony na ścisły model matematyczny. Solver kwantowy QAOA i CP-SAT szukają globalnego optimum — nie zgadują.',
+    title: 'Mózg kognitywny formalizuje i oblicza',
+    body: 'Pętla Active Inference dopracowuje model, a solver kwantowy QAOA i CP-SAT szukają globalnego optimum w przestrzeni stanów.',
     img: '/images/chip.jpg',
     imgAlt: 'Procesor kwantowy z wzorcem świetlnych kubitów',
   },
@@ -110,14 +114,72 @@ const STEPS = [
   },
 ] as const
 
-// ── Stats data ─────────────────────────────────────────────────
+// ── Stats data (G1: Honest Production & CI Telemetry) ───────────
 
 const MACHINE_STATS = [
-  { value: 'QAOA', label: 'Algorytm kwantowy' },
-  { value: 'CP-SAT', label: 'Solver klasyczny' },
-  { value: '100%', label: 'Wyniki weryfikowane' },
-  { value: '0', label: 'Halucynacji w testach' },
+  { value: '145/145', label: 'Testów CI przechodzi (100% zielonych)' },
+  { value: 'CP-SAT · HiGHS · QAOA', label: 'Dostępne solvery na produkcji' },
+  { value: 'Symulacja CPU (Aer)', label: 'Ograniczenie: brak sprzętowego QPU' },
+  { value: 'benchmarks/results/', label: 'Protokół benchmarków z dowodem' },
 ] as const
+
+export interface ProblemClassMeta {
+  id: 'CHOICE' | 'ALLOCATION' | 'DESIGN' | 'PARAMETER' | 'NOT_COMPUTABLE'
+  name: string
+  icon: string
+  shortLabel: string
+  oneLiner: string
+  exampleText: string
+  solverFit: string
+}
+
+export const PROBLEM_CLASSES: ProblemClassMeta[] = [
+  {
+    id: 'CHOICE',
+    name: 'Wybór wariantów (CHOICE)',
+    shortLabel: 'Wybór wariantów',
+    icon: '🎯',
+    oneLiner: 'Wybór jednego lub kilku wariantów spośród zdefiniowanej listy opcji przy wielokryterialnych wagach i ograniczeniach.',
+    exampleText: 'Stoję przed wyborem między dwiema ofertami pracy: w dynamicznym software house (+30% pensji, wyjazdy) a obecną korporacją (stabilność, 100% zdalnie). Co wybrać przy wadze 70% na spokój i 30% na finanse?',
+    solverFit: 'CP-SAT (Dokładny) / QAOA',
+  },
+  {
+    id: 'ALLOCATION',
+    name: 'Alokacja zasobów (ALLOCATION)',
+    shortLabel: 'Alokacja zasobów',
+    icon: '📊',
+    oneLiner: 'Optymalny podział skończonego budżetu, czasu lub zasobów między konkurujące cele z ograniczeniami pojemności.',
+    exampleText: 'Mam budżet 150 000 zł i 6 projektów inwestycyjnych o różnych kosztach i oczekiwanych zyskach. Jakie projekty wybrać, aby zmaksymalizować łączny zwrot ROI nie przekraczając limitu?',
+    solverFit: 'CP-SAT (Branch & Bound)',
+  },
+  {
+    id: 'DESIGN',
+    name: 'Synteza dźwigni (DESIGN)',
+    shortLabel: 'Synteza architektoniczna',
+    icon: '🏗️',
+    oneLiner: 'Równoczesny dobór spójnej konfiguracji wielu dźwigni architektonicznych z wykluczeniami i synergiami.',
+    exampleText: 'Optymalizacja reformy ochrony zdrowia: 4 dźwignie (model finansowania, rola płatnika, współpłacenie, organizacja szpitali) z zakazem łączenia kas regionalnych z pojedynczym płatnikiem i premiami za synergie.',
+    solverFit: 'Design QUBO + QAOA / CP-SAT',
+  },
+  {
+    id: 'PARAMETER',
+    name: 'Optymalizacja ciągła (PARAMETER)',
+    shortLabel: 'Parametry ciągłe',
+    icon: '📈',
+    oneLiner: 'Kalibracja ciągłych parametrów liczbowych w zdefiniowanych przedziałach minimalizująca funkcję kosztu z residuami.',
+    exampleText: 'Kalibracja proporcji trzech surowców w mieszance chemicznej (x1 + x2 + x3 = 1.0) minimalizująca koszt produkcji przy zachowaniu lepkości powyżej progu.',
+    solverFit: 'SciPy HiGHS / Continuous',
+  },
+  {
+    id: 'NOT_COMPUTABLE',
+    name: 'Problem nieobliczalny (NOT_COMPUTABLE)',
+    shortLabel: 'Nieobliczalne (etyka)',
+    icon: '⚖️',
+    oneLiner: 'Dylemat o charakterze czysto aksjologicznym, etycznym lub emocjonalnym, którego nie można sformalizować matematycznie.',
+    exampleText: 'Czy powinienem wybaczyć przyjacielowi nielojalność, jeśli bardzo tego żałuje?',
+    solverFit: 'Brak solvera — zalecana dyskusja ludzka',
+  },
+]
 
 const USE_CASES = [
   {
@@ -162,6 +224,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const heroTextareaRef = useRef<HTMLTextAreaElement>(null)
   const [navVisible, setNavVisible] = useState(false)
   const [heroText, setHeroText] = useState('')
+  const [selectedClassId, setSelectedClassId] = useState<ProblemClassMeta['id']>('CHOICE')
 
   // Show sticky nav after scrolling past hero
   useEffect(() => {
@@ -205,7 +268,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               onClick={onOpenApiPortal}
               type="button"
               className={s.navApiBtn}
-              title="Otwórz Portal API & Pobierz SDK (zabezpieczone hasłem A132a132!)"
+              title="Otwórz Portal API & Pobierz SDK"
             >
               <span>⚡</span>
               <span>API & SDK</span>
@@ -269,7 +332,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               type="button"
               className={s.navApiBtn}
               style={{ padding: '0.4rem 0.85rem', fontSize: '0.8125rem' }}
-              title="Otwórz Portal API & Pobierz SDK (zabezpieczone hasłem A132a132!)"
+              title="Otwórz Portal API & Pobierz SDK"
             >
               <span>⚡</span>
               <span>API & SDK</span>
@@ -358,7 +421,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <div className={s.quantumPillBadge}>
               <span className={s.quantumPillDot} />
               <span className={s.quantumPillText}>
-                MECHANIZM KWANTOWY ZAMIAST ZGADYWANIA CZATU AI
+                🧠 NASZ INTERFEJS TO NIE JEST KOLEJNY CZATBOT · NAŚLADUJE MECHANIZMY LUDZKIEGO MÓZGU
               </span>
             </div>
 
@@ -370,20 +433,113 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </h1>
 
             <p className={s.heroSub}>
-              Czaty AI losowo zgadują kolejne słowa i halucynują. <strong>YourQuantum przeszukuje przestrzeń stanów i oblicza optimum</strong>.
-              Algorytmy kwantowe QAOA, solver CP-SAT oraz 100% niezależny dowód matematyczny bez zgadywania.
+              Czaty AI losowo zgadują kolejne słowa i halucynują. <strong>YourQuantum łączy architekturę kognitywną inspirowaną ludzkim mózgiem z kwantowym przeszukiwaniem przestrzeni stanów</strong>.
+              Prefrontalna pamięć robocza, pętla Active Inference, solver CP-SAT oraz algorytmy QAOA z niezależnym dowodem matematycznym bez zgadywania.
             </p>
+
+            {/* ── MANIFESTO CALLOUT ── */}
+            <div className={s.heroManifestoCallout} role="region" aria-label="Manifest interfejsu kognitywnego">
+              <div className={s.heroManifestoBadge}>
+                <span className={s.heroManifestoPulseDot} />
+                <span>ARCHITEKTURA KOGNITYWNA MÓZGU</span>
+              </div>
+              <p className={s.heroManifestoHeading}>
+                Nasz interfejs to nie jest kolejny czatbot. <strong>Naśladuje mechanizmy ludzkiego mózgu.</strong>
+              </p>
+              <p className={s.heroManifestoBody}>
+                Zamiast generować losowe słowa na podstawie prawdopodobieństwa, silnik operuje jak umysł: utrzymuje ognisko uwagi w Global Workspace, redukuje błąd predykcji w pętli Active Inference i weryfikuje każde rozwiązanie w twardych solverach oraz procesorze kwantowym.
+              </p>
+            </div>
 
             {/* ── HERO INLINE FORM ── flagship Quantum Terminal ── */}
             <div className={s.heroInputWrap} role="group" aria-label="Kwantowy terminal do wpisania dylematu">
               <div className={s.terminalHeader}>
                 <div className={s.terminalStatus}>
                   <span className={s.terminalStatusDot} />
-                  <span className={s.terminalStatusText}>TERMINAL OBLICZEŃ KWANTOWYCH</span>
+                  <span className={s.terminalStatusText}>INTERFEJS KOGNITYWNY · BRAIN ARCHITECTURE</span>
                 </div>
                 <div className={s.terminalEngineBadge}>
-                  QAOA + CP-SAT · 0% Halucynacji
+                  145 TESTÓW CI · ZERO HALUCYNACJI
                 </div>
+              </div>
+
+              {/* G2: Problem Class Selector & Auto-Explanation */}
+              <div style={{ padding: '0.875rem 1.25rem 0.5rem', borderBottom: '1px solid oklch(18% 0.02 250)' }}>
+                <div style={{ fontSize: '0.6875rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'oklch(65% 0.15 240)', marginBottom: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>Klasa problemu decyzyjnego (D1)</span>
+                  <span style={{ color: 'oklch(75% 0.12 80)', fontWeight: 600 }}>Kliknij klasę, aby załadować przykładowy problem</span>
+                </div>
+                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }} role="tablist" aria-label="Wybór klasy problemu decyzyjnego">
+                  {PROBLEM_CLASSES.map((pc) => {
+                    const isSelected = selectedClassId === pc.id
+                    return (
+                      <button
+                        key={pc.id}
+                        type="button"
+                        role="tab"
+                        aria-selected={isSelected}
+                        onClick={() => {
+                          setSelectedClassId(pc.id)
+                          setHeroText(pc.exampleText)
+                        }}
+                        style={{
+                          background: isSelected ? 'oklch(75% 0.12 80 / 0.18)' : 'oklch(14% 0.02 250)',
+                          color: isSelected ? 'oklch(96% 0.01 80)' : 'oklch(65% 0.02 250)',
+                          border: `1px solid ${isSelected ? 'oklch(75% 0.12 80 / 0.7)' : 'oklch(22% 0.02 250)'}`,
+                          borderRadius: '6px',
+                          padding: '0.35rem 0.65rem',
+                          fontSize: '0.75rem',
+                          fontWeight: isSelected ? 700 : 500,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.35rem',
+                          transition: 'all 180ms ease',
+                        }}
+                      >
+                        <span>{pc.icon}</span>
+                        <span>{pc.shortLabel}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+                {/* 1-sentence explanation of selected class */}
+                {(() => {
+                  const currentMeta = PROBLEM_CLASSES.find((c) => c.id === selectedClassId)
+                  if (!currentMeta) return null
+                  return (
+                    <div style={{
+                      marginTop: '0.625rem',
+                      padding: '0.5rem 0.75rem',
+                      borderRadius: '6px',
+                      background: 'oklch(11% 0.018 250)',
+                      border: '1px solid oklch(20% 0.02 250)',
+                      fontSize: '0.75rem',
+                      color: 'oklch(78% 0.02 250)',
+                      lineHeight: 1.5,
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: '0.75rem',
+                      flexWrap: 'wrap',
+                    }}>
+                      <div style={{ flex: '1 1 280px' }}>
+                        <strong style={{ color: 'oklch(88% 0.08 80)' }}>{currentMeta.name}:</strong> {currentMeta.oneLiner}
+                      </div>
+                      <span style={{
+                        fontSize: '0.6875rem',
+                        fontWeight: 700,
+                        padding: '0.15rem 0.45rem',
+                        borderRadius: '4px',
+                        background: 'oklch(16% 0.025 250)',
+                        color: 'oklch(65% 0.12 240)',
+                        whiteSpace: 'nowrap',
+                      }}>
+                        {currentMeta.solverFit}
+                      </span>
+                    </div>
+                  )
+                })()}
               </div>
 
               <label className={s.heroInputLabel} htmlFor="hero-problem-input">
@@ -417,6 +573,43 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   </button>
                 ))}
               </div>
+
+              {/* G1: Real Solver Telemetry & Honest Scientific Limits */}
+              <div style={{
+                margin: '0.5rem 1.25rem 0.75rem',
+                padding: '0.5rem 0.75rem',
+                borderRadius: '6px',
+                background: 'oklch(9% 0.015 250)',
+                border: '1px solid oklch(18% 0.02 250)',
+                fontSize: '0.6875rem',
+                color: 'oklch(60% 0.015 250)',
+                lineHeight: 1.5,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.35rem',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <span>
+                    <strong style={{ color: 'oklch(75% 0.02 250)' }}>Dostępne solwery produkcyjne:</strong> OR-Tools CP-SAT (dokładny), SciPy HiGHS (ciągły), Qiskit Aer QAOA (symulacja).
+                  </span>
+                  <span style={{ color: 'oklch(65% 0.12 25)', fontWeight: 600 }}>
+                    Sprzętowe QPU: odłączone (stub)
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <span>
+                    <strong style={{ color: 'oklch(75% 0.02 250)' }}>Ograniczenie fizyczne:</strong> Obliczenia kwantowe są symulowane na klasycznym CPU (Aer). W instancjach dyskretnych CP-SAT dominuje w czasie i dowodzie optimum.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={onOpenHelp}
+                    style={{ background: 'none', border: 'none', padding: 0, color: 'oklch(75% 0.12 80)', textDecoration: 'underline', fontWeight: 600, cursor: 'pointer', fontSize: '0.6875rem' }}
+                  >
+                    Raport benchmarków (benchmarks/results) →
+                  </button>
+                </div>
+              </div>
+
               <div className={s.heroInputFooter}>
                 <span className={s.heroInputHint}>
                   Zwykłymi słowami. Bez żargonu. Silnik natychmiast formalizuje model.
@@ -448,7 +641,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <div className={s.heroFloatingHud}>
               <div className={s.hudLiveIndicator}>
                 <span className={s.hudLiveDot} />
-                <span className={s.hudLiveText}>KOHERENCJA KWANTOWA: 99.98% · 0% HALUCYNACJI</span>
+                <span className={s.hudLiveText}>SILNIK OBLICZENIOWY: AKTYWNY · DOWÓD MATEMATYCZNY</span>
               </div>
               <div className={s.hudBtnGroup}>
                 {onOpenBrain && (
@@ -468,7 +661,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     onClick={onOpenApiPortal}
                     type="button"
                     className={s.hudApiBtn}
-                    title="Otwórz Portal API & Pobierz SDK (hasło A132a132!)"
+                    title="Otwórz Portal API & Pobierz SDK"
                   >
                     <span>⚡</span>
                     <span>Portal API & SDK</span>
@@ -505,17 +698,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         <div className={s.tickerInner} aria-hidden="true">
           {Array.from({ length: 3 }, (_, i) => (
             <span key={i} className={s.tickerTrack}>
-              <span>52 testy — 0 halucynacji</span>
+              <span>Interfejs oparty na architekturze pamięci roboczej i pętli Active Inference</span>
               <span className={s.tickerDot}>◆</span>
-              <span>Bije na głowę czaty AI: czysta matematyka</span>
+              <span>Automatyczne testy regresyjne · Niezależna weryfikacja</span>
               <span className={s.tickerDot}>◆</span>
-              <span>Algorytm kwantowy QAOA · Solver CP-SAT</span>
+              <span>Ścisłe metody obliczeniowe zamiast generowania tekstu</span>
               <span className={s.tickerDot}>◆</span>
-              <span>100% niezależna weryfikacja każdego wyniku</span>
+              <span>Symulacja kwantowa QAOA · Solver ścisły CP-SAT</span>
+              <span className={s.tickerDot}>◆</span>
+              <span>Niezależna weryfikacja matematyczna każdego wyniku</span>
               <span className={s.tickerDot}>◆</span>
               <span>Przeszukiwanie przestrzeni stanów zamiast zgadywania</span>
               <span className={s.tickerDot}>◆</span>
-              <span>Wynik z dowodem · Analiza co-jeśli</span>
+              <span>Wynik z certyfikatem · Analiza wrażliwości</span>
               <span className={s.tickerDot}>◆</span>
             </span>
           ))}
@@ -547,11 +742,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
         <div className={s.comparisonContent}>
           <p className={s.sectionEyebrow} id="comparison-heading">
-            Dlaczego nie chatbot
+            Architektura kognitywna vs Czatbot
           </p>
           <h2 className={s.sectionTitle}>
-            ChatGPT odpowiada.<br />
-            <span className={s.goldText}>YourQuantum oblicza.</span>
+            Nasz interfejs to nie jest kolejny czatbot.<br />
+            <span className={s.goldText}>Naśladuje mechanizmy ludzkiego mózgu.</span>
           </h2>
 
           <div
@@ -572,6 +767,167 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── COGNITIVE ARCHITECTURE (BRAIN-INSPIRED ORCHESTRATION) ── */}
+      <section
+        className={s.cognitiveSection}
+        id="architektura-kognitywna"
+        aria-labelledby="cognitive-heading"
+      >
+        <div className={s.cognitiveSectionBg} aria-hidden="true" />
+
+        <div className={s.cognitiveContainer}>
+          <div className={s.cognitiveHeader}>
+            <div className={s.cognitivePill}>
+              <span className={s.cognitivePillDot} />
+              <span>ARCHITEKTURA KOGNITYWNA MÓZGU</span>
+            </div>
+            <h2 className={s.cognitiveTitle} id="cognitive-heading">
+              Nasz interfejs to nie jest kolejny czatbot.<br />
+              <span className={s.goldText}>Naśladuje mechanizmy ludzkiego mózgu.</span>
+            </h2>
+            <p className={s.cognitiveSubtitle}>
+              Zamiast czarnej skrzynki losowo przewidującej słowa, orkiestrator YourQuantum
+              implementuje teorię Global Workspace oraz Zasadę Wolnej Energii Karla Fristona.
+              Oto 4 filary kognitywnej inteligencji:
+            </p>
+          </div>
+
+          <div className={s.cognitiveBentoGrid} role="list" aria-label="Cztery filary architektury kognitywnej">
+            {/* Lobe 1: Working Memory */}
+            <div className={s.bentoCard} role="listitem">
+              <div>
+                <div className={s.bentoCardHeader}>
+                  <div className={s.bentoIconBadge} aria-hidden="true">🧠</div>
+                  <span className={s.bentoSubsystemTag}>Prefrontal Cortex</span>
+                </div>
+                <h3 className={s.bentoHeading}>Pamięć Robocza & Cybernetyczna Homeostaza</h3>
+                <p className={s.bentoParagraph}>
+                  Global Workspace utrzymuje cel w skupieniu uwagi i śledzi zmienne decyzyjne w procesie RAM.
+                  Dynamiczny budżet metaboliczny (Energy Budget) reguluje zużycie energii i chroni proces przed halucynowaniem.
+                </p>
+              </div>
+              <ul className={s.bentoBullets}>
+                <li className={s.bentoBulletItem}>
+                  <span className={s.bentoBulletCheck}>✓</span>
+                  <span>Ognisko uwagi: ścisłe mapowanie celów i stopni swobody.</span>
+                </li>
+                <li className={s.bentoBulletItem}>
+                  <span className={s.bentoBulletCheck}>✓</span>
+                  <span>Metaboliczny Energy Budget zapobiega bezmyślnemu dryfowi.</span>
+                </li>
+                <li className={s.bentoBulletItem}>
+                  <span className={s.bentoBulletCheck}>✓</span>
+                  <span>Zero czarnej skrzynki: pełna przejrzystość stanu roboczego.</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Lobe 2: Episodic Memory */}
+            <div className={s.bentoCard} role="listitem">
+              <div>
+                <div className={s.bentoCardHeader}>
+                  <div className={s.bentoIconBadge} aria-hidden="true">🏛️</div>
+                  <span className={s.bentoSubsystemTag}>Hippocampus</span>
+                </div>
+                <h3 className={s.bentoHeading}>Pamięć Epizodyczna & Asocjacyjny Recall</h3>
+                <p className={s.bentoParagraph}>
+                  Trwała baza śladów pamięciowych. Przy każdym dylemacie hipokamp asocjacyjnie przywołuje
+                  zweryfikowane wzorce historyczne o najwyższym wskaźniku nagrody (reward score).
+                </p>
+              </div>
+              <ul className={s.bentoBullets}>
+                <li className={s.bentoBulletItem}>
+                  <span className={s.bentoBulletCheck}>✓</span>
+                  <span>Hebb-like consolidation: trwałe utrwalanie zweryfikowanych sukcesów.</span>
+                </li>
+                <li className={s.bentoBulletItem}>
+                  <span className={s.bentoBulletCheck}>✓</span>
+                  <span>Wyszukiwanie analogii po sygnaturze strukturalnej problemu.</span>
+                </li>
+                <li className={s.bentoBulletItem}>
+                  <span className={s.bentoBulletCheck}>✓</span>
+                  <span>Ciągła adaptacja do specyfiki Twoich dylematów bez ponownego trenowania.</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Lobe 3: Active Inference */}
+            <div className={`${s.bentoCard} ${s.bentoCardAccent}`} role="listitem">
+              <div>
+                <div className={s.bentoCardHeader}>
+                  <div className={s.bentoIconBadge} aria-hidden="true">🔄</div>
+                  <span className={s.bentoSubsystemTag}>Active Inference</span>
+                </div>
+                <h3 className={s.bentoHeading}>Zasada Wolnej Energii & Reflexion (Karl Friston)</h3>
+                <p className={s.bentoParagraph}>
+                  System nie zgaduje na ślepo. Formułuje hipotezę matematyczną, a każdy sygnał niespójności z weryfikatora
+                  traktuje jako Błąd Predykcji, minimalizowany w pętli autorefleksji.
+                </p>
+              </div>
+              <ul className={s.bentoBullets}>
+                <li className={s.bentoBulletItem}>
+                  <span className={s.bentoBulletCheck}>✓</span>
+                  <span>Predykcja vs rzeczywistość: natychmiastowe wyłapywanie sprzeczności.</span>
+                </li>
+                <li className={s.bentoBulletItem}>
+                  <span className={s.bentoBulletCheck}>✓</span>
+                  <span>Autorefleksja dopracowująca ograniczenia i wagi kar.</span>
+                </li>
+                <li className={s.bentoBulletItem}>
+                  <span className={s.bentoBulletCheck}>✓</span>
+                  <span>Odpowiedź trafia do Ciebie dopiero po bezbłędnym domknięciu pętli.</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Lobe 4: Quantum Core */}
+            <div className={s.bentoCard} role="listitem">
+              <div>
+                <div className={s.bentoCardHeader}>
+                  <div className={s.bentoIconBadge} aria-hidden="true">⚡</div>
+                  <span className={s.bentoSubsystemTag}>Quantum-Classical Core</span>
+                </div>
+                <h3 className={s.bentoHeading}>Ścisły Podział Ról: Umysł Kognitywny ≠ Solver</h3>
+                <p className={s.bentoParagraph}>
+                  Mózg agenta modeluje i planuje, ale NIGDY nie wymyśla liczb ani dowodów. Rzeczywiste obliczenia
+                  wykonują bezkompromisowe solwery QAOA i CP-SAT pieczętowane kryptograficznym hashem SHA-256.
+                </p>
+              </div>
+              <ul className={s.bentoBullets}>
+                <li className={s.bentoBulletItem}>
+                  <span className={s.bentoBulletCheck}>✓</span>
+                  <span>Reguła 1: Wynik LLM to nie wynik solvera (nienegocjowalna gwarancja).</span>
+                </li>
+                <li className={s.bentoBulletItem}>
+                  <span className={s.bentoBulletCheck}>✓</span>
+                  <span>Przeszukiwanie przestrzeni 2^N stanów kwantowych w poszukiwaniu optimum.</span>
+                </li>
+                <li className={s.bentoBulletItem}>
+                  <span className={s.bentoBulletCheck}>✓</span>
+                  <span>Niezależny dowód matematyczny i audyt weryfikatora w ułamku sekundy.</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <div className={s.cognitiveCtaBar}>
+            <span className={s.cognitiveCtaText}>
+              Chcesz zobaczyć pracę płatów kognitywnych i interferencji kwantowej w czasie rzeczywistym?
+            </span>
+            {onOpenBrain && (
+              <button
+                type="button"
+                className={s.cognitiveCtaBtn}
+                onClick={onOpenBrain}
+              >
+                <span>🧠 ZOBACZ MÓZG SILNIKA W 3D</span>
+                <span>↗</span>
+              </button>
+            )}
           </div>
         </div>
       </section>
@@ -831,7 +1187,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 }}
               >
                 <span>⚡</span>
-                <span>Portal API & SDK (A132a132!)</span>
+                <span>Portal API & SDK</span>
               </button>
             )}
           </div>
