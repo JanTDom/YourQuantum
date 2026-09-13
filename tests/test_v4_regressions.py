@@ -797,6 +797,58 @@ async def test_n4_intake_problem_class_override():
     assert data["confidence"] == 1.0
 
 
+# ---------------------------------------------------------------------------
+# N5: Multi-Lever DESIGN Decomposition and Synthesis
+# ---------------------------------------------------------------------------
+
+def test_n5_design_offline_decomposition_matrix_filling_and_pareto_synthesis():
+    """
+    N5: Query DESIGN in offline mode -> empty skeleton -> fill via API -> synthesis -> Pareto front.
+    """
+    from backend.domain.cognitive.lever_decomposer import (
+        decompose_design_query,
+        validate_design_problem_for_synthesis,
+    )
+    from backend.domain.problem_classes import compute_design_synthesis
+    from backend.domain.decision_case import ScoredValue
+
+    # 1. Offline decomposition returns template with empty score_matrix
+    problem = decompose_design_query("Reforma systemu ochrony zdrowia w Polsce")
+    assert len(problem.levers) == 3
+    assert all(len(l.options) >= 2 for l in problem.levers)
+    assert len(problem.criteria) >= 2
+
+    # Initial validation fails due to empty cells
+    is_valid_initial, errs_initial = validate_design_problem_for_synthesis(problem)
+    assert is_valid_initial is False
+    assert len(errs_initial) > 0
+
+    # 2. User populates score matrix
+    for lev in problem.levers:
+        for o_idx, opt in enumerate(lev.options):
+            for c_idx, crit in enumerate(problem.criteria):
+                # Concrete synthetic score for each cell
+                val = 10.0 + o_idx * 5.0 + c_idx * 2.0
+                problem.score_matrix[lev.id][opt.id][crit.id] = ScoredValue(
+                    value=val,
+                    unit=crit.unit,
+                    provenance="user_supplied",
+                    source_ref="Wprowadzone przez eksperta",
+                )
+
+    # 3. Validation now passes
+    is_valid_filled, errs_filled = validate_design_problem_for_synthesis(problem)
+    assert is_valid_filled is True, f"Validation failed: {errs_filled}"
+
+    # 4. Compute design synthesis
+    synthesis = compute_design_synthesis(problem)
+    assert synthesis.problem_id is not None
+    assert len(synthesis.pareto_frontier) >= 1
+    assert len(synthesis.optimal_configuration) == len(problem.levers)
+    assert len(synthesis.lever_importance_ranking) == len(problem.levers)
+
+
+
 
 
 
