@@ -2,7 +2,7 @@
 tests/test_universal_api.py
 
 Kompleksowe testy dla zabezpieczonego Uniwersalnego API i SDK:
-1. Weryfikacja hasła dostępu: poprawne hasło 'A132a132!' zwraca token, błędne hasło daje 401.
+1. Weryfikacja hasła dostępu: poprawne hasło zwraca token, błędne hasło daje 401.
 2. Pobieranie SDK: endpoint /api/v1/sdk/download zwraca kompletny kod Python i TypeScript.
 3. Wielozadaniowe obliczenia w różnych dziedzinach:
    - Finanse: Optymalizacja portfela inwestycyjnego z limitem budżetowym
@@ -21,10 +21,12 @@ from backend.db.database import init_db
 import os
 from backend.api.universal_engine import verify_master_secret, get_master_api_secret
 
+TEST_RANDOM_SECRET = "random_test_secret_vault_xyz_98765"
+
 
 @pytest.fixture(autouse=True)
 def setup_test_api_secret(monkeypatch):
-    monkeypatch.setenv("YQ_MASTER_API_SECRET", "A132a132!")
+    monkeypatch.setenv("YQ_MASTER_API_SECRET", TEST_RANDOM_SECRET)
 
 
 def test_master_secret_verification(monkeypatch):
@@ -50,10 +52,10 @@ async def test_auth_verify_api_access_endpoint():
         assert res_bad.status_code == 401
         assert "Nieprawidłowe hasło" in res_bad.json()["detail"]
 
-        # Prawidłowe hasło A132a132! -> 200 + token
+        # Prawidłowe hasło z monkeypatch -> 200 + token
         res_ok = await client.post(
             "/api/v1/auth/verify-api-access",
-            json={"password": "A132a132!"},
+            json={"password": TEST_RANDOM_SECRET},
         )
         assert res_ok.status_code == 200
         data = res_ok.json()
@@ -71,13 +73,13 @@ async def test_sdk_download_endpoint_protection():
         assert res_noauth.status_code == 401
 
         # Pobranie SDK Python z hasłem -> 200 + zawartość pliku
-        res_py = await client.get("/api/v1/sdk/download?sdk_type=python&key=A132a132!")
+        res_py = await client.get(f"/api/v1/sdk/download?sdk_type=python&key={TEST_RANDOM_SECRET}")
         assert res_py.status_code == 200
         assert "YourQuantumClient" in res_py.text
         assert "solve_portfolio" in res_py.text
 
         # Pobranie SDK TypeScript z hasłem -> 200 + zawartość pliku
-        res_ts = await client.get("/api/v1/sdk/download?sdk_type=typescript&key=A132a132!")
+        res_ts = await client.get(f"/api/v1/sdk/download?sdk_type=typescript&key={TEST_RANDOM_SECRET}")
         assert res_ts.status_code == 200
         assert "export class YourQuantumClient" in res_ts.text
         assert "UniversalComputeResponse" in res_ts.text
@@ -127,7 +129,7 @@ async def test_universal_compute_finance_portfolio():
         # Wywołanie z nagłówkiem autoryzacyjnym
         res = await client.post(
             "/api/v1/universal/compute",
-            headers={"Authorization": "Bearer A132a132!"},
+            headers={"Authorization": f"Bearer {TEST_RANDOM_SECRET}"},
             json=payload,
         )
         assert res.status_code == 200
@@ -182,7 +184,7 @@ async def test_universal_compute_logistics_with_conflicts():
 
         res = await client.post(
             "/api/v1/universal/compute",
-            headers={"X-API-Key": "A132a132!"},
+            headers={"X-API-Key": TEST_RANDOM_SECRET},
             json=payload,
         )
         assert res.status_code == 200

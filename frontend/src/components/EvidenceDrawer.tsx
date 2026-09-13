@@ -434,28 +434,34 @@ export const EvidenceDrawer: React.FC<EvidenceDrawerProps> = ({ result, comparis
                 <div style={{ background: 'var(--bg-surface)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Cykle inferencji</div>
                   <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', marginTop: '0.25rem' }}>
-                    {telemetry?.current_cycle ?? 1} ({telemetry?.has_active_hypothesis ? 'Aktywna hipoteza' : 'Percepcja wstępna'})
+                    {telemetry?.current_cycle !== undefined && telemetry?.current_cycle !== null
+                      ? `${telemetry.current_cycle} (${telemetry.has_active_hypothesis ? 'Aktywna hipoteza' : 'Percepcja wstępna'})`
+                      : <span title="telemetria niedostępna">—</span>}
                   </div>
                 </div>
 
                 <div style={{ background: 'var(--bg-surface)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Błędy predykcji / weryfikacji</div>
                   <div style={{ fontWeight: 700, fontSize: '1rem', color: isVerified ? 'oklch(82% 0.16 150)' : 'oklch(75% 0.15 80)', marginTop: '0.25rem' }}>
-                    {telemetry?.prediction_errors ? telemetry.prediction_errors.length : (isVerified ? 0 : 1)}
+                    {telemetry?.prediction_errors !== undefined && telemetry?.prediction_errors !== null
+                      ? telemetry.prediction_errors.length
+                      : <span title="telemetria niedostępna">—</span>}
                   </div>
                 </div>
 
                 <div style={{ background: 'var(--bg-surface)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Historia cykli roboczych</div>
                   <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', marginTop: '0.25rem' }}>
-                    {telemetry?.cycle_history?.length ?? 1} kroków
+                    {telemetry?.cycle_history?.length !== undefined && telemetry?.cycle_history?.length !== null
+                      ? `${telemetry.cycle_history.length} kroków`
+                      : <span title="telemetria niedostępna">—</span>}
                   </div>
                 </div>
 
                 <div style={{ background: 'var(--bg-surface)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Status pętli zwrotnej</div>
                   <div style={{ fontWeight: 700, fontSize: '0.875rem', color: isVerified ? 'oklch(82% 0.16 150)' : 'oklch(80% 0.15 50)', marginTop: '0.25rem' }}>
-                    {isVerified ? 'Zbieżna (PASS)' : 'Wymaga korekty'}
+                    {telemetry ? (isVerified ? 'Zbieżna (PASS)' : 'Wymaga korekty') : <span title="telemetria niedostępna">—</span>}
                   </div>
                 </div>
               </div>
@@ -479,27 +485,27 @@ export const EvidenceDrawer: React.FC<EvidenceDrawerProps> = ({ result, comparis
                   <div>
                     <span style={{ color: 'var(--text-muted)' }}>Tokeny LLM sesyjne:</span>
                     <div style={{ fontWeight: 600, marginTop: '0.2rem' }}>
-                      {telemetry?.energy_budget?.tokens_used ?? 0} / {telemetry?.energy_budget?.max_tokens ?? 100000}
+                      {telemetry?.energy_budget ? `${telemetry.energy_budget.tokens_used} / ${telemetry.energy_budget.max_tokens}` : <span title="telemetria niedostępna">—</span>}
                     </div>
                   </div>
                   <div>
                     <span style={{ color: 'var(--text-muted)' }}>Zapytania badawcze:</span>
                     <div style={{ fontWeight: 600, marginTop: '0.2rem' }}>
-                      {telemetry?.energy_budget?.search_queries_used ?? 0} / {telemetry?.energy_budget?.max_search_queries ?? 20}
+                      {telemetry?.energy_budget ? `${telemetry.energy_budget.search_queries_used} / ${telemetry.energy_budget.max_search_queries}` : <span title="telemetria niedostępna">—</span>}
                     </div>
                   </div>
                   <div>
                     <span style={{ color: 'var(--text-muted)' }}>Czas solverów:</span>
                     <div style={{ fontWeight: 600, marginTop: '0.2rem' }}>
-                      {telemetry?.energy_budget?.solver_seconds_used
-                        ? `${telemetry.energy_budget.solver_seconds_used.toFixed(2)}s`
-                        : (result.solve_time_seconds ? `${result.solve_time_seconds.toFixed(2)}s` : '0.00s')} / {telemetry?.energy_budget?.max_solver_seconds ?? 60}s
+                      {telemetry?.energy_budget
+                        ? `${(telemetry.energy_budget.solver_seconds_used ?? result.solve_time_seconds ?? 0).toFixed(2)}s / ${telemetry.energy_budget.max_solver_seconds}s`
+                        : (result.solve_time_seconds ? `${result.solve_time_seconds.toFixed(2)}s` : <span title="telemetria niedostępna">—</span>)}
                     </div>
                   </div>
                   <div>
                     <span style={{ color: 'var(--text-muted)' }}>Tokeny dobowe (limit):</span>
                     <div style={{ fontWeight: 600, marginTop: '0.2rem' }}>
-                      {telemetry?.energy_budget?.daily_tokens_used ?? 0} / {telemetry?.energy_budget?.daily_token_limit ?? 500000}
+                      {telemetry?.energy_budget ? `${telemetry.energy_budget.daily_tokens_used} / ${telemetry.energy_budget.daily_token_limit}` : <span title="telemetria niedostępna">—</span>}
                     </div>
                   </div>
                 </div>

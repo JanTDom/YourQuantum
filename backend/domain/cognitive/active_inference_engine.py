@@ -19,7 +19,7 @@ from backend.domain.cognitive.episodic_memory import EpisodicMemoryRepository
 from backend.domain.cognitive.quality_gate import assess_input_quality
 from backend.domain.cognitive.workspace import EnergyBudget, GlobalWorkspace
 from backend.domain.decision_case import DecisionCase, InputQuality
-from backend.domain.problem_classes import ProblemClass, evaluate_problem_computability
+from backend.domain.problem_classes import NotComputableReport, ProblemClass, evaluate_problem_computability
 from backend.domain.problem_ir import (
     ConstraintType,
     ExprNode,
@@ -69,16 +69,149 @@ def compute_problem_fingerprint(query: str) -> str:
     return f"fp_{fp_hash}_{len(sorted_unique)}"
 
 
+class ProblemClassification(BaseModel):
+    problem_class: str = ProblemClass.CHOICE.value
+    confidence: float = 0.5
+    reason: str = ""
+    computable: bool = True
+    reframe_suggestions: list[str] = Field(default_factory=list)
+
+
+def heuristic_classify_problem(query: str, options_count: int = 0) -> ProblemClassification:
+    """
+    Offline regex heuristic fallback with confidence <= 0.5 (N4).
+    Distinguishes CHOICE dilemmas from multi-lever DESIGN problems even if 'system' is mentioned.
+    """
+    lower = query.lower()
+
+    # 1. Check uncomputable triggers
+    is_computable, nc_report = evaluate_problem_computability(query)
+    if not is_computable and nc_report:
+        return ProblemClassification(
+            problem_class=ProblemClass.NOT_COMPUTABLE.value,
+            confidence=0.5,
+            reason=nc_report.reason,
+            computable=False,
+            reframe_suggestions=nc_report.reframe_suggestions,
+        )
+
+    # 2. Check CHOICE dilemma patterns first (e.g. "system alarmowy czy kamery", "wybór między X a Y")
+    is_dilemma = (
+        ("czy" in lower and any(w in lower for w in ["czy", "albo", "zostać", "zostac", "wybrać", "wybrac", "kupić", "kupic", "wynająć", "wynajac"]))
+        or ("wybór między" in lower or "wybor miedzy" in lower)
+        or ("albo" in lower and "albo" in lower[lower.find("albo")+4:])
+        or (" czy " in lower)
+        or (options_count >= 2)
+    )
+    if is_dilemma:
+        return ProblemClassification(
+            problem_class=ProblemClass.CHOICE.value,
+            confidence=0.5,
+            reason="Wykryto dylemat wyboru pomiędzy wariantami decyzyjnymi.",
+            computable=True,
+            reframe_suggestions=[],
+        )
+
+    # 3. Continuous parameter optimization
+    if re.search(r"\b(ciągł|parametr|hi-ghs|highs|scipy|równan|nieliniow)\b", lower):
+        return ProblemClassification(
+            problem_class=ProblemClass.PARAMETER.value,
+            confidence=0.5,
+            reason="Wykryto optymalizację zmiennych ciągłych lub estymację parametrów.",
+            computable=True,
+            reframe_suggestions=[],
+        )
+
+    # 4. Allocation (knapsack, portfolio, scheduling)
+    if re.search(r"\b(portfel|alokac|budżet|budzet|plecak|koszyk|projekty|inwestycj|udźwig)\b", lower):
+        return ProblemClassification(
+            problem_class=ProblemClass.ALLOCATION.value,
+            confidence=0.5,
+            reason="Wykryto zagadnienie alokacji zasobów lub problem plecakowy pod ograniczeniami.",
+            computable=True,
+            reframe_suggestions=[],
+        )
+
+    # 5. Multi-lever systemic Design (requires genuine systemic reform/levers, not just the word 'system')
+    if re.search(r"\b(dźwigni|wielopoziomow|reforma|architektur.*system|syntez.*system|design)\b", lower):
+        return ProblemClassification(
+            problem_class=ProblemClass.DESIGN.value,
+            confidence=0.5,
+            reason="Wykryto zagadnienie syntezy wielodźwigniowej architektury lub reformy systemowej.",
+            computable=True,
+            reframe_suggestions=[],
+        )
+
+    return ProblemClassification(
+        problem_class=ProblemClass.CHOICE.value,
+        confidence=0.4,
+        reason="Domyślna klasyfikacja dyskretnego wyboru wariantów.",
+        computable=True,
+        reframe_suggestions=[],
+    )
+
+
+async def classify_problem_class_async(query: str, options_count: int = 0) -> ProblemClassification:
+    """
+    Classify problem using LLMGateway with strict schema and fallback to offline heuristic (N4).
+    """
+    from backend.infrastructure.llm_gateway import LLMGateway
+    gateway = LLMGateway()
+
+    if gateway.is_configured:
+        schema = {
+            "type": "object",
+            "properties": {
+                "problem_class": {
+                    "type": "string",
+                    "enum": ["CHOICE", "ALLOCATION", "DESIGN", "PARAMETER", "NOT_COMPUTABLE"]
+                },
+                "confidence": {"type": "number"},
+                "reason": {"type": "string"},
+                "computable": {"type": "boolean"},
+                "reframe_suggestions": {
+                    "type": "array",
+                    "items": {"type": "string"}
+                }
+            },
+            "required": ["problem_class", "confidence", "reason", "computable"]
+        }
+        prompt = (
+            "Dokonaj rygorystycznej klasyfikacji problemu decyzyjnego użytkownika do jednej z 5 klas:\n"
+            "- CHOICE: wybór jednej lub kilku konkretnych opcji (np. zmiana pracy, zakup mieszkania, system alarmowy czy kamery).\n"
+            "- ALLOCATION: optymalny dobór podzbioru lub alokacja budżetu pod ograniczeniami (np. plecak, portfel inwestycyjny, harmonogramowanie).\n"
+            "- DESIGN: synteza wielodźwigniowa złożonego systemu (np. całościowa reforma ochrony zdrowia, architektura instytucji z wieloma dźwigniami).\n"
+            "- PARAMETER: kalibracja i optymalizacja zmiennych ciągłych (równania różniczkowe, optymalizacja numeryczna SciPy/HiGHS).\n"
+            "- NOT_COMPUTABLE: pytania czysto metafizyczne, moralne, prognozy losowej przyszłości bez struktury decyzyjnej (np. 'czy bóg istnieje', 'jaki będzie kurs bitcoina za rok').\n\n"
+            f"Zapytanie użytkownika:\n\"{query}\"\n"
+        )
+        try:
+            res = await gateway.generate(
+                system_instruction="Jesteś precyzyjnym klasyfikatorem problemów decyzyjnych. Zwracaj wyłącznie poprawny JSON.",
+                user_content=prompt,
+                purpose="classify_problem",
+                response_schema=schema,
+                temperature=0.1,
+            )
+            if res.parsed_json and isinstance(res.parsed_json, dict):
+                p_class = str(res.parsed_json.get("problem_class", "CHOICE")).upper()
+                if p_class in ("CHOICE", "ALLOCATION", "DESIGN", "PARAMETER", "NOT_COMPUTABLE"):
+                    return ProblemClassification(
+                        problem_class=p_class,
+                        confidence=float(res.parsed_json.get("confidence", 0.9)),
+                        reason=str(res.parsed_json.get("reason", "Klasyfikacja wygenerowana przez LLMGateway.")),
+                        computable=bool(res.parsed_json.get("computable", p_class != "NOT_COMPUTABLE")),
+                        reframe_suggestions=list(res.parsed_json.get("reframe_suggestions", [])),
+                    )
+        except Exception as e:
+            logger.warning("LLMGateway classification failed, falling back to heuristic: %s", e)
+
+    return heuristic_classify_problem(query, options_count)
+
+
 def classify_problem_class(query: str, options_count: int = 0) -> str:
     """Classify problem into ProblemClass taxonomy."""
-    lower = query.lower()
-    if re.search(r"\b(dźwigni|system|reforma|architektur|wielopoziomow|design)\b", lower):
-        return ProblemClass.DESIGN.value
-    if re.search(r"\b(ciągł|parametr|hi-ghs|highs|scipy|równan)\b", lower):
-        return ProblemClass.PARAMETER.value
-    if re.search(r"\b(portfel|alokac|budżet|plecak|koszyk|projekty|inwestycj)\b", lower):
-        return ProblemClass.ALLOCATION.value
-    return ProblemClass.CHOICE.value
+    return heuristic_classify_problem(query, options_count).problem_class
 
 
 def _extract_linear_coeffs(node_id: str, nodes: dict[str, ExprNode]) -> dict[str, float]:
@@ -155,6 +288,7 @@ class ActiveInferenceOrchestrator:
         workspace: GlobalWorkspace | None = None,
         owner_id: str | None = None,
         workspace_id: str | None = None,
+        problem_class_override: str | None = None,
     ) -> tuple[FormalizationResult, GlobalWorkspace]:
         """
         Execute unified Cognitive Perception pipeline (E1):
@@ -165,19 +299,36 @@ class ActiveInferenceOrchestrator:
         fp = compute_problem_fingerprint(query)
         ws.energy_budget.consume_tokens(350)
 
-        # 1. Computability assessment (D1)
-        is_computable, nc_report = evaluate_problem_computability(query)
-        if not is_computable and nc_report is not None:
+        # 1. Classification & Computability assessment (D1 / N4)
+        if problem_class_override:
+            classification = ProblemClassification(
+                problem_class=problem_class_override,
+                confidence=1.0,
+                reason="Klasa problemu jawnie wybrana przez użytkownika.",
+                computable=problem_class_override != ProblemClass.NOT_COMPUTABLE.value,
+            )
+        else:
+            classification = await classify_problem_class_async(query)
+
+        if not classification.computable or classification.problem_class == ProblemClass.NOT_COMPUTABLE.value:
             ws.update_hypothesis(None, {"status": "not_computable"})
+            nc_report = NotComputableReport(
+                is_computable=False,
+                reason=classification.reason or "Problem nie spełnia kryteriów obliczalności matematycznej.",
+                reframe_suggestions=classification.reframe_suggestions or ["Zdefiniuj konkretne mierzalne warianty i kryteria wyboru."],
+                suggested_computable_class=ProblemClass.CHOICE,
+            )
             res = FormalizationResult(
                 status="not_computable",
                 raw_query=query,
                 fingerprint=fp,
                 problem_class=ProblemClass.NOT_COMPUTABLE.value,
+                confidence=classification.confidence,
                 not_computable_report=nc_report.model_dump(mode="json"),
                 questions=nc_report.reframe_suggestions,
                 explanation=f"Problem nie spełnia kryteriów obliczalności matematycznej: {nc_report.reason}",
                 session_id=ws.session_id,
+                metadata={"classification_reason": classification.reason},
             )
             return res, ws
 
@@ -189,11 +340,13 @@ class ActiveInferenceOrchestrator:
                 status="needs_clarification",
                 raw_query=query,
                 fingerprint=fp,
-                problem_class=classify_problem_class(query),
+                problem_class=classification.problem_class,
+                confidence=classification.confidence,
                 input_quality=quality,
                 questions=quality.suggestions,
                 explanation=quality.reason,
                 session_id=ws.session_id,
+                metadata={"classification_reason": classification.reason},
             )
             return res, ws
 
@@ -209,9 +362,9 @@ class ActiveInferenceOrchestrator:
         # 4. Hypothesis formulation as DecisionCase (E1)
         from backend.domain.llm_advisor import LLMAdvisor
         advisor = LLMAdvisor()
-        case = advisor.analyze_case(query)
+        case = await advisor.analyze_case_async(query)
         case.input_quality = quality
-        problem_class_name = classify_problem_class(query, options_count=len(case.options))
+        problem_class_name = problem_class_override or classification.problem_class
 
         # 5. Research planning for missing data/sources (C3)
         from backend.domain.evidence.planner import ResearchPlanner
@@ -237,6 +390,9 @@ class ActiveInferenceOrchestrator:
 
         formalization.decision_case = case
         formalization.problem_class = problem_class_name
+        formalization.confidence = classification.confidence
+        if classification.reason:
+            formalization.metadata["classification_reason"] = classification.reason
         formalization.input_quality = quality
         formalization.research_queries = research_queries_json
         formalization.break_even_point = case.break_even_point

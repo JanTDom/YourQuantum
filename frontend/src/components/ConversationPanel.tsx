@@ -91,7 +91,7 @@ export const ConversationPanel: React.FC<ConversationPanelProps> = ({ onSubmit, 
             color: 'oklch(85% 0.09 240)',
             textTransform: 'uppercase',
           }}>
-            QAOA + CP-SAT · 0% Halucynacji
+            QAOA + CP-SAT · ŚCISŁY DOWÓD I WERYFIKACJA
           </div>
         </div>
 

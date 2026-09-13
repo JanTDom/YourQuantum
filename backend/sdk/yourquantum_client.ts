@@ -7,7 +7,7 @@
  * Usage:
  *   import { YourQuantumClient } from './yourquantum_client';
  * 
- *   const client = new YourQuantumClient({ apiKey: 'A132a132!' });
+ *   const client = new YourQuantumClient({ apiKey: 'YOUR_API_TOKEN' });
  *   const result = await client.solvePortfolio({
  *     projects: [
  *       { id: 'dev_1', name: 'Nowy silnik rekomendacji', cost: 120000, value: 380000 },
@@ -84,7 +84,7 @@ export class YourQuantumClient {
   private readonly baseUrl: string;
 
   constructor(options: { apiKey?: string; baseUrl?: string } = {}) {
-    this.apiKey = (options.apiKey || 'A132a132!').trim();
+    this.apiKey = (options.apiKey || '').trim();
     this.baseUrl = (options.baseUrl || 'https://yourquantum.pl').replace(/\/+$/, '');
   }
 

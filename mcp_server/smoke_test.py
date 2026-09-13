@@ -29,7 +29,7 @@ async def run_smoke_test() -> int:
     api_key = os.environ.get("YQ_API_KEY", "").strip()
     base_url = os.environ.get("YQ_API_BASE_URL", "https://yourquantum.pl").strip()
     print(f"📡 Adres bazowy API: {base_url}")
-    print(f"🔑 Klucz API (YQ_API_KEY): {'[USTAWIONY]' if api_key else '[BRAK — użyj np. export YQ_API_KEY=A132a132!]'}")
+    print(f"🔑 Klucz API (YQ_API_KEY): {'[USTAWIONY]' if api_key else '[BRAK — ustaw np. export YQ_API_KEY=twoj_klucz]'}")
     print("-" * 70)
 
     # 1. Test pobrania statusu silnika
@@ -64,7 +64,7 @@ async def run_smoke_test() -> int:
     # 4. Test pełnej optymalizacji wielokryterialnej (Portfolio / Opcje z budżetem)
     if not api_key:
         print("\n⚠️ Pomijam pełny test obliczeniowy (TEST 4/4), ponieważ YQ_API_KEY nie jest ustawiony.")
-        print("Aby go uruchomić: YQ_API_KEY=A132a132! python mcp_server/smoke_test.py")
+        print("Aby go uruchomić: YQ_API_KEY=twoj_klucz python mcp_server/smoke_test.py")
         return 0
 
     print("\n[TEST 4/4] Pełna optymalizacja wyboru opcji yq_solve_portfolio()...")

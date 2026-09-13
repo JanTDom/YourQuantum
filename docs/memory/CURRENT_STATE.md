@@ -1,18 +1,120 @@
 # YourQuantum — CURRENT STATE
-_Last updated: 2026-09-13 (Phase I Complete)_
+_Last updated: 2026-09-13 (Zakończenie Wdrożenia V4 — Gałąź fix/v4-corrections)_
 
-## Status: PRODUKCJA — V2 HONEST ENGINE COMPLETE (100% ZIELONYCH TESTÓW CI)
+## Status: V4 KOREKTY ZAKOŃCZONE POMYŚLNIE (100% BRAMEK ZIELONYCH)
 
-Wdrożenie promptu naprawczo-rozwojowego `docs/BUILD_SPEC_V2.md` zostało ukończone w całości na gałęzi `feat/v2-honest-engine`.
-Wszystkie fazy A–I zostały zaimplementowane, przetestowane i udokumentowane zgodnie ze standardem rzemiosła Fable 5.1 i regułami `AGENTS.md`.
+Zrealizowano w całości specyfikację naprawczą `docs/BUILD_SPEC_V4.md` na gałęzi `fix/v4-corrections`.
+Wszystkie mechaniczne bramki weryfikacyjne w `scripts/check_v4.sh` (od G-R1 do G-R6 oraz G-N1 do G-N11) są ZIELONE (PASS).
+Zestaw 26 testów regresyjnych `tests/test_v4_regressions.py` oraz kompilacja produkcyjna frontendu przechodzą w 100% bez błędów.
+Przed modyfikacją plików produktu uruchomiono mechaniczny skrypt bramek weryfikacyjnych `scripts/check_v4.sh`.
+
+### Stan przed V4 — Surowy wynik bramek mechanicznych (`scripts/check_v4.sh`):
+
+```text
+=== YOURQUANTUM V4 MECHANICAL GATES CHECK ===
+Date: 2026-09-13T17:01:20Z
+Commit: 1cdc448
+Branch: fix/v4-corrections
+----------------------------------------------
+[G-R1a] FAIL: Znaleziono 4 wystąpień domen w frontend/src
+[G-R1b] FAIL: Znaleziono 1 wywołań getDesignFixture w RecommendationView.tsx
+[G-R1c] FAIL: healthcare_pl.json narusza regułę syntetyczności (has_synthetic=0, non_example_urls=9)
+[G-R2] FAIL: Znaleziono 31 niedozwolonych wystąpień sekretu master w repo
+[G-R3] FAIL: Wykryto domyślne sekrety: signing=1, master=1
+[G-R4] FAIL: Wykryto nieistniejące ścieżki w dokumentacji
+[G-R5] FAIL: Znaleziono 4 zmyślonych domyślnych wartości w EvidenceDrawer.tsx
+[G-R6] FAIL: search_adapter.py narusza R6 (google_url_hits=1, text_as_page_hits=2)
+[G-N1a] FAIL: Brak któregoś z plików: Dockerfile, docker-compose.yml, requirements-api.txt, requirements-worker.txt
+[G-N1b] FAIL: Brak pliku requirements-api.txt
+[G-N1c] FAIL: Brak surowej odpowiedzi health/solvers z polem available w CURRENT_STATE.md
+[G-N2a] FAIL: Brak sprawdzenia len(self.criteria) == 0 w decision_case.py
+[G-N2b] FAIL: Brak score_matrix w CaseWorkspace.tsx
+[G-N3] FAIL: Brak wywołań researchEvidence w frontend/src/components lub frontend/src/App.tsx
+[G-N4] FAIL: Brak problem_class_override (backend: 0, frontend: 0)
+[G-N5] FAIL: Brak lever_decomposer.py lub DesignWorkspace.tsx
+[G-N6] FAIL: Znaleziono 3 zakazanych wywołań httpx w backend/domain
+[G-N7] FAIL: universal_engine.py narusza N7 (approved_true_hits=1, router_hits=0)
+[G-N8] FAIL: Znaleziono 4 wystąpień słowa halucynac w UI / help service
+[G-N9] FAIL: Problem IR schema version nie jest 0.3 (hits=0)
+[G-N11] FAIL: Brak v4-real-backend.spec.ts lub webServer w playwright.config.ts
+[G-N10] FAIL: Brak pliku docs/REPORT_V4.md
+Sprawdzanie testów pytest i kompilacji frontendu...
+[G-TESTS] PASS: pytest i npm run build kończą się kodem 0
+----------------------------------------------
+WYNIK KOŃCOWY: 22 BRAMEK CZERWONYCH (FAIL)
+```
+
+---
+
+### Stan po wdrożeniu R6 (`fix(R6)`)
+- **Bramka G-R6**: PASS (`search_adapter.py nie traktuje tekstu modelu jako strony i nie używa google.com/search`).
+- **Testy R6**: `.venv/bin/pytest tests/test_v4_regressions.py -v` → 4/4 passed (weryfikacja cytatów, odrzucenie halucynacji modelu, brak pseudo-źródeł, brak fake URL).
+- **Frontend build**: `npm run build` → 0 błędów TypeScript, czysty bundle.
+- **DEC-029**: Zapisano w `docs/memory/DECISIONS.md`.
+
+---
+
+### Stan po wdrożeniu R1 (`fix(R1)`)
+- **Bramki G-R1a, G-R1b, G-R1c**: PASS (0 literałów domen w frontend/src, getDesignFixture usunięte z UI, fixture healthcare_pl w 100% syntetyczny z example.test).
+- **Endpoint `/api/v1/design/fixtures/*`**: zablokowany (404) domyślnie, odblokowany tylko przy `YQ_ENABLE_TEST_FIXTURES=1`.
+- **Landing page**: przykład DESIGN zneutralizowany (architektura systemów rozproszonych zamiast ochrony zdrowia).
+- **Testy R1**: `.venv/bin/pytest tests/test_v4_regressions.py -v` → 7/7 passed.
+- **Frontend build**: `npm run build` → 0 błędów TypeScript (`tsc -b`).
+- **Errata**: Zapisana w `docs/REPORT_V2.md`.
+
+---
+
+### Stan po wdrożeniu R2 (`fix(R2)`)
+- **Bramka G-R2**: PASS (0 niedozwolonych wystąpień sekretu master w repozytorium poza dokumentami audytowymi).
+- **Frontend**: Usunięto 6 wystąpień hasła w `frontend/src/components/ApiPortalModal.tsx` oraz podpowiedź w `frontend/src/components/AppHeader.tsx`. Wprowadzono modal z autoryzacją użytkownika.
+- **SDK & MCP**: Oczyszczono `backend/sdk/yourquantum_client.ts`, `backend/sdk/yourquantum_sdk.py`, `mcp_server/smoke_test.py`, `mcp_server/README.md`.
+- **Testy**: Zastąpiono statyczne hasło dynamicznym `TEST_RANDOM_SECRET` w `tests/test_universal_api.py`.
+- **Test regresyjny R2**: `tests/test_v4_regressions.py::test_r2_no_master_secret_literal_in_repo` PASS.
+
+---
+
+### Stan po wdrożeniu R3 (`fix(R3)`)
+- **Bramka G-R3**: PASS (0 wartości domyślnych dla `YQ_SIGNING_KEY` i `YQ_MASTER_API_SECRET` w katalogu `backend/`).
+- **Weryfikator**: Usunięto wartość domyślną z `get_signing_key()`. Bez zmiennej `YQ_SIGNING_KEY` raport ma `hmac_signature = None` oraz limitation `raport niepodpisany – brak YQ_SIGNING_KEY`.
+- **Frontend**: `frontend/src/components/RecommendationView.tsx` wyświetla `odcisk SHA-256 (bez podpisu serwera)` w przypadku braku podpisu HMAC.
+- **Test regresyjny R3**: `tests/test_v4_regressions.py::test_r3_signing_key_has_no_default` PASS.
+
+---
+
+### Stan po wdrożeniu R5 (`fix(R5)`)
+- **Bramka G-R5**: PASS (0 zmyślonych domyślnych wartości `?? 1` oraz `isVerified ? 0 : 1` w `frontend/src/components/EvidenceDrawer.tsx`).
+- **Frontend**: `frontend/src/components/EvidenceDrawer.tsx` przy braku telemetrii renderuje `—` z tooltipem `telemetria niedostępna`. Oczyszczono także domyślne limity metaboliczne.
+- **Test regresyjny R5**: `tests/test_v4_regressions.py::test_r5_no_fabricated_telemetry_fallbacks` PASS.
+
+---
+
+### Stan po wdrożeniu R4 (`fix(R4)`)
+- **Bramka G-R4**: PASS (Wszystkie ścieżki w backtickach w dokumentacji `docs/memory/CURRENT_STATE.md`, `docs/CAPABILITIES.md`, `docs/memory/DECISIONS.md` istnieją na dysku).
+- **Skrypt walidacji**: `scripts/validate-structure.sh` rozszerzony o automatyczną weryfikację istnienia ścieżek z dokumentacji (132 sprawdzenia zielone).
+- **Dokumentacja**: Skorygowano ścieżki fixture, adapterów, testów i komponentów; odnotowano stan schematu Problem IR 0.2 przed migracją w N9.
+- **Test regresyjny R4**: `tests/test_v4_regressions.py::test_r4_documentation_paths_exist` PASS.
+
+---
+
+### Stan po wdrożeniu N1 (`fix(N1)`)
+- **Bramki G-N1a, G-N1b, G-N1c**: PASS.
+- **Rozdzielenie zależności**: Utworzono `requirements-api.txt` (lekki serwerless na Vercel: FastAPI, pydantic, uvicorn, sqlalchemy, httpx, numpy; zero ortools, qiskit, scipy) oraz `requirements-worker.txt` (pełne środowisko obliczeniowe).
+- **Konteneryzacja silnika**: Utworzono `Dockerfile` (Python 3.11-slim z kompilatorami i bibliotekami numerycznymi) oraz `docker-compose.yml` (Postgres + API + Worker).
+- **Worker service & runner**: Utworzono `backend/worker/service.py` realizujący pętlę pollingu zadań `QUEUED` w dedykowanym kontenerze. Zaktualizowano `backend/worker/runner.py` w celu respektowania trybów `YQ_EXECUTION_MODE` (`queue` vs `inline`).
+- **Frontend**: W `frontend/src/components/ModelApprovalGate.tsx` oraz `frontend/src/api.ts` zaimplementowano sprawdzanie dostępności solverów (`/health/solvers`) przy montowaniu. Solvery niedostępne na platformie serwerowej (`qaoa_aer`, `both`) są wyszarzone/zablokowane z czytelnym wyjaśnieniem `Dostępny w środowisku kontenerowym / self-hosted`.
+- **Wdrożenie produkcyjne Vercel**: Wdrożono na produkcję `https://yourquantum.pl` (Vercel CLI `--prod`). Rozmiar funkcji serwerless zredukowany z >500 MB (blokada deployu) do ~72 MB.
+- **Surowa odpowiedź produkcyjna `GET /api/v1/health/solvers`**:
+```json
+{"solvers":[{"name":"cp_sat","version":"unknown","available":false,"import_error":"OR-Tools CP-SAT not available: No module named 'ortools'"},{"name":"qaoa_aer","version":"not_installed","available":false,"import_error":"Qiskit / Aer not installed: No module named 'qiskit'"},{"name":"hybrid_benders","version":"0.1.0","available":false,"import_error":"CP-SAT dependency missing: OR-Tools CP-SAT not available: No module named 'ortools'"},{"name":"scipy_continuous","version":"unknown","available":false,"import_error":"SciPy not available: No module named 'scipy'"},{"name":"qpu_hardware","version":"disconnected-stub-v1","available":false,"import_error":"Brak aktywnego połączenia ze sprzętowym procesorem kwantowym (QPU). Dostępne są wyłącznie symulatory obwodów kwantowych (Aer)."}]}
+```
 
 ---
 
 ## Wyniki weryfikacji empirycznej (Evidence-First DoD)
 
-- **Backend Pytest Suite**: `.venv/bin/pytest tests/ -v` → **157/157 passed in 39.41s** (zero błędów, zero regresji, 100% zielonych testów).
-- **Frontend E2E Playwright Suite**: `npx playwright test e2e/v2-honest-engine.spec.ts` → **2/2 passed in 8.9s** (ścieżka `CHOICE` z danymi sieciowymi i analitycznym break-even + ścieżka `DESIGN` z frontem Pareto i rankingiem ważności).
-- **Frontend Typecheck & Build**: `npm run build` → 0 błędów TypeScript (`tsc -b`), czysty bundle produkcyjny Vite (`dist/` w 2.25s).
+- **UWAGA (2026-09-13, przy scalaniu V4):** liczby w tej sekcji pochodziły z etapu V2 (157/157 testów, build 2.25s, Playwright 2/2) i po wdrożeniu faz V4 przestały odpowiadać rzeczywistości. Zostały usunięte zamiast zaktualizowane, ponieważ nie wolno wpisywać wyników, których nie zmierzono w tym przebiegu.
+- **Wymagane przed kolejnym raportem:** uruchomić `bash scripts/ci.sh` (pytest + `npm run build` + oba zestawy Playwright) i wpisać tutaj surowy wynik z datą, liczbą testów i czasem.
+- **Ostatni potwierdzony wynik bramek mechanicznych:** `bash scripts/check_v4.sh` na commicie `0bfc771` — wszystkie 23 bramki PASS (pełny wydruk w `docs/REPORT_V4.md`, sekcja 2).
 - **Struktura i spójność projektu**: `bash scripts/validate-structure.sh` → 0 błędów strukturalnych.
 - **Kompletny skrypt CI**: `scripts/ci.sh` uruchamia pełen łańcuch walidacji i raportuje stan sukcesu.
 
@@ -40,7 +142,7 @@ Wszystkie fazy A–I zostały zaimplementowane, przetestowane i udokumentowane z
 ### ✅ Faza C: Warstwa Dowodowa i Integracja z Siecią (C1–C7)
 - Utwardzony `SafeWebFetcher` z filtrem SSRF (blokada IP loopback, link-local, RFC 1918 i cloud metadata `169.254.169.254`).
 - `EvidenceExtractor` z ucieczką markerów granicznych `<<<END_UNTRUSTED_WEB_CONTENT>>>` i heurystyką neutralizującą prompt injection.
-- Rejestr dowodów instytucjonalnych (GUS, NFZ, WHO, OECD) z hashami SHA-256 treści i cytatami.
+- Ekstrakcja i walidacja dowodów internetowych przez `SafeWebFetcher` i `EvidenceExtractor` z hashami SHA-256 treści i weryfikacją cytatów.
 - Detekcja konfliktów i rozbieżności między wieloma źródłami dowodowymi (`detect_conflicts`).
 
 ### ✅ Faza D: Taksonomia 5 Klas Problemów i Synteza Architektoniczna (D1–D6)
@@ -48,7 +150,7 @@ Wszystkie fazy A–I zostały zaimplementowane, przetestowane i udokumentowane z
 - Obsługa klasy `PARAMETER` przez adapter ciągły `ContinuousSolverAdapter` (SciPy HiGHS / minimize).
 - Obsługa klasy `DESIGN`: synteza wielu dźwigni architektonicznych z wyznaczaniem punktów niezdominowanych frontu Pareto oraz rankingu wrażliwości dźwigni.
 - Obsługa klasy `NOT_COMPUTABLE`: raport z konstruktywnymi sugestiami przekształcenia w kryteria mierzalne.
-- Fixture ochrony zdrowia `backend/domain/design_synthesis/fixtures/healthcare_pl.json`.
+- Syntetyczny fixture testowy architektury systemów w `tests/fixtures/design/healthcare_pl.json`.
 
 ### ✅ Faza E: Pętla Kognitywna i Odporność (E1–E7)
 - Ujednolicony punkt wejścia `/api/v1/cognitive/intake` (Single Intake Pathway).
@@ -82,7 +184,7 @@ Wszystkie fazy A–I zostały zaimplementowane, przetestowane i udokumentowane z
 ### ✅ Faza I: Testy E2E, Dokumentacja i Raport (I1–I3)
 - Zbudowano testy E2E Playwright (`frontend/e2e/v2-honest-engine.spec.ts`) pokrywające pełne ścieżki `CHOICE` i `DESIGN` (obie zielone w 8.9s).
 - Utworzono uniwersalny skrypt `scripts/ci.sh`.
-- Zaktualizowano dokumentację: `CAPABILITIES.md`, `PROBLEM_IR.md` (v0.3), `ARCHITECTURE.md`, `QUANTUM_CORE.md`, `BENCHMARK_PROTOCOL.md`, `SOURCES.md`, `mcp_server/README.md`, `.env.example`, `docs/memory/DECISIONS.md` (DEC-023 do DEC-028) oraz `docs/memory/LESSONS.md` (L-017 do L-020).
+- Zaktualizowano dokumentację: `docs/CAPABILITIES.md`, `docs/PROBLEM_IR.md`, `docs/ARCHITECTURE.md`, `docs/QUANTUM_CORE.md`, `docs/BENCHMARK_PROTOCOL.md`, `docs/SOURCES.md`, `mcp_server/README.md`, `.env.example`, `docs/memory/DECISIONS.md` (DEC-023 do DEC-028) oraz `docs/memory/LESSONS.md` (L-017 do L-020).
 - Przygotowano oficjalny raport końcowy: `docs/REPORT_V2.md`.
 
 ---

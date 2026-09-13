@@ -207,6 +207,7 @@ export interface VerificationReport {
   numerical_residual: number | null
   limitations: string[]
   sha256_hash?: string
+  hmac_signature?: string | null
   optimality_proven?: boolean
   dual_bound?: number | null
   optimality_gap_percent?: number | null
@@ -415,7 +416,7 @@ export const api = {
     request<JobResult>(`/jobs/${id}/result`),
 
   getSolvers: () =>
-    request<{ solvers: Array<{ name: string; version: string }> }>(
+    request<{ solvers: Array<{ name: string; version: string; available?: boolean; reason?: string }> }>(
       '/health/solvers',
     ),
 
@@ -460,6 +461,7 @@ export const api = {
     session_id?: string | null
     owner_id?: string | null
     workspace_id?: string | null
+    problem_class_override?: string | null
   }) =>
     request<CognitiveIntakeResponse>('/cognitive/intake', {
       method: 'POST',

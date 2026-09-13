@@ -225,7 +225,7 @@ Dzięki Twoim odpowiedziom system tworzy **mapę matematyczną Twojego problemu*
         HelpTopic(
             id="architektura-kognitywna-mozgu",
             title="Dlaczego nasz interfejs to nie jest zwykły czatbot? Architektura Kognitywna Mózgu",
-            short_desc="Inspiracja neurobiologią: Pamięć robocza, hipokamp i pętla Active Inference zamiast losowych halucynacji.",
+            short_desc="Inspiracja neurobiologią: Pamięć robocza, hipokamp i pętla Active Inference z niezależną weryfikacją matematyczną.",
             category="Architektura Kognitywna",
             read_time_minutes=3,
             badge="Innowacja",
@@ -233,7 +233,7 @@ Dzięki Twoim odpowiedziom system tworzy **mapę matematyczną Twojego problemu*
             content_markdown="""
 ### Prawdziwy mózg decyzyjny zamiast autoregresyjnego czatu
 
-Większość tzw. "agentów AI" to proste skrypty wysyłające prompty do modeli językowych (stochastic parrots), które zgadują kolejne prawdopodobne słowa i halucynują.
+Większość tzw. "agentów AI" to proste skrypty wysyłające prompty do modeli językowych (stochastic parrots), które zgadują kolejne prawdopodobne słowa bez sprawdzania ograniczeń.
 
 **Interfejs YourQuantum został zbudowany jako Cognitive Brain Architecture — system inspirowany neurobiologią ludzkiego mózgu:**
 

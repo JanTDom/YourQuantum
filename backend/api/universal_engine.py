@@ -31,6 +31,7 @@ from backend.domain.problem_ir import (
 )
 from backend.domain.evaluator import ExpressionEvaluator
 from backend.domain.sensitivity import RobustnessReport, SensitivityEngine
+from backend.domain.router import ProblemRouter
 from backend.solvers.base import ComputeSource, ExecutionStatus, MathStatus, SolverResult
 from backend.solvers.cpsat import CPSATAdapter
 from backend.solvers.hybrid_benders import HybridBendersAdapter
@@ -39,7 +40,7 @@ from backend.verifier.verifier import IndependentVerifier, SolverCandidate, Verd
 
 def get_master_api_secret() -> str | None:
     """Retrieve master API secret from environment without hardcoded fallback."""
-    val = os.getenv("YQ_MASTER_API_SECRET", "").strip()
+    val = (os.getenv("YQ_MASTER_API_SECRET") or "").strip()
     return val if val else None
 
 
@@ -123,6 +124,7 @@ class UniversalComputeRequest(BaseModel):
     constraints: List[ConstraintDef] = Field(default_factory=list)
     solver: Literal["auto", "hybrid_benders", "qaoa", "cpsat"] = "auto"
     include_stress_test: bool = True
+    approved_by_caller: bool = True
 
 
 class UniversalComputeResponse(BaseModel):
@@ -338,8 +340,8 @@ class UniversalEngine:
             expressions=reg,
             objectives=objectives,
             constraints=constraints,
-            approved=True,
-            approved_at=datetime.now(timezone.utc),
+            approved=req.approved_by_caller,
+            approved_at=datetime.now(timezone.utc) if req.approved_by_caller else None,
         )
 
     def _solve_exhaustive_enumeration(self, ir: ProblemIR, req: UniversalComputeRequest) -> SolverResult:
@@ -443,6 +445,26 @@ class UniversalEngine:
         start_time = time.perf_counter()
         ir = self.compile_to_ir(req)
 
+        # Gatekeeper: ProblemIR must be explicitly approved before running solver
+        if not ir.approved:
+            elapsed_ms = (time.perf_counter() - start_time) * 1000.0
+            return UniversalComputeResponse(
+                status="ERROR",
+                title=req.title,
+                domain=req.domain,
+                solver_used="gatekeeper",
+                compute_time_ms=round(elapsed_ms, 2),
+                optimal_assignment={},
+                optimal_selection=[],
+                total_objective_value=0.0,
+                sha256_passport="",
+                verification={
+                    "feasible": False,
+                    "verdict": "UNAPPROVED_MODEL",
+                    "error": "Model ProblemIR nie został zatwierdzony przez wywołującego (approved_by_caller=False). Obliczenia solvera wymagają jawnego zatwierdzenia modelu.",
+                },
+            )
+
         # Cognitive Constraint Sanity Pre-Check (Active Inference early fast-fail)
         from backend.domain.cognitive.constraint_sanity import check_constraints_sanity
         sanity = check_constraints_sanity(ir)
@@ -467,13 +489,12 @@ class UniversalEngine:
                 },
             )
 
-        # Solver selection
+        # Solver selection via ProblemRouter
         solver_choice = req.solver
         if solver_choice == "auto":
-            if len(req.variables) <= 12:
-                solver_choice = "hybrid_benders"
-            else:
-                solver_choice = "cpsat"
+            router = ProblemRouter()
+            routing_decision = router.route(ir)
+            solver_choice = routing_decision.recommended_solver
 
         if solver_choice == "qaoa":
             adapter = QAOAAdapter()

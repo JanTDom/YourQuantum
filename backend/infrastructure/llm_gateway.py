@@ -69,6 +69,11 @@ class LLMGateway:
         self.call_history: list[LLMCallTelemetry] = []
 
     @property
+    def is_configured(self) -> bool:
+        """True if API key is present."""
+        return bool(self.api_key)
+
+    @property
     def is_available(self) -> bool:
         """True if API key is configured and session token budget is not exhausted."""
         return bool(self.api_key) and self.session_tokens_used < self.session_token_limit

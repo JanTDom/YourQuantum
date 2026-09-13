@@ -7,6 +7,7 @@ from __future__ import annotations
 import hashlib
 import ipaddress
 import logging
+import os
 import socket
 from urllib.parse import urlparse
 import httpx
@@ -85,15 +86,50 @@ class SafeWebFetcher:
         self,
         timeout: float = DEFAULT_TIMEOUT_SECONDS,
         max_bytes: int = MAX_DOCUMENT_BYTES,
+        mock_documents: dict[str, str] | None = None,
     ) -> None:
         self.timeout = timeout
         self.max_bytes = max_bytes
         self._cache: dict[str, EvidenceDocument] = {}
+        self._mock_documents: dict[str, str] = dict(mock_documents) if mock_documents is not None else {}
+
+        if not self._mock_documents and os.getenv("YQ_MOCK_SEARCH_FIXTURES"):
+            fixtures_dir = os.path.join(os.path.dirname(__file__), "..", "..", "..", "tests", "fixtures", "web")
+            doc1_path = os.path.join(fixtures_dir, "poland_health_spending.html")
+            doc2_path = os.path.join(fixtures_dir, "poland_health_spending_alt.html")
+            if os.path.exists(doc1_path):
+                try:
+                    with open(doc1_path, "r", encoding="utf-8") as f:
+                        self._mock_documents["https://stat.gov.pl/zdrowie/raport-2025.html"] = f.read()
+                except Exception:
+                    pass
+            if os.path.exists(doc2_path):
+                try:
+                    with open(doc2_path, "r", encoding="utf-8") as f:
+                        self._mock_documents["https://nos.org.pl/zdrowie-naklady.html"] = f.read()
+                except Exception:
+                    pass
 
     async def fetch(self, url: str) -> EvidenceDocument | None:
         """
         Fetch a document from the web safely. Returns EvidenceDocument with SHA-256 hash or None.
         """
+        # 0. Check mock fixtures
+        if url in self._mock_documents:
+            raw_html = self._mock_documents[url]
+            clean_text, title = extract_clean_text_from_html(raw_html)
+            h = hashlib.sha256(raw_html.encode("utf-8")).hexdigest()
+            doc = EvidenceDocument(
+                url=url,
+                content_hash=h,
+                page_text=clean_text,
+                title=title or "Raport Testowy",
+                status_code=200,
+                mime_type="text/html",
+            )
+            self._cache[url] = doc
+            return doc
+
         # 1. Check local cache
         if url in self._cache:
             return self._cache[url]

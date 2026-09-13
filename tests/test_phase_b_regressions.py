@@ -204,8 +204,9 @@ def test_b2_dynamic_resolve_sensitivity_analysis():
 # B3: HMAC Signatures and POST /verification/check Endpoint
 # ---------------------------------------------------------------------------
 
-def test_b3_cryptographic_signatures_generation():
+def test_b3_cryptographic_signatures_generation(monkeypatch):
     """B3: Verification canonical string generates reproducible SHA-256 and HMAC."""
+    monkeypatch.setenv("YQ_SIGNING_KEY", "phase_b_test_verification_signing_key")
     canon = build_verification_canonical_string(
         problem_id="prob_123",
         candidate_id="cand_456",
@@ -216,6 +217,7 @@ def test_b3_cryptographic_signatures_generation():
     )
     sha, sig = compute_verification_signatures(canon)
     assert len(sha) == 64
+    assert sig is not None
     assert len(sig) == 64
     # Recomputing gives exact same result
     sha2, sig2 = compute_verification_signatures(canon)
@@ -224,8 +226,9 @@ def test_b3_cryptographic_signatures_generation():
 
 
 @pytest.mark.asyncio
-async def test_b3_verification_check_api_endpoint():
+async def test_b3_verification_check_api_endpoint(monkeypatch):
     """B3: POST /api/v1/verification/check endpoint verifies authentic and detects tampered passports."""
+    monkeypatch.setenv("YQ_SIGNING_KEY", "phase_b_test_verification_signing_key")
     await init_db()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:

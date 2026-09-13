@@ -176,7 +176,7 @@ class ComputeBudget(BaseModel):
 # ---------------------------------------------------------------------------
 
 class ProblemIR(BaseModel):
-    schema_version: str = "0.2"
+    schema_version: str = "0.3"
     problem_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     parent_problem_id: str | None = None
     version: int = 1

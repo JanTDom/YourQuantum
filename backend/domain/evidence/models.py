@@ -75,6 +75,8 @@ class WebSearchResult(BaseModel):
     title: str
     url: str
     snippet: str
+    snippet_origin: str = "web"  # "web" | "llm"
+    publisher: str | None = None
     published_date: str | None = None
     score: float | None = None
 

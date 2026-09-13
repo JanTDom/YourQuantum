@@ -6,6 +6,7 @@ strict rate budgeting, and deterministic offline fallback.
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import logging
 import httpx
@@ -20,7 +21,7 @@ logger = logging.getLogger(__name__)
 class WebResearchAdapter(EvidenceSourcePort):
     """
     Production adapter implementing EvidenceSourcePort.
-    Supports Gemini (native Google Search Grounding), Tavily, Serper, or generic APIs,
+    Supports Gemini (URL grounding discovery only), Tavily, Serper, or generic APIs,
     with automatic offline mode and SafeWebFetcher SSRF mitigation.
     """
 
@@ -32,37 +33,51 @@ class WebResearchAdapter(EvidenceSourcePort):
         max_session_queries: int = 15,
         mock_fixtures: dict[str, list[dict[str, str]]] | None = None,
     ) -> None:
-        self.api_key = (
-            api_key
-            or os.getenv("SEARCH_API_KEY")
-            or os.getenv("GEMINI_API_KEY")
-            or os.getenv("TAVILY_API_KEY")
-            or os.getenv("SERPER_API_KEY")
-        )
-        self.provider = provider or (
-            "gemini"
-            if os.getenv("GEMINI_API_KEY")
-            else "tavily"
-            if os.getenv("TAVILY_API_KEY")
-            else "serper"
-            if os.getenv("SERPER_API_KEY")
-            else "generic"
-        )
+        env_provider = os.getenv("SEARCH_PROVIDER", "").strip().lower()
+        valid_providers = ("gemini", "tavily", "serper", "none")
+        self.provider = provider or (env_provider if env_provider in valid_providers else "none")
+
+        if self.provider == "gemini":
+            self.api_key = api_key or os.getenv("GEMINI_API_KEY")
+        elif self.provider == "tavily":
+            self.api_key = api_key or os.getenv("TAVILY_API_KEY") or os.getenv("SEARCH_API_KEY")
+        elif self.provider == "serper":
+            self.api_key = api_key or os.getenv("SERPER_API_KEY") or os.getenv("SEARCH_API_KEY")
+        elif self.provider in ("none", "offline_user_data_only"):
+            self.api_key = None
+        else:
+            self.api_key = api_key or os.getenv("SEARCH_API_KEY")
+
         self.fetcher = fetcher or SafeWebFetcher()
         self.max_session_queries = max_session_queries
         self.queries_performed = 0
-        self.mock_fixtures = mock_fixtures or {}
-        self._cached_documents: dict[str, EvidenceDocument] = {}
+        self.mock_fixtures = dict(mock_fixtures) if mock_fixtures is not None else {}
+
+        if not self.mock_fixtures and os.getenv("YQ_MOCK_SEARCH_FIXTURES"):
+            fixtures_dir = os.path.join(os.path.dirname(__file__), "..", "..", "..", "tests", "fixtures", "web")
+            search_path = os.path.join(fixtures_dir, "search_results.json")
+            if os.path.exists(search_path):
+                try:
+                    with open(search_path, "r", encoding="utf-8") as f:
+                        self.mock_fixtures = json.load(f)
+                except Exception:
+                    pass
 
     def is_available(self) -> bool:
         """True if either mock fixtures are supplied or a live API key is set within quota."""
         if bool(self.mock_fixtures):
             return True
+        if self.provider in ("none", "offline_user_data_only"):
+            return False
         return bool(self.api_key) and self.queries_performed < self.max_session_queries
 
     def get_status(self) -> dict[str, str | int | bool]:
+        mode = "grounding_urls_only" if self.provider == "gemini" else "full_fetch"
+        if not self.is_available():
+            mode = "offline_user_data_only"
         return {
-            "provider": self.provider if self.api_key else "offline_user_data_only",
+            "provider": self.provider if (self.api_key or self.mock_fixtures) else "offline_user_data_only",
+            "mode": mode,
             "is_available": self.is_available(),
             "queries_performed": self.queries_performed,
             "max_session_queries": self.max_session_queries,
@@ -93,16 +108,11 @@ class WebResearchAdapter(EvidenceSourcePort):
             return await self._search_generic(query, max_results)
 
     async def fetch_document(self, url: str) -> EvidenceDocument | None:
-        """Safely fetch and sanitize a document via SafeWebFetcher, with cached grounding fallback."""
-        if url in self._cached_documents:
-            return self._cached_documents[url]
-        doc = await self.fetcher.fetch(url)
-        if doc:
-            return doc
-        return self._cached_documents.get(url)
+        """Safely fetch and sanitize a document via SafeWebFetcher."""
+        return await self.fetcher.fetch(url)
 
     async def _search_gemini(self, query: str, max_results: int) -> list[WebSearchResult]:
-        """Search using Google Gemini Search Grounding."""
+        """Search using Google Gemini Search Grounding strictly for URL candidate discovery."""
         model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={self.api_key}"
         payload = {
@@ -138,44 +148,29 @@ class WebResearchAdapter(EvidenceSourcePort):
                 results: list[WebSearchResult] = []
                 for c in chunks[:max_results]:
                     w = c.get("web", {})
-                    title = w.get("title") or "Google Grounded Source"
-                    source_url = w.get("uri") or "https://google.com"
+                    source_url = w.get("uri")
+                    if not source_url:
+                        continue
+                    title = w.get("title") or "Web Source"
+                    publisher = None
+                    try:
+                        from urllib.parse import urlparse
+                        netloc = urlparse(source_url).netloc
+                        if netloc:
+                            publisher = netloc
+                    except Exception:
+                        publisher = None
                     snippet = text[:300] if text else title
                     res_item = WebSearchResult(
                         title=title,
                         url=source_url,
                         snippet=snippet,
-                        score=0.95,
+                        snippet_origin="llm",
+                        publisher=publisher,
+                        score=None,
                     )
                     results.append(res_item)
 
-                    doc_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
-                    self._cached_documents[source_url] = EvidenceDocument(
-                        url=source_url,
-                        title=title,
-                        publisher=title,
-                        content_hash=doc_hash,
-                        page_text=text,
-                    )
-
-                if not results and text:
-                    gen_url = "https://google.com/search"
-                    results.append(
-                        WebSearchResult(
-                            title=f"Google Grounding: {query[:50]}",
-                            url=gen_url,
-                            snippet=text[:300],
-                            score=0.90,
-                        )
-                    )
-                    doc_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
-                    self._cached_documents[gen_url] = EvidenceDocument(
-                        url=gen_url,
-                        title=f"Google Grounding: {query[:50]}",
-                        publisher="Google Search",
-                        content_hash=doc_hash,
-                        page_text=text,
-                    )
                 return results
         except Exception as e:
             logger.warning("Gemini search exception for query '%s': %s", query, e)

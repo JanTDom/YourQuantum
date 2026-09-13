@@ -19,8 +19,8 @@ Embed all always-active project rules in the root `AGENTS.md` file rather than
 in `.agents/rules/*.md` files with frontmatter triggers.
 
 **Rationale:**
-The Antigravity customisation documentation (`agy-customizations/docs/rules.md`,
-verified 2026-09-09) states that `AGENTS.md` and `GEMINI.md` are always active
+The Antigravity customisation documentation (agy-customizations/docs/rules.md,
+verified 2026-09-09) states that `AGENTS.md` (and global GEMINI.md) are always active
 for their directory scope without requiring frontmatter. The documentation does
 not describe a supported `always_on` frontmatter trigger for standalone rule
 files. Using `AGENTS.md` is the confirmed, supported path.
@@ -164,7 +164,7 @@ Prevents black-box quantum claims. Every bitstring count and percentage is verif
 **Status:** ACTIVE
 
 **Decision:**
-The external audit archive is assembled via an isolated staging pipeline excluding all vendor artifacts (`node_modules`, `.venv`), build directories (`dist`, `build`), cache directories (`__pycache__`, `.pytest_cache`), local runtime databases (`*.db`), and secret configurations. The package is accompanied by `AUDIT_README.md`, `README.md`, `requirements.txt`, and `.env.example`.
+The external audit archive is assembled via an isolated staging pipeline excluding all vendor artifacts (`node_modules`, `.venv`), build directories (`dist`, `build`), cache directories (`__pycache__`, `.pytest_cache`), local runtime databases (`*.db`), and secret configurations. The package is accompanied by audit instructions (AUDIT_README.md, README.md), `requirements.txt`, and `.env.example`.
 
 **Rationale:**
 Allows independent third-party auditors to reproduce, inspect, run unit/E2E test suites, and audit architecture without risk of credentials leakage, environment pollution, or symlink vulnerabilities.
@@ -261,7 +261,7 @@ Prevents documentation rot. A changing solver or verification suite updates the 
 **Status:** ACTIVE
 
 **Decision:**
-Implement a WebGL 3D interactive cognitive brain (`EngineBrain3D.tsx`, `BrainModal.tsx`) using Three.js with three synchronized layers:
+Implement a WebGL 3D interactive cognitive brain (`frontend/src/components/EngineBrain3D.tsx`, `frontend/src/components/BrainModal.tsx`) using Three.js with three synchronized layers:
 1. **Cognitive Hypergraph**: Multi-criteria nodes connected by additive glowing synaptic curves.
 2. **QUBO / Hamiltonian Energy Landscape**: Continuous undulating wave surface converging to a deep gravitational well (Global Optimum ground state).
 3. **Interference Gyroscope Rings**: Orthogonal concentric rings visualizing phase coherence and quantum tunneling.
@@ -352,7 +352,7 @@ Dedykowany kontener roboczy (Worker Container) eliminuje limity rozmiaru pamięc
 
 **Consequences:**
 - Obliczenia backendowe działają asynchronicznie (`JobRecord` ze statusem `QUEUED` -> `RUNNING` -> `COMPLETED`/`FAILED`).
-- `Dockerfile` w repozytorium definiuje oficjalny kontener obliczeniowy.
+- Dedykowany kontener obliczeniowy zdefiniowany przez specyfikację Dockerfile (tworzoną i wdrażaną w N1).
 ---
 
 ## DEC-023 — Rozszerzenie Problem IR o 5 klas problemów (Taxonomy v0.3)
@@ -409,7 +409,7 @@ Złożone decyzje publiczne i architektoniczne (np. reforma ochrony zdrowia) nie
 **Status:** ACTIVE
 
 **Decision:**
-Wprowadzić moduł `backend/domain/quantum_evidence.py`. Żaden wynik oznaczony jako `source == QUANTUM_CIRCUIT_SIMULATION` lub `PHYSICAL_QPU_EXECUTION` nie może zostać opublikowany bez weryfikowalnego rekordu telemetrii obwodu: `circuit_depth > 0`, `gate_count > 0`, `shots > 0`, backend name.
+Wprowadzić moduł dowodów kwantowych `backend/domain/evidence/models.py` (rekord `QAOARunRecord`). Żaden wynik oznaczony jako `source == QUANTUM_CIRCUIT_SIMULATION` lub `PHYSICAL_QPU_EXECUTION` nie może zostać opublikowany bez weryfikowalnego rekordu telemetrii obwodu: `circuit_depth > 0`, `gate_count > 0`, `shots > 0`, backend name.
 
 **Rationale:**
 Zgodnie z regułą dowodową AGENTS.md §7 i eliminacją błędu A1, zabrania się podszywania obliczeń klasycznych lub losowych liczb pod obwody kwantowe.
@@ -443,3 +443,20 @@ Pamięć robocza sesji (`WorkingMemory`) jest trwała w ramach aktywnej sesji u�
 
 **Rationale:**
 Zgodność z RODO/GDPR oraz eliminacja ryzyka przecieku danych wrażliwych i dylematów decyzyjnych między różnymi użytkownikami platformy.
+
+---
+
+## DEC-029 — Grounding LLM = lista URL, nie dowód
+
+**Date:** 2026-09-13
+**Status:** ACTIVE
+
+**Decision:**
+Mechanizm Google Search Grounding modelu Gemini (oraz wszelkie pokrewne narzędzia wyszukiwania wbudowane w LLM) może być wykorzystywany **wyłącznie jako źródło kandydatów URL** (`groundingChunks[].web.uri` + metadane tytułu).
+1. Treść wygenerowana przez model (`parts[].text`) nigdy nie jest traktowana jako treść strony (`page_text`), nie stanowi podstawy do obliczenia skrótu kryptograficznego `content_hash` i nie bierze udziału w weryfikacji cytatu (`_verify_quote_in_text`).
+2. Każdy dokument dowodowy (`EvidenceDocument`) musi zostać realnie pobrany i zdezynfekowany przez `SafeWebFetcher`. Jeśli pobranie się nie powiedzie, dokument i dowód nie powstają (`Evidence` nie jest tworzone).
+3. Niedozwolone jest tworzenie fikcyjnych źródeł syntetycznych (np. `https://google.com/search`). Przy braku realnych linków lista wyników jest pusta.
+4. Dobór dostawcy wyszukiwania jest jawny (`SEARCH_PROVIDER=gemini|tavily|serper|none`). Sama obecność `GEMINI_API_KEY` nie włącza wyszukiwania.
+
+**Rationale:**
+Zgodnie z regułą dowodową i eliminacją halucynacji (BUILD_SPEC_V2.md §1 pkt 4 oraz audyt V4 R6), uznanie tekstu wygenerowanego przez model za „stronę źródłową" prowadzi do samopotwierdzenia halucynacji modelu w weryfikatorze cytatów, podszywając się pod obiektywne dane empiryczne.

@@ -119,6 +119,10 @@ class DecisionCase(BaseModel):
         Returns (is_valid, missing_errors).
         """
         missing_errors: list[str] = []
+        if len(self.criteria) == 0:
+            missing_errors.append("Zdefiniuj co najmniej jedno kryterium.")
+        if len(self.options) < 2:
+            missing_errors.append("Zdefiniuj co najmniej dwie opcje decyzyjne.")
         for opt in self.options:
             for crit in self.criteria:
                 cell = self.score_matrix.get(opt.id, {}).get(crit.id)

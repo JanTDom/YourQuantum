@@ -1,0 +1,11 @@
+.git
+.github
+.venv
+.pytest_cache
+.backup
+tests
+benchmarks
+docs
+Dockerfile
+docker-compose.yml
+requirements-worker.txt

@@ -33,6 +33,7 @@ class CognitiveIntakeRequest(BaseModel):
     session_id: str | None = Field(default=None, description="Identyfikator aktywnej sesji użytkownika")
     owner_id: str | None = Field(default=None, description="Identyfikator właściciela/użytkownika dla multi-tenant workspace")
     workspace_id: str | None = Field(default=None, description="Identyfikator przestrzeni roboczej")
+    problem_class_override: str | None = Field(default=None, description="Ręczne nadpisanie klasy problemu przez użytkownika (CHOICE, ALLOCATION, DESIGN, PARAMETER)")
 
 
 class ConsolidateTraceRequest(BaseModel):
@@ -119,6 +120,7 @@ async def cognitive_intake(
             workspace=workspace,
             owner_id=session_rec.owner_id,
             workspace_id=session_rec.workspace_id,
+            problem_class_override=req.problem_class_override,
         )
 
         # 4. Save updated working memory, energy budget, and history

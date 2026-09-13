@@ -16,7 +16,7 @@ Feature status lifecycle (AGENTS.md §7 — Evidence Rule):
 | Feature | Status | Test Reference / Notes |
 |---------|--------|-------------------------|
 | Problem intake (Single Intake Pathway `/cognitive/intake`) | **TESTED** | `tests/test_phase_e_cognitive.py` · LLM + Active Inference fallback |
-| Problem IR schema v0.3 (5 problem classes) | **TESTED** | `tests/test_phase_d_problem_classes.py` · Pydantic validation, provenance tracking |
+| Problem IR schema v0.2 (podnoszone do v0.3 w N9) | **TESTED** | `tests/test_phase_d_problem_classes.py` · Pydantic validation, provenance tracking |
 | IR user approval gate (Decision Matrix + Provenance Gate) | **TESTED** | `tests/test_phase_g_ui_and_copy.py` · Deliberate human approval blocks on `BLOCKS_SOLVING` |
 | Compute budget enforcement (time, memory, shots) | **TESTED** | `tests/test_universal_api.py` · Time & memory limits |
 | Problem decomposition (Benders) | **TESTED** | `tests/test_hybrid_benders.py` · Master & Subproblem cuts |
@@ -73,7 +73,7 @@ Feature status lifecycle (AGENTS.md §7 — Evidence Rule):
 | Warm-Started QAOA | **TESTED** | `tests/test_warm_start_qaoa.py` · LP relaxation continuous seeding |
 | Parameter optimisers (COBYLA/Nelder-Mead) | **TESTED** | `tests/test_qaoa.py` · Multi-start optimization |
 | Quantum Execution Evidence Validator | **TESTED** | `tests/test_phase_f_quantum_honesty.py` · Circuit depth, gate counts, strict gate against fake results |
-| Physical QPU Backends (IBM Quantum / AWS Braket) | **IMPLEMENTED (Stub)** | `backend/domain/qpu_adapter.py` · Honest stub with credentials requirement, no fake QPU claims |
+| Physical QPU Backends (IBM Quantum / AWS Braket) | **IMPLEMENTED (Stub)** | `backend/solvers/quantum/qpu_adapter.py` · Honest stub with credentials requirement, no fake QPU claims |
 
 ---
 
@@ -87,7 +87,7 @@ Feature status lifecycle (AGENTS.md §7 — Evidence Rule):
 | Dual bound & optimality certificate | **TESTED** | `tests/test_dual_certificate.py` · Non-bypass verification |
 | Sensitivity analysis (elasticity, stress test) | **TESTED** | `tests/test_sensitivity.py` · Parameter shock |
 | Cryptographic Audit Passport (SHA-256) | **TESTED** | `tests/test_verifier.py`, `frontend/e2e/v2-honest-engine.spec.ts` |
-| Analytical Break-Even Point (DEC-014 / B1) | **TESTED** | `tests/test_phase_b_matrix.py`, `tests/test_phase_g_ui_and_copy.py` |
+| Analytical Break-Even Point (DEC-014 / B1) | **TESTED** | `tests/test_phase_b_regressions.py`, `tests/test_phase_g_ui_and_copy.py` |
 
 ---
 

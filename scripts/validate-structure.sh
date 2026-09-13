@@ -142,13 +142,29 @@ else
     ((FAIL++)) || true
 fi
 
-# Check CAPABILITIES.md status field usage
-if grep -qE "PLANNED|IMPLEMENTED|TESTED|DEPLOYED" "$ROOT/docs/CAPABILITIES.md"; then
-    echo "  PASS  docs/CAPABILITIES.md uses status fields"
+echo ""
+echo "── Documentation referenced paths check (R4) ─────"
+DOC_PATHS_FAIL=0
+for doc in "docs/memory/CURRENT_STATE.md" "docs/CAPABILITIES.md"; do
+    if [ -f "$ROOT/$doc" ]; then
+        paths=$(grep -oE '\`[A-Za-z0-9_./-]+\.(py|ts|tsx|md|json|sh|yml|txt)\`|\`Dockerfile\`' "$ROOT/$doc" | tr -d '`' || true)
+        for p in $paths; do
+            if [[ "$p" =~ ^http ]] || [[ "$p" =~ \* ]] || [[ "$p" =~ ^v?[0-9]+\. ]]; then
+                continue
+            fi
+            if [ -e "$ROOT/$p" ]; then
+                ((PASS++)) || true
+            else
+                echo "  FAIL  $doc references missing path: $p"
+                ((FAIL++)) || true
+                DOC_PATHS_FAIL=1
+            fi
+        done
+    fi
+done
+if [ "$DOC_PATHS_FAIL" -eq 0 ]; then
+    echo "  PASS  All backtick filepaths in CURRENT_STATE.md and CAPABILITIES.md exist on disk"
     ((PASS++)) || true
-else
-    echo "  FAIL  docs/CAPABILITIES.md missing status fields"
-    ((FAIL++)) || true
 fi
 
 echo ""

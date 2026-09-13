@@ -14,6 +14,7 @@ import hashlib
 import hmac
 import logging
 import os
+import secrets
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -23,8 +24,8 @@ from fastapi import HTTPException, Request, status
 
 logger = logging.getLogger(__name__)
 
-# Fallback internal signing secret if none configured in environment
-_SESSION_HMAC_SECRET = os.getenv("YQ_SESSION_SIGNING_SECRET") or os.getenv("YQ_MASTER_API_SECRET") or "yq_ephemeral_sec_2026_sign"
+# Fallback internal signing secret if none configured in environment (generates truly ephemeral key per process)
+_SESSION_HMAC_SECRET = os.getenv("YQ_SESSION_SIGNING_SECRET") or os.getenv("YQ_MASTER_API_SECRET") or secrets.token_hex(32)
 
 
 @dataclass

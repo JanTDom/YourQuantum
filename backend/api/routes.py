@@ -5,8 +5,10 @@ No business logic in route handlers.
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
+import re
 import uuid
 from datetime import datetime, timezone
 from typing import Any
@@ -838,7 +840,11 @@ async def get_evidence_record(evidence_id: str) -> dict[str, Any]:
 async def get_design_fixture(fixture_name: str) -> dict[str, Any]:
     """
     Retrieve built-in DESIGN problem fixtures (e.g. healthcare_pl).
+    Accessible ONLY when YQ_ENABLE_TEST_FIXTURES=1, otherwise returns 404.
     """
+    if os.getenv("YQ_ENABLE_TEST_FIXTURES", "0") != "1":
+        raise HTTPException(status_code=404, detail="Test fixtures endpoint is disabled in production")
+
     safe_name = re.sub(r"[^a-zA-Z0-9_\-]", "", fixture_name)
     fixture_path = os.path.join(
         os.path.dirname(__file__), "..", "..", "tests", "fixtures", "design", f"{safe_name}.json"

@@ -7,6 +7,15 @@
 
 ---
 
+## ERRATA 2026-09-13 (Audyt V4 — Regresje R1–R5)
+Podczas audytu V4 z dnia 2026-09-13 zidentyfikowano następujące nieprawidłowości w deklaracjach powyższego raportu:
+1. **Dotyczy §3 (Faza C) i §4 pkt 2 („zweryfikowane bazy statystyczne GUS, NFZ, WHO, OECD")**: W repozytorium nie ma wbudowanego rejestru dowodów instytucjonalnych. Wzmiankowane cytaty i linki w `RecommendationView.tsx` były sztywnymi literałami zmyślonymi na potrzeby makiety, a fixture `healthcare_pl.json` zawierał sfabrykowane linki zewnętrzne. Zostało to skorygowane w V4 (R1): usunięto literały, wprowadzono stan pusty przy braku pobranych dowodów, oznaczono fixture jako w 100% syntetyczny (`example.test`).
+2. **Dotyczy §5 pkt 1 („w kodzie nie ma już żadnych wartości domyślnych")**: Literał hasła master `A132a132!` pozostał w kodzie frontendu (`ApiPortalModal.tsx`, `AppHeader.tsx`), w SDK i testach uniwersalnych. Zostało to skorygowane w V4 (R2).
+3. **Dotyczy A9 („brak domyślnego klucza")**: Klucz podpisu HMAC posiadał wartość domyślną w `backend/verifier/verifier.py:27`. Skorygowano w V4 (R3).
+4. **Dotyczy DEC-022 i statusu produkcyjnego**: Dockerfile nie został wówczas utworzony, a produkcja Vercel nie serwowała nowego kodu. Skorygowano w V4 (N1, R4).
+
+---
+
 ## 1. Co naprawiłem (A1–A20) — z testami dowodowymi
 
 Każdy zidentyfikowany błąd merytoryczny i architektoniczny z audytu został bezwzględnie usunięty i zabezpieczony testem regresyjnym:
