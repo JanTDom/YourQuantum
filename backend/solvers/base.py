@@ -80,6 +80,16 @@ class SolverResult:
     completed_at: datetime = field(
         default_factory=lambda: datetime.now(timezone.utc)
     )
+    execution_evidence: dict[str, Any] | None = None
+
+    def __post_init__(self) -> None:
+        if self.source == ComputeSource.QUANTUM_CIRCUIT_SIMULATION:
+            has_record = bool(self.metadata.get("qaoa_run_record")) or bool(self.execution_evidence)
+            if not has_record:
+                raise ValueError(
+                    "Integrity violation: source cannot be QUANTUM_CIRCUIT_SIMULATION "
+                    "without circuit execution evidence (metadata['qaoa_run_record'] or execution_evidence)."
+                )
 
 
 class SolverAdapter(ABC):
@@ -124,6 +134,13 @@ class SolverAdapter(ABC):
         - Populate limitations honestly.
         """
         ...
+
+    def check_available(self) -> tuple[bool, str | None]:
+        """
+        Verify that underlying solver libraries and dependencies are installed and accessible.
+        Returns: (True, None) if available, or (False, "error message") if missing dependencies.
+        """
+        return True, None
 
     def _base_limitations(self, math_status: MathStatus) -> list[str]:
         lims: list[str] = []

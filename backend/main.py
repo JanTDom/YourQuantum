@@ -12,6 +12,7 @@ load_dotenv()
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from backend.api.cognitive_routes import cognitive_router
 from backend.api.routes import router
 from backend.db.database import init_db
 
@@ -59,6 +60,8 @@ app.add_middleware(
 )
 
 app.include_router(router, prefix="/api/v1")
+app.include_router(cognitive_router, prefix="/api")
+app.include_router(cognitive_router, prefix="/api/v1")
 
 
 @app.get("/")

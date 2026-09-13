@@ -52,6 +52,16 @@ async def init_db() -> None:
         except Exception:
             pass  # Already exists
 
+        for col, col_type in [
+            ("owner_id", "VARCHAR(36)"),
+            ("workspace_id", "VARCHAR(36)"),
+            ("is_public", "BOOLEAN DEFAULT 0"),
+        ]:
+            try:
+                await conn.execute(text(f"ALTER TABLE cognitive_traces ADD COLUMN {col} {col_type}"))
+            except Exception:
+                pass
+
 
 async def get_session() -> AsyncSession:
     async with async_session_factory() as session:

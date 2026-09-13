@@ -509,7 +509,7 @@ export const QuantumEntanglementCanvas: React.FC<QuantumEntanglementCanvasProps>
         ctx.textAlign = 'right'
         ctx.fillText('WĘZEŁ A · |ψ₁⟩ = α|0⟩ + β|1⟩', lx2 - 6 * dpr, ly1 - 7 * dpr)
         ctx.fillStyle = 'rgba(56, 189, 248, 0.75)'
-        ctx.fillText('KOHERENCJA: 99.98% · T₂: 142µs', lx2 - 6 * dpr, ly1 + 9 * dpr)
+        ctx.fillText('ANIMACJA DYNAMIKI FAZOWEJ', lx2 - 6 * dpr, ly1 + 9 * dpr)
 
         // 7B. Right Node Telemetry (Near Right Sphere)
         const rx0 = x2 + r2 * 0.35
@@ -532,9 +532,9 @@ export const QuantumEntanglementCanvas: React.FC<QuantumEntanglementCanvasProps>
 
         ctx.fillStyle = 'rgba(254, 243, 199, 0.92)'
         ctx.textAlign = 'left'
-        ctx.fillText('WĘZEŁ B · |ψ₂⟩ = OPTIMUM', rx2 + 6 * dpr, ry1 - 7 * dpr)
+        ctx.fillText('WĘZEŁ B · PRZESTRZEŃ STANÓW', rx2 + 6 * dpr, ry1 - 7 * dpr)
         ctx.fillStyle = 'rgba(251, 191, 36, 0.75)'
-        ctx.fillText('SOLVER: QAOA + CP-SAT', rx2 + 6 * dpr, ry1 + 9 * dpr)
+        ctx.fillText('METODA: MODEL MATEMATYCZNY', rx2 + 6 * dpr, ry1 + 9 * dpr)
 
         // 7C. Center EPR Channel Badge (Above the Entangled Beam)
         const cx = (x1 + x2) / 2
@@ -542,7 +542,7 @@ export const QuantumEntanglementCanvas: React.FC<QuantumEntanglementCanvasProps>
 
         ctx.textAlign = 'center'
         ctx.fillStyle = 'rgba(192, 132, 252, 0.85)'
-        ctx.fillText('── KANAŁ EPR · STAN BELLA |Φ⁺⟩ · FIDELITY 1.000 ──', cx, cy)
+        ctx.fillText('── INTERAKTYWNA ANIMACJA POGLĄDOWA (BEZ ZNACZENIA POMIAROWEGO) ──', cx, cy)
       }
     }
 

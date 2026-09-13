@@ -214,3 +214,106 @@ async def _fail_job(session: AsyncSession, job: JobRecord, reason: str) -> None:
     job.error_message = reason
     await session.commit()
     logger.error(f"Job {job.id} failed: {reason}")
+
+
+async def run_job_sync(job_id: str, session: AsyncSession) -> JobRecord:
+    """
+    Synchronously execute a solver job within an existing session.
+    Enables direct serverless or integration-test execution without background polling.
+    """
+    job = await session.get(JobRecord, job_id)
+    if job is None:
+        raise ValueError(f"Job {job_id} not found.")
+
+    problem_rec = await session.get(ProblemRecord, job.problem_id)
+    if problem_rec is None:
+        await _fail_job(session, job, "Problem record not found.")
+        return job
+
+    job.execution_status = ExecutionStatus.RUNNING.value
+    job.started_at = datetime.now(timezone.utc)
+    await session.commit()
+
+    try:
+        ir_data = dict(problem_rec.ir_json or {})
+        if problem_rec.approved:
+            ir_data["approved"] = True
+            if problem_rec.approved_at:
+                ir_data["approved_at"] = problem_rec.approved_at.isoformat()
+        problem = ProblemIR.model_validate(ir_data)
+        budget = ComputeBudget.model_validate(job.budget_json or {})
+    except Exception as e:
+        await _fail_job(session, job, f"Failed to deserialise problem: {e}")
+        return job
+
+    adapter = get_adapter_by_name(job.solver_name)
+    if adapter is None:
+        await _fail_job(session, job, f"Unknown solver: {job.solver_name!r}")
+        return job
+
+    loop = asyncio.get_event_loop()
+    try:
+        result: SolverResult = await asyncio.wait_for(
+            loop.run_in_executor(None, adapter.solve, problem, budget),
+            timeout=budget.wall_time_seconds + 5,
+        )
+    except asyncio.TimeoutError:
+        await _fail_job(session, job, "Job exceeded wall time budget.")
+        return job
+    except Exception as e:
+        await _fail_job(session, job, f"Solver raised: {e}")
+        return job
+
+    verification_json: dict | None = None
+    publication_status = "UNVERIFIED"
+
+    if result.assignment:
+        try:
+            verifier = IndependentVerifier(problem)
+            candidate = SolverCandidate(
+                candidate_id=result.candidate_id,
+                assignment=result.assignment,
+                claimed_objective=result.objective_value,
+                claimed_status=result.math_status.value.lower(),
+            )
+            report = verifier.verify(candidate)
+            verification_json = report.model_dump(mode="json")
+            if report.verdict.value.upper() == "PASS":
+                publication_status = "PUBLISHED_VERIFIED"
+                try:
+                    from backend.domain.sensitivity import SensitivityEngine
+                    sens_engine = SensitivityEngine(problem)
+                    rob_report = sens_engine.analyze(
+                        candidate.candidate_id,
+                        candidate.assignment,
+                        report.objective_value,
+                    )
+                    verification_json["robustness"] = rob_report.model_dump(mode="json")
+                except Exception as sens_err:
+                    logger.warning(f"Sensitivity analysis failed for job {job_id}: {sens_err}")
+            else:
+                publication_status = "REJECTED_UNVERIFIED"
+        except Exception as e:
+            logger.warning(f"Verification failed for job {job_id}: {e}")
+            publication_status = "REJECTED_UNVERIFIED"
+    elif result.execution_status == ExecutionStatus.FAILED:
+        publication_status = "REJECTED_UNVERIFIED"
+
+    job.execution_status = result.execution_status.value
+    job.math_status = result.math_status.value
+    job.source = result.source.value
+    job.completed_at = datetime.now(timezone.utc)
+    job.solve_time_seconds = result.solve_time_seconds
+    job.objective_value = result.objective_value
+    job.error_message = result.error_message
+    job.publication_status = publication_status
+    job.result_json = _solver_result_to_json(result)
+    job.verification_json = verification_json
+    await session.commit()
+    await session.refresh(job)
+
+    logger.info(
+        f"Job {job_id} completed synchronously: {result.execution_status.value} / "
+        f"{result.math_status.value}"
+    )
+    return job

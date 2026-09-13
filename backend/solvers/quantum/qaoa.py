@@ -121,6 +121,11 @@ class QAOAAdapter(SolverAdapter):
         except Exception:
             return "unknown"
 
+    def check_available(self) -> tuple[bool, str | None]:
+        if not QISKIT_AVAILABLE:
+            return False, f"Qiskit / Aer not installed: {_QISKIT_IMPORT_ERROR}"
+        return True, None
+
     def supports(self, problem: ProblemIR) -> bool:
         if not QISKIT_AVAILABLE:
             return False
@@ -154,7 +159,7 @@ class QAOAAdapter(SolverAdapter):
             solver_name=self.name,
             solver_version=self.version,
             problem_id=problem.problem_id,
-            source=ComputeSource.QUANTUM_CIRCUIT_SIMULATION,
+            source=ComputeSource.CLASSICAL_SOLVER,
         )
         if not QISKIT_AVAILABLE:
             result.execution_status = ExecutionStatus.FAILED
@@ -166,6 +171,15 @@ class QAOAAdapter(SolverAdapter):
         try:
             record, result = self._run_qaoa(problem, budget, result)
             result.metadata["qaoa_run_record"] = record.__dict__
+            result.execution_evidence = {
+                "backend_name": record.backend_name,
+                "shots": record.shots,
+                "n_qubits": record.n_qubits,
+                "depth": record.circuit_depth,
+                "seed": record.seed,
+                "histogram": record.sample_distribution,
+            }
+            result.source = ComputeSource.QUANTUM_CIRCUIT_SIMULATION
         except Exception as exc:
             result.execution_status = ExecutionStatus.FAILED
             result.math_status = MathStatus.UNKNOWN

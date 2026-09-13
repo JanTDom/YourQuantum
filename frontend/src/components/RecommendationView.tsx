@@ -420,18 +420,20 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
               <div style={{ padding: '0.875rem', borderRadius: '10px', background: 'oklch(8% 0.02 250 / 0.7)', border: '1px solid oklch(20% 0.04 250 / 0.5)' }}>
                 <span style={{ fontSize: '0.6875rem', textTransform: 'uppercase', color: 'oklch(60% 0.04 240)', fontWeight: 700 }}>Luka Optymalności</span>
                 <div style={{ fontSize: '1.15rem', fontWeight: 900, color: 'oklch(75% 0.15 80)', fontFamily: 'ui-monospace, monospace' }}>
-                  {result.verification?.optimality_gap_percent !== null && result.verification?.optimality_gap_percent !== undefined ? `≤ ${result.verification.optimality_gap_percent}%` : '≤ 0.00%'}
+                  {result.verification?.optimality_gap_percent !== null && result.verification?.optimality_gap_percent !== undefined ? `≤ ${result.verification.optimality_gap_percent}%` : 'Brak danych'}
                 </div>
-                <span style={{ fontSize: '0.72rem', color: 'oklch(70% 0.03 240)' }}>Granica dualna udowodniona</span>
+                <span style={{ fontSize: '0.72rem', color: 'oklch(70% 0.03 240)' }}>
+                  {result.verification?.optimality_proven ? 'Granica dualna udowodniona' : 'Brak certyfikatu optymalności'}
+                </span>
               </div>
 
               <div style={{ padding: '0.875rem', borderRadius: '10px', background: 'oklch(8% 0.02 250 / 0.7)', border: '1px solid oklch(20% 0.04 250 / 0.5)' }}>
                 <span style={{ fontSize: '0.6875rem', textTransform: 'uppercase', color: 'oklch(60% 0.04 240)', fontWeight: 700 }}>Odporność na Szok (±25%)</span>
                 <div style={{ fontSize: '1.15rem', fontWeight: 900, color: 'oklch(85% 0.15 220)', fontFamily: 'ui-monospace, monospace' }}>
-                  {result.verification?.robustness ? `${(result.verification.robustness.robustness_score * 100).toFixed(0)}%` : '95%'}
+                  {result.verification?.robustness ? `${(result.verification.robustness.robustness_score * 100).toFixed(0)}%` : 'Brak danych'}
                 </div>
                 <span style={{ fontSize: '0.72rem', color: 'oklch(70% 0.03 240)' }}>
-                  {result.verification?.robustness ? result.verification.robustness.verdict : 'WYSOCE ODPORNE'}
+                  {result.verification?.robustness ? result.verification.robustness.verdict : 'Analiza odporności niedostępna dla tego modelu'}
                 </span>
               </div>
             </div>

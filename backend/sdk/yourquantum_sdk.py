@@ -137,6 +137,18 @@ class YourQuantumClient:
             solver=solver,
         )
 
+    def cognitive_intake(
+        self,
+        query: str,
+        session_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Kognitywna formalizacja problemu decyzyjnego w architekturze inspirowanej ludzkim mózgiem
+        (Prefrontal Working Memory, Episodic Hippocampus, Active Inference).
+        """
+        payload = {"query": query, "session_id": session_id}
+        return self._request("/api/v1/cognitive/intake", payload)
+
     def solve_logistics_selection(
         self,
         routes_or_warehouses: List[Dict[str, Any]],

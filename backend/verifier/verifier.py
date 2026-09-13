@@ -176,7 +176,7 @@ class IndependentVerifier:
             reason = "All constraints satisfied and objective verified successfully"
 
         # 8. Dual bound and optimality gap computation
-        dual_bound, gap_percent, opt_proven = self._compute_dual_gap(
+        dual_bound, gap_percent, opt_proven, opt_note = self._compute_dual_gap(
             candidate, objective_value, feasible
         )
 
@@ -190,7 +190,7 @@ class IndependentVerifier:
 
         # 10. Honest limitations
         limitations = self._build_limitations(
-            candidate, objective_recomputed, opt_proven, gap_percent
+            candidate, objective_recomputed, opt_proven, gap_percent, extra_reason=opt_note
         )
 
         return VerificationReport(
@@ -306,6 +306,7 @@ class IndependentVerifier:
         objective_recomputed: bool,
         opt_proven: bool = False,
         gap_percent: float | None = None,
+        extra_reason: str | None = None,
     ) -> list[str]:
         lims: list[str] = []
         if opt_proven:
@@ -313,10 +314,15 @@ class IndependentVerifier:
             lims.append(f"Global optimality mathematically certified with duality gap <= {gap_str}.")
         elif gap_percent is not None:
             lims.append(f"Global optimality bounded by LP relaxation; duality gap <= {gap_percent:.2f}%.")
+            if candidate.claimed_status.lower() in ("optimal", "model_optimal"):
+                lims.append(f"Solver claimed '{candidate.claimed_status}', but independent verifier found duality gap of {gap_percent:.2f}%.")
         elif candidate.claimed_status.lower() in ("optimal", "model_optimal"):
-            lims.append("Global optimality claimed by solver; independent dual certificate not computed.")
+            lims.append(f"Solver claimed '{candidate.claimed_status}', but independent dual optimality certificate could not be proven.")
         else:
             lims.append("Global optimality not proven by this run.")
+
+        if extra_reason:
+            lims.append(extra_reason)
 
         if not objective_recomputed:
             lims.append(
@@ -330,29 +336,96 @@ class IndependentVerifier:
         )
         return lims
 
+    def _independent_small_n_enumeration(
+        self,
+        vars_list: list[Variable],
+        primary: Objective,
+        is_min: bool,
+        objective_value: float,
+    ) -> tuple[float | None, float | None, bool, str | None]:
+        import itertools
+        var_ids = [v.id for v in vars_list]
+        n = len(var_ids)
+        best_obj = float("inf") if is_min else float("-inf")
+        feasible_found = False
+
+        for bits in itertools.product([0.0, 1.0], repeat=n):
+            candidate_assignment = dict(zip(var_ids, bits))
+            feasible = True
+            for c in self._problem.constraints:
+                if not c.hard:
+                    continue
+                try:
+                    lhs = self._evaluator.evaluate(c.lhs_expression_id, candidate_assignment)
+                    rhs = self._evaluator.evaluate(c.rhs_expression_id, candidate_assignment) if c.rhs_expression_id else 0.0
+                    if c.type == ConstraintType.EQUALITY and abs(lhs - rhs) > self.NUMERIC_TOLERANCE:
+                        feasible = False
+                        break
+                    elif c.type == ConstraintType.INEQUALITY_LE and (lhs - rhs) > self.NUMERIC_TOLERANCE:
+                        feasible = False
+                        break
+                    elif c.type == ConstraintType.INEQUALITY_GE and (rhs - lhs) > self.NUMERIC_TOLERANCE:
+                        feasible = False
+                        break
+                except Exception:
+                    feasible = False
+                    break
+
+            if not feasible:
+                continue
+
+            try:
+                val = self._evaluator.evaluate(primary.expression_id, candidate_assignment)
+            except Exception:
+                continue
+
+            feasible_found = True
+            if is_min:
+                if val < best_obj:
+                    best_obj = val
+            else:
+                if val > best_obj:
+                    best_obj = val
+
+        if feasible_found:
+            diff = abs(objective_value - best_obj)
+            denom = abs(objective_value) if abs(objective_value) > 1e-6 else 1.0
+            gap = (diff / denom) * 100.0
+            opt_proven = diff <= self.NUMERIC_TOLERANCE
+            note = None if opt_proven else f"Niezależna enumeracja wykazała istnienie lepszego rozwiązania (wartość={best_obj}, zgłoszono={objective_value})."
+            return best_obj, round(gap, 2), opt_proven, note
+
+        return None, None, False, "Niezależna enumeracja nie znalazła rozwiązań dopuszczalnych."
+
     def _compute_dual_gap(
         self,
         candidate: SolverCandidate,
         objective_value: float | None,
         feasible: bool,
-    ) -> tuple[float | None, float | None, bool]:
+    ) -> tuple[float | None, float | None, bool, str | None]:
         """
         Compute continuous LP relaxation dual bound and proven optimality gap.
-        Returns (dual_bound, gap_percent, optimality_proven).
+        Never blindly trusts candidate.claimed_status.
+        Returns (dual_bound, gap_percent, optimality_proven, reason_note).
         """
         if not feasible or objective_value is None or not self._problem.objectives:
-            return None, None, False
-
-        # If solver already certified mathematical optimality (e.g. CP-SAT proven optimum)
-        if candidate.claimed_status.lower() in ("optimal", "model_optimal"):
-            return objective_value, 0.0, True
+            return None, None, False, None
 
         primary = self._problem.objectives[0]
         is_min = primary.direction == ObjectiveDirection.MINIMIZE
         vars_list = self._problem.variables
         n = len(vars_list)
         if n == 0:
-            return None, None, False
+            return None, None, False, None
+
+        # Check scipy availability
+        try:
+            from scipy.optimize import linprog
+        except ImportError:
+            # If scipy is not available, check if small-N exact enumeration can independently prove optimality
+            if all(v.domain == VariableDomain.BINARY for v in vars_list) and n <= 16:
+                return self._independent_small_n_enumeration(vars_list, primary, is_min, objective_value)
+            return None, None, False, "Brak biblioteki scipy — niezależna relaksacja dualna HiGHS niedostępna."
 
         base_assign = {v.id: 0.0 for v in vars_list}
         try:
@@ -402,7 +475,6 @@ class IndependentVerifier:
                     ub = v.upper_bound if v.upper_bound is not None else np.inf
                     bounds.append((lb, ub))
 
-            from scipy.optimize import linprog
             lp_res = linprog(
                 c,
                 A_ub=np.array(A_ub) if A_ub else None,
@@ -417,8 +489,24 @@ class IndependentVerifier:
                 denom = abs(objective_value) if abs(objective_value) > 1e-6 else 1.0
                 gap = abs(objective_value - dual_bound) / denom * 100.0
                 opt_proven = gap < 1e-4
-                return dual_bound, round(gap, 2), opt_proven
-        except Exception:
-            pass
+                if opt_proven:
+                    return dual_bound, round(gap, 2), True, None
 
-        return None, None, False
+                # If LP relaxation had an integrality gap, check if independent small-N enumeration can certify it
+                if all(v.domain == VariableDomain.BINARY for v in vars_list) and n <= 16:
+                    enum_bound, enum_gap, enum_proven, enum_note = self._independent_small_n_enumeration(
+                        vars_list, primary, is_min, objective_value
+                    )
+                    if enum_proven:
+                        return enum_bound, enum_gap, True, None
+                    elif enum_note:
+                        return dual_bound, round(gap, 2), False, enum_note
+
+                return dual_bound, round(gap, 2), False, None
+        except Exception as exc:
+            # Fallback to small-N enumeration if linear model extraction threw an error (e.g. non-linear problem)
+            if all(v.domain == VariableDomain.BINARY for v in vars_list) and n <= 16:
+                return self._independent_small_n_enumeration(vars_list, primary, is_min, objective_value)
+            return None, None, False, f"Błąd relaksacji dualnej HiGHS: {exc}"
+
+        return None, None, False, None

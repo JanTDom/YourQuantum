@@ -15,7 +15,10 @@ data/*.sqlite*
 
 
 .vercel
-.env*
+.env
+.env.*
+!.env.example
 *.tsbuildinfo
 test-results/
 playwright-report/
+

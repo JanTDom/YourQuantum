@@ -1,103 +1,87 @@
 # CAPABILITIES.md — Feature Registry
 
-**Status:** PLANNED · **Last updated:** 2026-09-09
+**Status:** ACTIVE REGISTRY · **Last updated:** 2026-09-13
+**Dynamic API Endpoint:** `GET /api/v1/capabilities` (powered by `backend/domain/capabilities.py`)
 
-Feature status lifecycle:
+Feature status lifecycle (AGENTS.md §7 — Evidence Rule):
 - **PLANNED** — decided, not yet started.
-- **IMPLEMENTED** — code written, not yet tested.
-- **TESTED** — automated tests passing.
-- **DEPLOYED** — live in production environment.
+- **IMPLEMENTED** — code written, awaiting test verification.
+- **TESTED** — verified by automated tests in CI/pytest suite.
+- **DEPLOYED** — running in production environment.
 
 ---
 
 ## Core Pipeline
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Problem intake (natural language) | PLANNED | LLM-assisted formalisation |
-| Problem IR schema v0 | PLANNED | See PROBLEM_IR.md |
-| IR user approval step | PLANNED | Deliberate user action required |
-| Method routing engine | PLANNED | Capability-registry-driven |
-| Problem decomposition | PLANNED | Sub-problem splitting |
-| Compute budget enforcement | PLANNED | Per-job limits |
+| Feature | Status | Test Reference / Notes |
+|---------|--------|-------------------------|
+| Problem intake (natural language) | **TESTED** | `tests/test_formalizer.py` · LLM + cognitive fallback |
+| Problem IR schema v0.2 | **TESTED** | `tests/test_problem_ir.py` · Strict Pydantic validation |
+| IR user approval gate | **TESTED** | `tests/test_api_and_gate.py` · Deliberate human action |
+| Compute budget enforcement | **TESTED** | `tests/test_universal_api.py` · Time & memory limits |
+| Problem decomposition (Benders) | **TESTED** | `tests/test_hybrid_benders.py` · Master & Subproblem cuts |
+| Dynamic method router | **IMPLEMENTED** | `backend/domain/router.py` (Phase B enhancement) |
 
 ---
 
 ## Classical Solvers
 
-| Solver / Capability | Status | Notes |
-|--------------------|--------|-------|
-| CP-SAT (OR-Tools) | PLANNED | Constraint satisfaction and optimisation |
-| HiGHS / PuLP | PLANNED | Linear and mixed-integer programming |
+| Solver / Capability | Status | Test Reference / Notes |
+|--------------------|--------|-------------------------|
+| CP-SAT (Google OR-Tools) | **TESTED** | `tests/test_audit_regressions.py` · Discrete MIP |
+| HiGHS LP Dual Relaxation | **TESTED** | `tests/test_dual_certificate.py` · Dual bounds & gap |
+| Exhaustive Enumeration ($n \le 22$) | **TESTED** | `tests/test_audit_regressions.py` · Small state exact |
 | Z3 SMT solver | PLANNED | Logical and symbolic problems |
-| SciPy optimisers | PLANNED | Continuous optimisation (SLSQP, etc.) |
-| SymPy | PLANNED | Symbolic computation |
-| Gurobi adapter | PLANNED | Licensed solver; optional |
+| SciPy continuous optimisers | PLANNED | Continuous non-linear optimisation |
+| Gurobi adapter | PLANNED | Commercial solver; optional |
 
 ---
 
 ## Quantum Core
 
-| Capability | Status | Notes |
-|-----------|--------|-------|
-| Complex amplitude state vector | PLANNED | |
-| Gate-level circuit composition | PLANNED | |
-| Ideal statevector simulator | PLANNED | |
-| Noise model simulator | PLANNED | Kraus channels |
-| Measurement sampling | PLANNED | Configurable shots |
-| QUBO encoder | PLANNED | Problem IR → Q matrix |
-| Ising encoder | PLANNED | Problem IR → h, J |
-| Cost Hamiltonian builder | PLANNED | |
-| QAOA ansatz | PLANNED | |
-| VQE ansatz | PLANNED | |
-| Variational parameter optimiser | PLANNED | COBYLA, SPSA, Adam |
-| QPU adapter interface | PLANNED | Abstract; backends TBD |
-| IBM Quantum backend | PLANNED | Requires API key |
-| AWS Braket backend | PLANNED | Requires AWS credentials |
+| Capability | Status | Test Reference / Notes |
+|-----------|--------|-------------------------|
+| QUBO encoder ($Q$-matrix) | **TESTED** | `tests/test_qubo.py` · Exact penalty calibration |
+| Ising encoder ($h, J$ spins) | **TESTED** | `tests/test_qubo.py` · Spin mapping & zero ground check |
+| QAOA ansatz (Qiskit Aer) | **TESTED** | `tests/test_qaoa.py` · Parameterized circuit simulation |
+| Warm-Started QAOA | **TESTED** | `tests/test_warm_start_qaoa.py` · LP relaxation seeding |
+| Parameter optimisers (COBYLA/Nelder-Mead) | **TESTED** | `tests/test_qaoa.py` · Multi-start optimization |
+| Gate-level circuit telemetry | **TESTED** | `tests/test_qaoa.py` · Depth, gate counts, evidence |
+| Noise model simulator (Kraus) | PLANNED | Phase F implementation |
+| Physical QPU backends (IBM/Braket) | PLANNED | Hardware execution path |
 
 ---
 
-## Verification
+## Verification & Robustness
 
-| Capability | Status | Notes |
-|-----------|--------|-------|
-| Constraint satisfaction check | PLANNED | Independent re-evaluation |
-| Objective value recomputation | PLANNED | |
-| Feasibility check | PLANNED | |
-| Numerical residual computation | PLANNED | |
-| Verification report generation | PLANNED | |
-
----
-
-## Data I/O
-
-| Capability | Status | Notes |
-|-----------|--------|-------|
-| JSON / CSV import | PLANNED | |
-| Schema validation at import | PLANNED | |
-| Unit normalisation | PLANNED | |
-| Missing data detection | PLANNED | |
-| Result export (JSON, CSV) | PLANNED | |
+| Capability | Status | Test Reference / Notes |
+|-----------|--------|-------------------------|
+| Independent constraint re-evaluation | **TESTED** | `tests/test_verifier.py` · Zero solver trust |
+| Objective value recomputation | **TESTED** | `tests/test_verifier.py` · AST expression evaluator |
+| Feasibility & domain violation check | **TESTED** | `tests/test_verifier.py` · Bounds & integrality |
+| Dual bound & optimality certificate | **TESTED** | `tests/test_dual_certificate.py` · Non-bypass verification |
+| Sensitivity analysis (elasticity, stress test) | **TESTED** | `tests/test_sensitivity.py` · Parameter shock |
+| Verification report SHA256 integrity | **TESTED** | `tests/test_verifier.py` · Tamper-proof reports |
 
 ---
 
-## Frontend / API
+## Cognitive Subsystem
 
-| Capability | Status | Notes |
-|-----------|--------|-------|
-| Problem intake UI | PLANNED | |
-| IR review and approval UI | PLANNED | |
-| Result presentation UI | PLANNED | |
-| Verification verdict display | PLANNED | PASS/FAIL/PARTIAL always visible |
-| REST API | PLANNED | |
-| Authentication | PLANNED | |
+| Capability | Status | Test Reference / Notes |
+|-----------|--------|-------------------------|
+| Active Inference perception loop | **TESTED** | `tests/test_audit_regressions.py` · Self-correction |
+| Global Workspace Working Memory | **TESTED** | `tests/test_audit_regressions.py` · Attention & hypotheses |
+| Episodic Memory with tenant isolation | **TESTED** | `tests/test_audit_regressions.py` · Safe recall & no leak |
+| Constraint sanity pre-check | **TESTED** | `tests/test_audit_regressions.py` · Contradiction catches |
 
 ---
 
-## Benchmarking
+## Frontend / API / Integrations
 
-| Capability | Status | Notes |
-|-----------|--------|-------|
-| Benchmark runner | PLANNED | See BENCHMARK_PROTOCOL.md |
-| Result storage and retrieval | PLANNED | |
-| Comparison report generation | PLANNED | |
+| Capability | Status | Test Reference / Notes |
+|-----------|--------|-------------------------|
+| Problem intake UI | **TESTED** | React frontend + Playwright E2E |
+| Model approval gate | **TESTED** | React UI with coefficient inspection |
+| Result presentation UI | **TESTED** | RecommendationView with honest copy |
+| REST API with JWT/HMAC auth | **TESTED** | `tests/test_universal_api.py` |
+| MCP Server (Model Context Protocol) | **TESTED** | `tests/test_mcp_server.py` |

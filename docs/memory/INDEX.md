@@ -48,6 +48,7 @@ Next action: paste the build specification prompt into `docs/BUILD_SPEC.md`.
 | `docs/memory/LESSONS.md` | Repeatable lessons with evidence |
 | `docs/PRODUCT.md` | Product goal, audience, scope, exclusions |
 | `docs/BUILD_SPEC.md` | Full build prompt (awaiting) |
+| `docs/BUILD_SPEC_V2.md` | V2 remediation & development prompt (2026-09-13) |
 | `docs/ARCHITECTURE.md` | 5-layer architecture, component contracts |
 | `docs/PROBLEM_IR.md` | Versioned problem representation schema |
 | `docs/QUANTUM_CORE.md` | Quantum module design and execution path |

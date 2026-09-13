@@ -261,14 +261,31 @@ export const ModelApprovalGate: React.FC<ModelApprovalGateProps> = ({
               background: 'oklch(8% 0.015 250)',
               border: '1px solid oklch(20% 0.025 250)',
               borderLeft: '3px solid oklch(75% 0.12 80 / 0.6)',
-              borderRadius: '10px', padding: '1.25rem', marginBottom: '2rem',
+              borderRadius: '10px', padding: '1.25rem', marginBottom: '1.5rem',
             }}>
               <div style={{
-                fontSize: '0.75rem', fontWeight: 800,
-                letterSpacing: '0.1em', textTransform: 'uppercase',
-                color: 'oklch(75% 0.12 80)', marginBottom: '0.625rem',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                marginBottom: '0.625rem',
               }}>
-                Co system zrozumiał z Twojego opisu
+                <div style={{
+                  fontSize: '0.75rem', fontWeight: 800,
+                  letterSpacing: '0.1em', textTransform: 'uppercase',
+                  color: 'oklch(75% 0.12 80)',
+                }}>
+                  Co system zrozumiał z Twojego opisu
+                </div>
+                <button
+                  type="button"
+                  onClick={onBack}
+                  disabled={isSolving}
+                  style={{
+                    background: 'none', border: 'none', padding: 0,
+                    color: 'oklch(75% 0.12 80)', fontSize: '0.75rem', fontWeight: 700,
+                    cursor: 'pointer', textDecoration: 'underline',
+                  }}
+                >
+                  Popraw opis
+                </button>
               </div>
               <p style={{
                 margin: 0, fontSize: '0.9375rem',
@@ -277,6 +294,117 @@ export const ModelApprovalGate: React.FC<ModelApprovalGateProps> = ({
               }}>
                 {formalized.description_formalised}
               </p>
+            </div>
+
+            {/* ── Mathematical model: Objective & Coefficients ── */}
+            <div style={{
+              background: 'oklch(11% 0.02 250)',
+              border: '1px solid oklch(22% 0.025 250)',
+              borderRadius: '10px', padding: '1.25rem', marginBottom: '2rem',
+            }}>
+              <div style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                marginBottom: '1rem',
+              }}>
+                <div>
+                  <div style={{
+                    fontSize: '0.75rem', fontWeight: 800,
+                    letterSpacing: '0.1em', textTransform: 'uppercase',
+                    color: 'oklch(62% 0.18 240)',
+                  }}>
+                    Model matematyczny — Funkcja celu i wagi kryteriów
+                  </div>
+                  <div style={{ fontSize: '0.8125rem', color: 'oklch(56% 0.018 250)', marginTop: '0.2rem' }}>
+                    Kierunek: <strong style={{ color: 'oklch(85% 0.02 250)' }}>{direction === 'maximize' ? 'Maksymalizacja' : 'Minimalizacja'}</strong>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={onBack}
+                  disabled={isSolving}
+                  style={{
+                    background: 'oklch(16% 0.025 250)',
+                    border: '1px solid oklch(28% 0.03 250)',
+                    borderRadius: '6px', padding: '0.35rem 0.75rem',
+                    fontSize: '0.75rem', fontWeight: 600,
+                    color: 'oklch(75% 0.12 80)', cursor: isSolving ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  ✎ Popraw formalizację
+                </button>
+              </div>
+
+              {/* Formula badge */}
+              <div style={{
+                background: 'oklch(7% 0.012 250)',
+                border: '1px solid oklch(18% 0.02 250)',
+                borderRadius: '8px', padding: '0.75rem 1rem',
+                fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                fontSize: '0.8125rem', color: 'oklch(80% 0.08 80)',
+                marginBottom: '1rem', overflowX: 'auto',
+              }}>
+                {direction.toUpperCase()}(Z) ={' '}
+                {Object.keys(formalized.objective_coefficients).length > 0
+                  ? Object.entries(formalized.objective_coefficients)
+                      .map(([k, v], idx) => `${idx > 0 && v >= 0 ? '+ ' : ''}${v} · ${k}`)
+                      .join(' ')
+                  : formalized.binary_variables.map((v, idx) => `${idx > 0 ? '+ ' : ''}1.0 · ${v}`).join(' ')}
+              </div>
+
+              {/* Coefficients grid */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                gap: '0.5rem', marginBottom: '1rem',
+              }}>
+                {formalized.binary_variables.map((varName) => {
+                  const coeff = formalized.objective_coefficients[varName] ?? 1.0
+                  return (
+                    <div
+                      key={varName}
+                      style={{
+                        background: 'oklch(13% 0.02 250)',
+                        border: '1px solid oklch(20% 0.022 250)',
+                        borderRadius: '6px', padding: '0.625rem 0.75rem',
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      }}
+                    >
+                      <span style={{ fontSize: '0.8125rem', color: 'oklch(82% 0.02 250)', fontWeight: 600 }}>
+                        {varName}
+                      </span>
+                      <span style={{
+                        fontSize: '0.75rem', fontFamily: 'monospace',
+                        fontWeight: 700, padding: '0.125rem 0.375rem', borderRadius: '4px',
+                        background: 'oklch(18% 0.025 250)',
+                        color: coeff >= 0 ? 'oklch(75% 0.12 80)' : 'oklch(65% 0.15 25)',
+                      }}>
+                        waga: {coeff}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Constraints review if any */}
+              {constraintCount > 0 && (
+                <div style={{ borderTop: '1px solid oklch(18% 0.02 250)', paddingTop: '0.75rem' }}>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'oklch(60% 0.02 250)', marginBottom: '0.5rem' }}>
+                    Twarde reguły matematyczne:
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+                    {formalized.equality_constraints.map((c, idx) => (
+                      <div key={`eq-${idx}`} style={{ fontSize: '0.75rem', color: 'oklch(70% 0.02 250)', fontFamily: 'monospace' }}>
+                        • {Object.entries(c.lhs).map(([k, v]) => `${v}·${k}`).join(' + ')} = {c.rhs} (równość)
+                      </div>
+                    ))}
+                    {formalized.inequality_constraints.map((c, idx) => (
+                      <div key={`ineq-${idx}`} style={{ fontSize: '0.75rem', color: 'oklch(70% 0.02 250)', fontFamily: 'monospace' }}>
+                        • {Object.entries(c.lhs).map(([k, v]) => `${v}·${k}`).join(' + ')} ≤ {c.rhs} (ograniczenie zasobu)
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* ── Solver selection ──────────────────────────── */}

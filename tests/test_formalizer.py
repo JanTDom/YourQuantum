@@ -11,12 +11,16 @@ def test_empty_input():
 
 def test_knapsack_heuristic():
     formalizer = ProblemFormalizer()
-    res = formalizer.formalize("Chcę rozwiązać problem plecakowy o udźwigu 7 kg dla 4 przedmiotów")
+    res = formalizer.formalize("Chcę rozwiązać problem plecakowy o udźwigu 7 kg. Przedmioty: A waga 2 zysk 5, B waga 3 zysk 8, C waga 4 zysk 9, D waga 1 zysk 3")
     assert res.identified_archetype == "knapsack"
     assert len(res.binary_variables) == 4
     assert res.objective_direction == "maximize"
     assert len(res.inequality_constraints) == 1
     assert res.inequality_constraints[0]["rhs"] == 7.0
+
+    # Also verify that omitting items triggers honest missing_information (A6)
+    res_missing = formalizer.formalize("Problem plecakowy o udźwigu 10 kg bez przedmiotów")
+    assert len(res_missing.missing_information) > 0
 
 
 def test_maxcut_heuristic():

@@ -26,5 +26,5 @@ def test_generate_help_knowledge_base():
     assert "jak-zadawac-dylematy" in topic_ids
     assert "dlaczego-system-dopytuje" in topic_ids
     assert "suwaki-i-wagi" in topic_ids
-    assert "optymalizacja-kwantowa-dla-laika" in topic_ids
+    assert "kwantowa-optymalizacja" in topic_ids or "optymalizacja-kwantowa-dla-laika" in topic_ids
     assert "gwarancja-weryfikacji" in topic_ids

@@ -5,10 +5,13 @@ No business logic in route handlers.
 """
 from __future__ import annotations
 
+import logging
 import os
 import uuid
 from datetime import datetime, timezone
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
@@ -23,12 +26,13 @@ from backend.domain.problem_ir import (
 )
 from backend.worker.runner import SOLVER_REGISTRY, enqueue_job
 from backend.api.universal_engine import UniversalComputeRequest
+from backend.domain.capabilities import get_capabilities_registry
 
 router = APIRouter()
 
 
 # ---------------------------------------------------------------------------
-# Health
+# Health & Capabilities
 # ---------------------------------------------------------------------------
 
 @router.get("/health")
@@ -38,15 +42,25 @@ async def health() -> dict[str, str]:
 
 @router.get("/health/solvers")
 async def health_solvers() -> dict[str, Any]:
-    """Report which solvers are available."""
+    """Report real availability and installation status for all registered solvers."""
+    results = []
+    for a in SOLVER_REGISTRY:
+        avail, err = a.check_available()
+        results.append({
+            "name": a.name,
+            "version": a.version,
+            "available": avail,
+            "import_error": err,
+        })
+    return {"solvers": results}
+
+
+@router.get("/capabilities")
+async def get_capabilities() -> dict[str, Any]:
+    """Return live registry of engine capabilities with honest status and test references."""
+    records = get_capabilities_registry()
     return {
-        "solvers": [
-            {
-                "name": a.name,
-                "version": a.version,
-            }
-            for a in SOLVER_REGISTRY
-        ]
+        "capabilities": [r.model_dump(mode="json") for r in records]
     }
 
 
@@ -569,15 +583,24 @@ class ApiAccessVerifyRequest(BaseModel):
 
 @router.post("/auth/verify-api-access")
 async def verify_api_access(req: ApiAccessVerifyRequest) -> dict[str, Any]:
-    """Verify master password A132a132! and issue bearer token."""
-    import hashlib
-    from backend.api.universal_engine import MASTER_API_SECRET, verify_master_secret
+    """Verify master API access secret and issue expiring HMAC-signed bearer token."""
+    from backend.api.universal_engine import (
+        create_expiring_token,
+        get_master_api_secret,
+        verify_master_secret,
+    )
+    secret = get_master_api_secret()
+    if not secret:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Autoryzacja API nie jest skonfigurowana na serwerze (brak zmiennej środowiskowej YQ_MASTER_API_SECRET).",
+        )
     if not verify_master_secret(req.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Nieprawidłowe hasło dostępu do Kwantowego API i SDK.",
         )
-    token = "yq_live_master_" + hashlib.sha256(MASTER_API_SECRET.encode()).hexdigest()[:24]
+    token = create_expiring_token(secret, ttl_hours=24)
     return {
         "valid": True,
         "token": token,

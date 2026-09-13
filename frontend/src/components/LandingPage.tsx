@@ -67,8 +67,12 @@ const COMPARISONS = [
     yq: 'Silnik przeszukuje przestrzeń stanów algorytmem kwantowym QAOA',
   },
   {
+    ai: 'Typowy agent to czarna skrzynka bez kontroli homeostazy i pamięci roboczej',
+    yq: 'Mózg kognitywny: Pamięć robocza, hipokamp i pętla Active Inference',
+  },
+  {
     ai: 'Halucynuje sprzeczne fakty i łamie twarde ograniczenia',
-    yq: 'Solver CP-SAT gwarantuje 100% spełnienia każdego ograniczenia',
+    yq: 'Solver CP-SAT rygorystycznie weryfikuje spełnienie każdego ograniczenia',
   },
   {
     ai: 'Generuje subiektywne, nieweryfikowalne opinie',
@@ -90,14 +94,14 @@ const STEPS = [
   {
     step: '01',
     title: 'Opisujesz swoją sytuację',
-    body: 'Zwykłymi słowami. Bez żargonu. System rozumie kontekst — zawodowy dylemat, wybór inwestycji, problem optymalizacji zasobów.',
+    body: 'Zwykłymi słowami. Bez żargonu. Kognitywna pamięć robocza natychmiast wychwytuje cel, warianty i ukryte kompromisy.',
     img: '/images/scientist-holo.jpg',
     imgAlt: 'Naukowiec pracujący z holograficznym interfejsem danych kwantowych',
   },
   {
     step: '02',
-    title: 'System formalizuje i oblicza',
-    body: 'Problem zostaje zamieniony na ścisły model matematyczny. Solver kwantowy QAOA i CP-SAT szukają globalnego optimum — nie zgadują.',
+    title: 'Mózg kognitywny formalizuje i oblicza',
+    body: 'Pętla Active Inference dopracowuje model, a solver kwantowy QAOA i CP-SAT szukają globalnego optimum w przestrzeni stanów.',
     img: '/images/chip.jpg',
     imgAlt: 'Procesor kwantowy z wzorcem świetlnych kubitów',
   },
@@ -115,7 +119,7 @@ const STEPS = [
 const MACHINE_STATS = [
   { value: 'QAOA', label: 'Algorytm kwantowy' },
   { value: 'CP-SAT', label: 'Solver klasyczny' },
-  { value: '100%', label: 'Wyniki weryfikowane' },
+  { value: 'Active Inference', label: 'Pętla błędu predykcji' },
   { value: '0', label: 'Halucynacji w testach' },
 ] as const
 
@@ -205,7 +209,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               onClick={onOpenApiPortal}
               type="button"
               className={s.navApiBtn}
-              title="Otwórz Portal API & Pobierz SDK (zabezpieczone hasłem A132a132!)"
+              title="Otwórz Portal API & Pobierz SDK"
             >
               <span>⚡</span>
               <span>API & SDK</span>
@@ -269,7 +273,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               type="button"
               className={s.navApiBtn}
               style={{ padding: '0.4rem 0.85rem', fontSize: '0.8125rem' }}
-              title="Otwórz Portal API & Pobierz SDK (zabezpieczone hasłem A132a132!)"
+              title="Otwórz Portal API & Pobierz SDK"
             >
               <span>⚡</span>
               <span>API & SDK</span>
@@ -358,7 +362,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <div className={s.quantumPillBadge}>
               <span className={s.quantumPillDot} />
               <span className={s.quantumPillText}>
-                MECHANIZM KWANTOWY ZAMIAST ZGADYWANIA CZATU AI
+                🧠 NASZ INTERFEJS TO NIE JEST KOLEJNY CZATBOT · NAŚLADUJE MECHANIZMY LUDZKIEGO MÓZGU
               </span>
             </div>
 
@@ -370,16 +374,30 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </h1>
 
             <p className={s.heroSub}>
-              Czaty AI losowo zgadują kolejne słowa i halucynują. <strong>YourQuantum przeszukuje przestrzeń stanów i oblicza optimum</strong>.
-              Algorytmy kwantowe QAOA, solver CP-SAT oraz 100% niezależny dowód matematyczny bez zgadywania.
+              Czaty AI losowo zgadują kolejne słowa i halucynują. <strong>YourQuantum łączy architekturę kognitywną inspirowaną ludzkim mózgiem z kwantowym przeszukiwaniem przestrzeni stanów</strong>.
+              Prefrontalna pamięć robocza, pętla Active Inference, solver CP-SAT oraz algorytmy QAOA z niezależnym dowodem matematycznym bez zgadywania.
             </p>
+
+            {/* ── MANIFESTO CALLOUT ── */}
+            <div className={s.heroManifestoCallout} role="region" aria-label="Manifest interfejsu kognitywnego">
+              <div className={s.heroManifestoBadge}>
+                <span className={s.heroManifestoPulseDot} />
+                <span>ARCHITEKTURA KOGNITYWNA MÓZGU</span>
+              </div>
+              <p className={s.heroManifestoHeading}>
+                Nasz interfejs to nie jest kolejny czatbot. <strong>Naśladuje mechanizmy ludzkiego mózgu.</strong>
+              </p>
+              <p className={s.heroManifestoBody}>
+                Zamiast generować losowe słowa na podstawie prawdopodobieństwa, silnik operuje jak umysł: utrzymuje ognisko uwagi w Global Workspace, redukuje błąd predykcji w pętli Active Inference i weryfikuje każde rozwiązanie w twardych solverach oraz procesorze kwantowym.
+              </p>
+            </div>
 
             {/* ── HERO INLINE FORM ── flagship Quantum Terminal ── */}
             <div className={s.heroInputWrap} role="group" aria-label="Kwantowy terminal do wpisania dylematu">
               <div className={s.terminalHeader}>
                 <div className={s.terminalStatus}>
                   <span className={s.terminalStatusDot} />
-                  <span className={s.terminalStatusText}>TERMINAL OBLICZEŃ KWANTOWYCH</span>
+                  <span className={s.terminalStatusText}>INTERFEJS KOGNITYWNY · BRAIN ARCHITECTURE</span>
                 </div>
                 <div className={s.terminalEngineBadge}>
                   QAOA + CP-SAT · 0% Halucynacji
@@ -448,7 +466,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <div className={s.heroFloatingHud}>
               <div className={s.hudLiveIndicator}>
                 <span className={s.hudLiveDot} />
-                <span className={s.hudLiveText}>KOHERENCJA KWANTOWA: 99.98% · 0% HALUCYNACJI</span>
+                <span className={s.hudLiveText}>SILNIK OBLICZENIOWY: AKTYWNY · DOWÓD MATEMATYCZNY</span>
               </div>
               <div className={s.hudBtnGroup}>
                 {onOpenBrain && (
@@ -468,7 +486,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     onClick={onOpenApiPortal}
                     type="button"
                     className={s.hudApiBtn}
-                    title="Otwórz Portal API & Pobierz SDK (hasło A132a132!)"
+                    title="Otwórz Portal API & Pobierz SDK"
                   >
                     <span>⚡</span>
                     <span>Portal API & SDK</span>
@@ -505,17 +523,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         <div className={s.tickerInner} aria-hidden="true">
           {Array.from({ length: 3 }, (_, i) => (
             <span key={i} className={s.tickerTrack}>
-              <span>52 testy — 0 halucynacji</span>
+              <span>Interfejs oparty na architekturze pamięci roboczej i pętli Active Inference</span>
               <span className={s.tickerDot}>◆</span>
-              <span>Bije na głowę czaty AI: czysta matematyka</span>
+              <span>Automatyczne testy regresyjne · Niezależna weryfikacja</span>
               <span className={s.tickerDot}>◆</span>
-              <span>Algorytm kwantowy QAOA · Solver CP-SAT</span>
+              <span>Ścisłe metody obliczeniowe zamiast generowania tekstu</span>
               <span className={s.tickerDot}>◆</span>
-              <span>100% niezależna weryfikacja każdego wyniku</span>
+              <span>Symulacja kwantowa QAOA · Solver ścisły CP-SAT</span>
+              <span className={s.tickerDot}>◆</span>
+              <span>Niezależna weryfikacja matematyczna każdego wyniku</span>
               <span className={s.tickerDot}>◆</span>
               <span>Przeszukiwanie przestrzeni stanów zamiast zgadywania</span>
               <span className={s.tickerDot}>◆</span>
-              <span>Wynik z dowodem · Analiza co-jeśli</span>
+              <span>Wynik z certyfikatem · Analiza wrażliwości</span>
               <span className={s.tickerDot}>◆</span>
             </span>
           ))}
@@ -547,11 +567,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
         <div className={s.comparisonContent}>
           <p className={s.sectionEyebrow} id="comparison-heading">
-            Dlaczego nie chatbot
+            Architektura kognitywna vs Czatbot
           </p>
           <h2 className={s.sectionTitle}>
-            ChatGPT odpowiada.<br />
-            <span className={s.goldText}>YourQuantum oblicza.</span>
+            Nasz interfejs to nie jest kolejny czatbot.<br />
+            <span className={s.goldText}>Naśladuje mechanizmy ludzkiego mózgu.</span>
           </h2>
 
           <div
@@ -572,6 +592,167 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── COGNITIVE ARCHITECTURE (BRAIN-INSPIRED ORCHESTRATION) ── */}
+      <section
+        className={s.cognitiveSection}
+        id="architektura-kognitywna"
+        aria-labelledby="cognitive-heading"
+      >
+        <div className={s.cognitiveSectionBg} aria-hidden="true" />
+
+        <div className={s.cognitiveContainer}>
+          <div className={s.cognitiveHeader}>
+            <div className={s.cognitivePill}>
+              <span className={s.cognitivePillDot} />
+              <span>ARCHITEKTURA KOGNITYWNA MÓZGU</span>
+            </div>
+            <h2 className={s.cognitiveTitle} id="cognitive-heading">
+              Nasz interfejs to nie jest kolejny czatbot.<br />
+              <span className={s.goldText}>Naśladuje mechanizmy ludzkiego mózgu.</span>
+            </h2>
+            <p className={s.cognitiveSubtitle}>
+              Zamiast czarnej skrzynki losowo przewidującej słowa, orkiestrator YourQuantum
+              implementuje teorię Global Workspace oraz Zasadę Wolnej Energii Karla Fristona.
+              Oto 4 filary kognitywnej inteligencji:
+            </p>
+          </div>
+
+          <div className={s.cognitiveBentoGrid} role="list" aria-label="Cztery filary architektury kognitywnej">
+            {/* Lobe 1: Working Memory */}
+            <div className={s.bentoCard} role="listitem">
+              <div>
+                <div className={s.bentoCardHeader}>
+                  <div className={s.bentoIconBadge} aria-hidden="true">🧠</div>
+                  <span className={s.bentoSubsystemTag}>Prefrontal Cortex</span>
+                </div>
+                <h3 className={s.bentoHeading}>Pamięć Robocza & Cybernetyczna Homeostaza</h3>
+                <p className={s.bentoParagraph}>
+                  Global Workspace utrzymuje cel w skupieniu uwagi i śledzi zmienne decyzyjne w procesie RAM.
+                  Dynamiczny budżet metaboliczny (Energy Budget) reguluje zużycie energii i chroni proces przed halucynowaniem.
+                </p>
+              </div>
+              <ul className={s.bentoBullets}>
+                <li className={s.bentoBulletItem}>
+                  <span className={s.bentoBulletCheck}>✓</span>
+                  <span>Ognisko uwagi: ścisłe mapowanie celów i stopni swobody.</span>
+                </li>
+                <li className={s.bentoBulletItem}>
+                  <span className={s.bentoBulletCheck}>✓</span>
+                  <span>Metaboliczny Energy Budget zapobiega bezmyślnemu dryfowi.</span>
+                </li>
+                <li className={s.bentoBulletItem}>
+                  <span className={s.bentoBulletCheck}>✓</span>
+                  <span>Zero czarnej skrzynki: pełna przejrzystość stanu roboczego.</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Lobe 2: Episodic Memory */}
+            <div className={s.bentoCard} role="listitem">
+              <div>
+                <div className={s.bentoCardHeader}>
+                  <div className={s.bentoIconBadge} aria-hidden="true">🏛️</div>
+                  <span className={s.bentoSubsystemTag}>Hippocampus</span>
+                </div>
+                <h3 className={s.bentoHeading}>Pamięć Epizodyczna & Asocjacyjny Recall</h3>
+                <p className={s.bentoParagraph}>
+                  Trwała baza śladów pamięciowych. Przy każdym dylemacie hipokamp asocjacyjnie przywołuje
+                  zweryfikowane wzorce historyczne o najwyższym wskaźniku nagrody (reward score).
+                </p>
+              </div>
+              <ul className={s.bentoBullets}>
+                <li className={s.bentoBulletItem}>
+                  <span className={s.bentoBulletCheck}>✓</span>
+                  <span>Hebb-like consolidation: trwałe utrwalanie zweryfikowanych sukcesów.</span>
+                </li>
+                <li className={s.bentoBulletItem}>
+                  <span className={s.bentoBulletCheck}>✓</span>
+                  <span>Wyszukiwanie analogii po sygnaturze strukturalnej problemu.</span>
+                </li>
+                <li className={s.bentoBulletItem}>
+                  <span className={s.bentoBulletCheck}>✓</span>
+                  <span>Ciągła adaptacja do specyfiki Twoich dylematów bez ponownego trenowania.</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Lobe 3: Active Inference */}
+            <div className={`${s.bentoCard} ${s.bentoCardAccent}`} role="listitem">
+              <div>
+                <div className={s.bentoCardHeader}>
+                  <div className={s.bentoIconBadge} aria-hidden="true">🔄</div>
+                  <span className={s.bentoSubsystemTag}>Active Inference</span>
+                </div>
+                <h3 className={s.bentoHeading}>Zasada Wolnej Energii & Reflexion (Karl Friston)</h3>
+                <p className={s.bentoParagraph}>
+                  System nie zgaduje na ślepo. Formułuje hipotezę matematyczną, a każdy sygnał niespójności z weryfikatora
+                  traktuje jako Błąd Predykcji, minimalizowany w pętli autorefleksji.
+                </p>
+              </div>
+              <ul className={s.bentoBullets}>
+                <li className={s.bentoBulletItem}>
+                  <span className={s.bentoBulletCheck}>✓</span>
+                  <span>Predykcja vs rzeczywistość: natychmiastowe wyłapywanie sprzeczności.</span>
+                </li>
+                <li className={s.bentoBulletItem}>
+                  <span className={s.bentoBulletCheck}>✓</span>
+                  <span>Autorefleksja dopracowująca ograniczenia i wagi kar.</span>
+                </li>
+                <li className={s.bentoBulletItem}>
+                  <span className={s.bentoBulletCheck}>✓</span>
+                  <span>Odpowiedź trafia do Ciebie dopiero po bezbłędnym domknięciu pętli.</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Lobe 4: Quantum Core */}
+            <div className={s.bentoCard} role="listitem">
+              <div>
+                <div className={s.bentoCardHeader}>
+                  <div className={s.bentoIconBadge} aria-hidden="true">⚡</div>
+                  <span className={s.bentoSubsystemTag}>Quantum-Classical Core</span>
+                </div>
+                <h3 className={s.bentoHeading}>Ścisły Podział Ról: Umysł Kognitywny ≠ Solver</h3>
+                <p className={s.bentoParagraph}>
+                  Mózg agenta modeluje i planuje, ale NIGDY nie wymyśla liczb ani dowodów. Rzeczywiste obliczenia
+                  wykonują bezkompromisowe solwery QAOA i CP-SAT pieczętowane kryptograficznym hashem SHA-256.
+                </p>
+              </div>
+              <ul className={s.bentoBullets}>
+                <li className={s.bentoBulletItem}>
+                  <span className={s.bentoBulletCheck}>✓</span>
+                  <span>Reguła 1: Wynik LLM to nie wynik solvera (nienegocjowalna gwarancja).</span>
+                </li>
+                <li className={s.bentoBulletItem}>
+                  <span className={s.bentoBulletCheck}>✓</span>
+                  <span>Przeszukiwanie przestrzeni 2^N stanów kwantowych w poszukiwaniu optimum.</span>
+                </li>
+                <li className={s.bentoBulletItem}>
+                  <span className={s.bentoBulletCheck}>✓</span>
+                  <span>Niezależny dowód matematyczny i audyt weryfikatora w ułamku sekundy.</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <div className={s.cognitiveCtaBar}>
+            <span className={s.cognitiveCtaText}>
+              Chcesz zobaczyć pracę płatów kognitywnych i interferencji kwantowej w czasie rzeczywistym?
+            </span>
+            {onOpenBrain && (
+              <button
+                type="button"
+                className={s.cognitiveCtaBtn}
+                onClick={onOpenBrain}
+              >
+                <span>🧠 ZOBACZ MÓZG SILNIKA W 3D</span>
+                <span>↗</span>
+              </button>
+            )}
           </div>
         </div>
       </section>
@@ -831,7 +1012,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 }}
               >
                 <span>⚡</span>
-                <span>Portal API & SDK (A132a132!)</span>
+                <span>Portal API & SDK</span>
               </button>
             )}
           </div>

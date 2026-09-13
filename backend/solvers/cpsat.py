@@ -46,6 +46,13 @@ class CPSATAdapter(SolverAdapter):
         except Exception:
             return "unknown"
 
+    def check_available(self) -> tuple[bool, str | None]:
+        try:
+            from ortools.sat.python import cp_model  # noqa: F401
+            return True, None
+        except Exception as e:
+            return False, f"OR-Tools CP-SAT not available: {e}"
+
     def supports(self, problem: ProblemIR) -> bool:
         try:
             from ortools.sat.python import cp_model  # noqa: F401

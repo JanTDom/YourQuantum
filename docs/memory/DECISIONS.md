@@ -291,19 +291,43 @@ LLM chatbots generate plausible probabilistic text but cannot guarantee constrai
 
 ---
 
-## DEC-019 — Hardware-Accelerated 3D Quantum Manifold Hero Animation
+---
+
+## DEC-020 — Official Model Context Protocol (MCP) Server Integration for Claude and Cowork
 
 **Date:** 2026-09-12
 **Status:** ACTIVE
 
 **Decision:**
-Replace the jittery CSS keyframe panning image in the landing page hero with a bespoke WebGL Three.js interactive 3D quantum manifold (`QuantumHero3D.tsx`).
-1. Renders a pulsating quantum nucleus, 18 entangled qubit nodes with Fibonacci spherical distribution, real-time dynamic interference geodesics, and dual counter-rotating QAOA parameter rings.
-2. Supports smooth mouse pointer parallax, dynamic OKLCH/RGB color gradients, a live 60 FPS telemetry badge, and direct modal interaction (`Otwórz mózg 3D`).
-3. Fully protected trade secrets: visualizes abstract state spaces and interference without displaying private algebraic formulas or solver weights.
+Implement an official Model Context Protocol (MCP) server in Python (`mcp_server/`) operating over stdio transport. Expose 4 core tools:
+1. `yq_optimize_options`: general multi-criteria discrete optimization with strict input validation and zero silent defaults.
+2. `yq_solve_portfolio`: capital / project portfolio allocation under hard budget limits.
+3. `yq_analyze_dilemma`: Input Quality Gate assessing completeness, options, and numbers in natural language.
+4. `yq_get_engine_status`: API connectivity and active solver telemetry.
+
+**Non-Negotiable Honesty Rule:**
+The MCP server strictly enforces that the returned result is a mathematical optimum relative ONLY to the explicitly provided criteria, weights, and constraints. It never poses as an absolute oracle, never silently substitutes default weights or parameters, and reports failures with actionable human guidance.
 
 **Rationale:**
-Eliminates layout shifts and jerky image translations, providing an Awwwards/FWA-grade high-tech instrument aesthetic.
+Allows AI workflows in Claude Desktop, Claude Code, and Cowork to delegate combinatorial and multi-criteria optimization to YourQuantum with SHA-256 audit passports and stress-testing sensitivity reports.
+
+---
+
+## DEC-021 — Brain-Inspired Cognitive Architecture (Prefrontal Working Memory, Episodic Hippocampus & Active Inference with Gemini & Offline Fallback)
+
+**Date:** 2026-09-13
+**Status:** ACTIVE
+
+**Decision:**
+Implement a neurobiology-inspired cognitive orchestration layer (Stage 4) using:
+1. **Prefrontal Cortex / Working Memory & Cybernetic Homeostasis**: `EnergyBudget` preventing runaway token/cycle usage and `GlobalWorkspace` managing active goal, focal variables, hypotheses (`ProblemIR`), and prediction errors in process RAM.
+2. **Hippocampal Episodic Memory**: Persistent database storage in `cognitive_traces` table with associative recall based on structural problem fingerprints, ranking historical high-reward patterns.
+3. **Karl Friston Active Inference Loop**: Initial hypothesis formulation, static constraint sanity checking to fast-fail obvious contradictions, and reflection on independent verifier failure signals as prediction errors to iteratively adjust models and penalty weights.
+4. **Hexagonal Reasoning Port & Gemini Adapter**: `CognitiveReasoningPort` domain interface with `GeminiCognitiveAdapter` (Gemini 2.5 Flash, structured JSON, temperature 0.0) and seamless local deterministic rule-based offline fallback when `GEMINI_API_KEY` is missing or when network errors occur.
+
+**Rationale:**
+Provides transparent, biologically motivated problem intake and formulation while preserving the core scientific boundary: LLMs only help translate and calibrate hypotheses, while hard solvers compute solutions and independent verifiers certify them.
+
 
 
 

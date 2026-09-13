@@ -84,3 +84,37 @@ class CaseRecord(Base):
     problem_ir_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     case_json: Mapped[dict] = mapped_column(JSON, default=dict)
 
+
+class CognitiveTraceRecord(Base):
+    __tablename__ = "cognitive_traces"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)
+    owner_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    workspace_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    is_public: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    problem_fingerprint: Mapped[str] = mapped_column(String(128), index=True)
+    raw_user_query: Mapped[str] = mapped_column(Text)
+    successful_ir_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    winning_solver: Mapped[str] = mapped_column(String(50), default="unknown")
+    penalty_multipliers: Mapped[dict] = mapped_column(JSON, default=dict)
+    reward_score: Mapped[float] = mapped_column(Float, default=1.0)
+    lessons_learned: Mapped[str] = mapped_column(Text, default="")
+
+
+class CognitiveSessionRecord(Base):
+    __tablename__ = "cognitive_sessions"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)
+    owner_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    workspace_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    # Serialized WorkingMemory state
+    working_memory_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    # List of interaction history turns / formalizations
+    history_json: Mapped[list] = mapped_column(JSON, default=list)
+

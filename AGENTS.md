@@ -113,6 +113,7 @@ Build output, a screenshot, and a model's assurance do NOT substitute for a test
 | `docs/memory/LESSONS.md` | Repeatable lessons with evidence |
 | `docs/PRODUCT.md` | Goal, audience, promise, scope, exclusions |
 | `docs/BUILD_SPEC.md` | Full build prompt (awaiting specification) |
+| `docs/BUILD_SPEC_V2.md` | V2 remediation & development prompt (2026-09-13) |
 | `docs/ARCHITECTURE.md` | System architecture and component contracts |
 | `docs/PROBLEM_IR.md` | Versioned problem intermediate representation |
 | `docs/QUANTUM_CORE.md` | Quantum module design and execution path |

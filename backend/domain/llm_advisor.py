@@ -378,85 +378,159 @@ Odpowiedz WYŁĄCZNIE jako poprawny JSON (application/json) o strukturze:
   ]
 }}
 """
+        model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.gemini_api_key}"
         try:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={self.gemini_api_key}"
-            resp = httpx.post(
-                url,
-                json={
-                    "contents": [{"parts": [{"text": prompt}]}],
-                    "generationConfig": {
-                        "response_mime_type": "application/json",
-                        "temperature": 0.2,
+            with httpx.Client(timeout=25.0) as client:
+                resp = client.post(
+                    url,
+                    json={
+                        "contents": [{"parts": [{"text": prompt}]}],
+                        "generationConfig": {
+                            "response_mime_type": "application/json",
+                            "temperature": 0.2,
+                        },
                     },
-                },
-                timeout=20.0,
-            )
+                )
             if resp.status_code != 200:
                 logger.warning(f"Gemini API returned {resp.status_code}: {resp.text[:200]}")
                 return None
 
-            data = resp.json()
-            raw_text = data["candidates"][0]["content"]["parts"][0]["text"]
-            parsed = json.loads(raw_text)
-
-            options: list[Option] = []
-            for i, o in enumerate(parsed.get("options", [])):
-                options.append(
-                    Option(
-                        id=o.get("id", f"opt_{i+1}"),
-                        title=o.get("title", f"Opcja {i+1}"),
-                        description=o.get("description", ""),
-                    )
-                )
-
-            unknowns: list[Unknown] = []
-            for i, u in enumerate(parsed.get("unknowns", [])):
-                unknowns.append(
-                    Unknown(
-                        id=f"unk_{uuid.uuid4().hex[:8]}",
-                        question=u.get("question", ""),
-                        impact_description=u.get("impact_description", ""),
-                        default_assumption=u.get("default_assumption"),
-                    )
-                )
-
-            tradeoffs: list[Tradeoff] = []
-            for tr in parsed.get("tradeoffs", []):
-                opt_a = options[0].id if options else "opt_1"
-                opt_b = options[1].id if len(options) > 1 else opt_a
-                tradeoffs.append(
-                    Tradeoff(
-                        option_a_id=opt_a,
-                        option_b_id=opt_b,
-                        description=tr.get("description", ""),
-                        gain=tr.get("gain", ""),
-                        sacrifice=tr.get("sacrifice", ""),
-                    )
-                )
-
-            priority_tokens = parsed.get("priority_tokens") or [
-                "💰 Wyższe zarobki",
-                "🌿 Spokój i kultura pracy",
-                "🚀 Autonomia i sprawczość",
-                "🛡️ Bezpieczeństwo i stabilność",
-            ]
-
-            title = parsed.get("title") or self._generate_clean_title(text)
-            quality = self._assess_input_quality(text, options_count=len(options))
-
-            return DecisionCase(
-                title=title,
-                context=text,
-                status="clarification" if (unknowns or quality.level != "sufficient") else "ready_for_modeling",
-                options=options,
-                unknowns=unknowns,
-                tradeoffs=tradeoffs,
-                priority_tokens=priority_tokens,
-                input_quality=quality,
-            )
+            return self._parse_gemini_response(resp.json(), text)
         except Exception as e:
             logger.warning(f"Failed to analyze case with Gemini: {e}")
             return None
 
-    def _call_openai(self, text: str) -> DecisionCase | None:
-        return None
+    async def _call_gemini_async(self, text: str) -> DecisionCase | None:
+        """Asynchronous call to Gemini API to prevent event-loop blocking."""
+        model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.gemini_api_key}"
+        try:
+            async with httpx.AsyncClient(timeout=25.0) as client:
+                resp = await client.post(
+                    url,
+                    json={
+                        "contents": [{"parts": [{"text": self._build_prompt(text)}]}],
+                        "generationConfig": {
+                            "response_mime_type": "application/json",
+                            "temperature": 0.2,
+                        },
+                    },
+                )
+            if resp.status_code != 200:
+                logger.warning(f"Gemini API returned {resp.status_code}: {resp.text[:200]}")
+                return None
+
+            return self._parse_gemini_response(resp.json(), text)
+        except Exception as e:
+            logger.warning(f"Failed to analyze case with Gemini async: {e}")
+            return None
+
+    def _build_prompt(self, text: str) -> str:
+        return f"""Jesteś wnikliwym analitykiem decyzji i problemów życiowych YourQuantum.
+Twoim zadaniem jest pomóc człowiekowi rozłożyć dylemat decyzyjny lub sytuację problemową na czynniki pierwsze.
+
+Tekst użytkownika:
+\"\"\"{text}\"\"\"
+
+Wyodrębnij:
+1. Zwięzły, konkretny tytuł dylematu (np. 'Wybór oferty pracy: Korporacja vs Startup', 'Kupno mieszkania vs dalszy najem').
+2. Konkretne warianty wyboru (opcje).
+3. Brakujące informacje i kluczowe pytania doprecyzowujące.
+4. Główne kompromisy (tradeoffs) między wariantami.
+5. Kontekstowe priorytety decyzyjne z emoji.
+
+Odpowiedz WYŁĄCZNIE jako poprawny JSON (application/json):
+{{
+  "title": "Tytuł dylematu",
+  "options": [
+    {{"id": "opt_1", "title": "Krótki tytuł opcji 1", "description": "Opis wariantu"}},
+    {{"id": "opt_2", "title": "Krótki tytuł opcji 2", "description": "Opis wariantu"}}
+  ],
+  "unknowns": [
+    {{"question": "Konkretne pytanie doprecyzowujące", "impact_description": "Dlaczego ta informacja jest kluczowa", "default_assumption": "Domyślne założenie"}}
+  ],
+  "tradeoffs": [
+    {{"description": "Krótki opis kompromisu", "gain": "Co można zyskać", "sacrifice": "Z czym wiąże się ryzyko lub koszt"}}
+  ],
+  "priority_tokens": [
+    "Pigułka 1 z emoji", "Pigułka 2 z emoji", "Pigułka 3 z emoji"
+  ]
+}}
+"""
+
+    def _parse_gemini_response(self, data: dict[str, Any], text: str) -> DecisionCase:
+        raw_text = data["candidates"][0]["content"]["parts"][0]["text"]
+        parsed = json.loads(raw_text)
+
+        options: list[Option] = []
+        for i, o in enumerate(parsed.get("options", [])):
+            options.append(
+                Option(
+                    id=o.get("id", f"opt_{i+1}"),
+                    title=o.get("title", f"Opcja {i+1}"),
+                    description=o.get("description", ""),
+                )
+            )
+
+        unknowns: list[Unknown] = []
+        for i, u in enumerate(parsed.get("unknowns", [])):
+            unknowns.append(
+                Unknown(
+                    id=f"unk_{uuid.uuid4().hex[:8]}",
+                    question=u.get("question", ""),
+                    impact_description=u.get("impact_description", ""),
+                    default_assumption=u.get("default_assumption"),
+                )
+            )
+
+        tradeoffs: list[Tradeoff] = []
+        for tr in parsed.get("tradeoffs", []):
+            opt_a = options[0].id if options else "opt_1"
+            opt_b = options[1].id if len(options) > 1 else opt_a
+            tradeoffs.append(
+                Tradeoff(
+                    option_a_id=opt_a,
+                    option_b_id=opt_b,
+                    description=tr.get("description", ""),
+                    gain=tr.get("gain", ""),
+                    sacrifice=tr.get("sacrifice", ""),
+                )
+            )
+
+        priority_tokens = parsed.get("priority_tokens") or [
+            "💰 Wyższe zarobki",
+            "🌿 Spokój i kultura pracy",
+            "🚀 Autonomia i sprawczość",
+            "🛡️ Bezpieczeństwo i stabilność",
+        ]
+
+        title = parsed.get("title") or self._generate_clean_title(text)
+        quality = self._assess_input_quality(text, options_count=len(options))
+
+        return DecisionCase(
+            title=title,
+            context=text,
+            status="clarification" if (unknowns or quality.level != "sufficient") else "ready_for_modeling",
+            options=options,
+            unknowns=unknowns,
+            tradeoffs=tradeoffs,
+            priority_tokens=priority_tokens,
+            input_quality=quality,
+        )
+
+    async def analyze_case_async(self, user_text: str) -> DecisionCase:
+        """Asynchronous parsing of human dilemma without blocking event loop."""
+        cleaned = user_text.strip()
+        if not cleaned:
+            return self.analyze_case(user_text)
+
+        if self.gemini_api_key:
+            try:
+                res = await self._call_gemini_async(cleaned)
+                if res is not None:
+                    return res
+            except Exception as e:
+                logger.warning(f"Gemini async call failed: {e}; falling back to heuristic.")
+
+        return self.heuristic_analyze(cleaned)

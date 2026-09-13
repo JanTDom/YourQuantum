@@ -7,4 +7,11 @@ asyncpg>=0.30.0
 httpx>=0.28.0
 python-dotenv>=1.0.1
 numpy>=2.1.0
+scipy>=1.14.0
+ortools>=9.11.0
+qiskit>=1.2.0
+qiskit-aer>=0.15.0
+mcp>=2.2.0
+aiosqlite>=0.20.0
+
 

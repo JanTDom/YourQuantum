@@ -90,3 +90,6 @@ Leaving long-running dev servers (`uvicorn`, `vite`) as unmanaged background tas
 ### L-015: 3D WebGL in React requires ErrorBoundary and 2D fallback to prevent blank white screens
 When rendering Three.js / WebGL in React, if WebGL context creation fails or throws without an ErrorBoundary, React 18/19 unmounts the entire application root (`#root`), leaving a completely blank white page ("biała strona"). Always wrap 3D canvases in a resilient React ErrorBoundary, detect WebGL capabilities beforehand, provide a Canvas 2D fallback, protect aspect ratio calculations against 0-height containers, and expose clear return/exit navigation actions.
 
+### L-016: Async pytest fixtures require @pytest_asyncio.fixture
+When declaring asynchronous fixtures (`async def async_test_session()`) in modern `pytest-asyncio` (v0.24+ / 1.4+), standard `@pytest.fixture` fails during fixture setup with deprecation/unsupported errors. Always explicitly import `pytest_asyncio` and decorate async test fixtures with `@pytest_asyncio.fixture`.
+

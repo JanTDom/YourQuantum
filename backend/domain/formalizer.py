@@ -94,7 +94,20 @@ class ProblemFormalizer:
                 missing_information=["Opis problemu jest pusty."],
             )
 
-        # First attempt: if LLM configured, try LLM extraction with deterministic fallback
+        lower = cleaned.lower()
+        # If text matches known domain archetypes, use deterministic heuristic parser
+        # to guarantee zero hallucinations and accurate constraint / missing data extraction
+        is_archetype = (
+            (("czy" in lower and any(w in lower for w in ["zmienić", "zmienic", "zostać", "zostac", "kupić", "kupic", "wynająć", "nie wiem", "wahać"])) or
+             ("wybór między" in lower or "wybor miedzy" in lower or ("albo" in lower and "albo" in lower[lower.find("albo")+4:]))) or
+            any(w in lower for w in ["plecak", "knapsack", "udźwig", "pojemność", "pojemnosc", "ciężar"]) or
+            any(w in lower for w in ["max-cut", "max cut", "cięcie grafu", "ciecie grafu", "podział grafu", "podzial grafu", "rozcięcie"]) or
+            any(w in lower for w in ["projekt", "portfel", "inwestycj", "aktyw", "roi", "spośród", "sposrod"])
+        )
+        if is_archetype:
+            return self._heuristic_formalize(cleaned)
+
+        # For general unstructured text without explicit archetype, attempt LLM extraction
         if self.gemini_api_key or self.openai_api_key:
             try:
                 llm_res = self._try_llm_formalize(cleaned)
@@ -286,23 +299,57 @@ class ProblemFormalizer:
         )
 
     def _extract_knapsack(self, text: str, lower: str) -> FormalizationResult:
-        """Extract knapsack-style problem."""
-        vars_list = ["item_0", "item_1", "item_2", "item_3"]
-        weights = {"item_0": 2.0, "item_1": 3.0, "item_2": 4.0, "item_3": 5.0}
-        values = {"item_0": 3.0, "item_1": 4.0, "item_2": 5.0, "item_3": 8.0}
-        capacity = 7.0
+        """Extract knapsack-style problem requiring real text/data."""
+        cap_match = re.search(r"(?:udźwig[a-z]*|udzwig[a-z]*|pojemnoś[a-z]*|pojemnos[a-z]*|maksymaln[a-z]* wag[a-z]*|limit[a-z]*)\s*(?:wynosi|to|:|=)?\s*(\d+(?:\.\d+)?)", lower)
+        capacity = float(cap_match.group(1)) if cap_match else None
 
-        cap_match = re.search(r"(?:udźwig|pojemność|pojemnosc|maksymalna waga|limit)\s*(?:wynosi|to|:|=)?\s*(\d+)", lower)
-        if cap_match:
-            capacity = float(cap_match.group(1))
+        # Look for explicit items with weight and value
+        item_matches = re.findall(
+            r"([A-Za-z0-9_\-]+)[^\n,;]*(?:waga|koszt|ciężar)\s*[:=]?\s*(\d+(?:\.\d+)?)[^\n,;]*(?:wartość|wartosc|zysk)\s*[:=]?\s*(\d+(?:\.\d+)?)",
+            lower,
+        )
+        if not item_matches:
+            item_matches = [
+                (m[0], m[2], m[1]) for m in re.findall(
+                    r"([A-Za-z0-9_\-]+)[^\n,;]*(?:wartość|wartosc|zysk)\s*[:=]?\s*(\d+(?:\.\d+)?)[^\n,;]*(?:waga|koszt|ciężar)\s*[:=]?\s*(\d+(?:\.\d+)?)",
+                    lower,
+                )
+            ]
+
+        missing: list[str] = []
+        if not item_matches:
+            missing.append("Nie podano listy przedmiotów z ich wagami i wartościami (wymaga uzupełnienia przed rozwiązaniem — BLOCKS_SOLVING).")
+        if capacity is None:
+            missing.append("Nie podano limitu udźwigu / pojemności plecaka (BLOCKS_SOLVING).")
+
+        if missing:
+            return FormalizationResult(
+                description_raw=text,
+                description_formalised=(
+                    f"Twoja sytuacja: {text}\n\n"
+                    f"Wykryto strukturę problemu plecakowego, lecz brakuje kluczowych danych liczbowych. "
+                    f"System nie fabrykuje wag ani wartości — podaj przedmioty, ich wagi i wartości oraz dopuszczalny limit."
+                ),
+                binary_variables=[],
+                objective_direction="maximize",
+                objective_coefficients={},
+                equality_constraints=[],
+                inequality_constraints=[],
+                assumptions=[],
+                missing_information=missing,
+                identified_archetype="knapsack",
+            )
+
+        vars_list = [f"item_{m[0]}" for m in item_matches]
+        weights = {f"item_{m[0]}": float(m[1]) for m in item_matches}
+        values = {f"item_{m[0]}": float(m[2]) for m in item_matches}
 
         return FormalizationResult(
             description_raw=text,
             description_formalised=(
                 f"Twoja sytuacja: {text}\n\n"
-                f"System rozważy 4 przedmioty przy limicie wagi {capacity} kg. "
-                f"Sprawdzi każdą kombinację i wskaże zestaw o największej łącznej wartości, "
-                f"który mieści się w podanym limicie."
+                f"System rozważy {len(vars_list)} przedmiotów przy limicie wagi {capacity} kg. "
+                f"Wskaże zestaw o największej łącznej wartości mieszczący się w limicie."
             ),
             binary_variables=vars_list,
             objective_direction="maximize",
@@ -310,9 +357,10 @@ class ProblemFormalizer:
             equality_constraints=[],
             inequality_constraints=[{"lhs": weights, "rhs": capacity}],
             assumptions=[
-                f"Przyjęto 4 przedmioty o wagach: {', '.join(str(w) for w in weights.values())} kg.",
+                "Wagi przedmiotów wyekstrahowane z tekstu użytkownika.",
                 f"Limit wagi: {capacity} kg.",
             ],
+            missing_information=[],
             identified_archetype="knapsack",
         )
 
@@ -540,7 +588,11 @@ Zwróć WYŁĄCZNIE poprawny JSON (application/json):
         return self.formalize(case.context or case.title)
 
     def _try_llm_formalize_case(self, case: DecisionCase) -> FormalizationResult | None:
-        """Call Gemini to evaluate options in light of user answers and priority tokens, and construct mathematical model."""
+        """
+        DEPRECATED (A7): To be replaced in Phase B1 with explicit DecisionMatrix.
+        Violates 'LLM output != solver result' by assigning 1-10 subjective attractiveness.
+        Retained temporarily until B1 decision matrix model is fully operational.
+        """
         if not self.gemini_api_key or not case.options:
             return None
 
