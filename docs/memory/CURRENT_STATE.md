@@ -1,10 +1,10 @@
 # YourQuantum — CURRENT STATE
-_Last updated: 2026-09-13 (Commit 71deb27 — Numeric/Quantum Stack in Vercel Function & Live Production)_
+_Last updated: 2026-09-13 (Commit da051ec — Naprawa UX intake i odporność tabeli cognitive_sessions)_
 
 ## Status: STOS NUMERYCZNY I KWANTOWY AKTYWNY NA VERCEL PRODUCTION (100% BRAMEK ZIELONYCH)
 
-- **Gałąź i commit**: `main` — `71deb27` (`feat(deploy): ship numeric/quantum stack in the Vercel function`)
-- **Wdrożenie produkcyjne**: Vercel (`https://yourquantum.pl`, ID: `dpl_F7Dw4iVHnW7izQ4pu3P2KJZCXPg3`) — Status: `READY`
+- **Gałąź i commit**: `main` — `da051ec` (`fix(ux): surface intake errors on landing page and ensure database session table creation`)
+- **Wdrożenie produkcyjne**: Vercel (`https://yourquantum.pl`, ID: `dpl_4ddWRTm2YfqaApWnFdWVvyL6NRUZ`) — Status: `READY`
 - **Dostępność solverów na produkcji (`GET /api/v1/health/solvers`)**:
   * `cp_sat` (Google OR-Tools 9.15.6755): **available=true**
   * `qaoa_aer` (Qiskit Aer 0.17.2): **available=true**
@@ -12,7 +12,11 @@ _Last updated: 2026-09-13 (Commit 71deb27 — Numeric/Quantum Stack in Vercel Fu
   * `scipy_continuous` (SciPy 1.18.1): **available=true**
   * `qpu_hardware` (disconnected-stub-v1): **available=false** (uczciwy brak sprzętu QPU)
 - **Wszystkie mechaniczne bramki weryfikacyjne w `scripts/check_v4.sh`**: 23/23 ZIELONE (PASS)
-- **Regresje i kompilacja**: 100% testów pytest oraz `npm run build` przechodzą bez błędów.
+- **Regresje i kompilacja**: 100% testów pytest (184 testy) oraz `npm run build` przechodzą bez błędów.
+- **Weryfikacja błędu intake**:
+  * Przyczyna źródłowa: `cognitive_intake` w PostgreSQL zwracało błąd `UndefinedTableError: relation "cognitive_sessions" does not exist`, a frontend w `App.tsx` ukrywał komunikaty o błędach w stanie `stage === 'INTAKE'` (`{stage !== 'INTAKE' && errorMessage && ...}`). Po błędzie przycisk przestawał ładować bez żadnego feedbacku.
+  * Rozwiązanie: Dodano jawne `CREATE TABLE IF NOT EXISTS` w `init_db()` dla PostgreSQL/SQLite, graceful degradation do pamięci roboczej w razie opóźnienia bazy, globalną widoczność komunikatów w `App.tsx` oraz baner ostrzegawczy z zachowaniem tekstu w `LandingPage.tsx`.
+  * Weryfikacja E2E w przeglądarce: Wprowadzenie dylematu decyzyjnego na `https://yourquantum.pl` i kliknięcie „⚡ OBLICZ ROZWIĄZANIE KWANTOWE →” przechodzi płynnie do `CaseWorkspace` (Krok 1 z 2).
 
 ### Stan przed V4 — Surowy wynik bramek mechanicznych (`scripts/check_v4.sh`):
 
