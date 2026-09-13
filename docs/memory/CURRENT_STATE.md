@@ -1,10 +1,46 @@
 # YourQuantum — CURRENT STATE
-_Last updated: 2026-09-13 (Phase I Complete)_
+_Last updated: 2026-09-13 (Start Fazy V4 — Gałąź fix/v4-corrections)_
 
-## Status: PRODUKCJA — V2 HONEST ENGINE COMPLETE (100% ZIELONYCH TESTÓW CI)
+## Status: WDRAŻANIE PROMPTU KORYGUJĄCEGO V4 (REMEDIATION IN PROGRESS)
 
-Wdrożenie promptu naprawczo-rozwojowego `docs/BUILD_SPEC_V2.md` zostało ukończone w całości na gałęzi `feat/v2-honest-engine`.
-Wszystkie fazy A–I zostały zaimplementowane, przetestowane i udokumentowane zgodnie ze standardem rzemiosła Fable 5.1 i regułami `AGENTS.md`.
+Rozpoczęto realizację ostatecznego promptu korygującego `docs/BUILD_SPEC_V4.md` na gałęzi `fix/v4-corrections`.
+Przed modyfikacją plików produktu uruchomiono mechaniczny skrypt bramek weryfikacyjnych `scripts/check_v4.sh`.
+
+### Stan przed V4 — Surowy wynik bramek mechanicznych (`scripts/check_v4.sh`):
+
+```text
+=== YOURQUANTUM V4 MECHANICAL GATES CHECK ===
+Date: 2026-09-13T17:01:20Z
+Commit: 1cdc448
+Branch: fix/v4-corrections
+----------------------------------------------
+[G-R1a] FAIL: Znaleziono 4 wystąpień domen w frontend/src
+[G-R1b] FAIL: Znaleziono 1 wywołań getDesignFixture w RecommendationView.tsx
+[G-R1c] FAIL: healthcare_pl.json narusza regułę syntetyczności (has_synthetic=0, non_example_urls=9)
+[G-R2] FAIL: Znaleziono 31 niedozwolonych wystąpień sekretu master w repo
+[G-R3] FAIL: Wykryto domyślne sekrety: signing=1, master=1
+[G-R4] FAIL: Wykryto nieistniejące ścieżki w dokumentacji
+[G-R5] FAIL: Znaleziono 4 zmyślonych domyślnych wartości w EvidenceDrawer.tsx
+[G-R6] FAIL: search_adapter.py narusza R6 (google_url_hits=1, text_as_page_hits=2)
+[G-N1a] FAIL: Brak któregoś z plików: Dockerfile, docker-compose.yml, requirements-api.txt, requirements-worker.txt
+[G-N1b] FAIL: Brak pliku requirements-api.txt
+[G-N1c] FAIL: Brak surowej odpowiedzi health/solvers z polem available w CURRENT_STATE.md
+[G-N2a] FAIL: Brak sprawdzenia len(self.criteria) == 0 w decision_case.py
+[G-N2b] FAIL: Brak score_matrix w CaseWorkspace.tsx
+[G-N3] FAIL: Brak wywołań researchEvidence w frontend/src/components lub frontend/src/App.tsx
+[G-N4] FAIL: Brak problem_class_override (backend: 0, frontend: 0)
+[G-N5] FAIL: Brak lever_decomposer.py lub DesignWorkspace.tsx
+[G-N6] FAIL: Znaleziono 3 zakazanych wywołań httpx w backend/domain
+[G-N7] FAIL: universal_engine.py narusza N7 (approved_true_hits=1, router_hits=0)
+[G-N8] FAIL: Znaleziono 4 wystąpień słowa halucynac w UI / help service
+[G-N9] FAIL: Problem IR schema version nie jest 0.3 (hits=0)
+[G-N11] FAIL: Brak v4-real-backend.spec.ts lub webServer w playwright.config.ts
+[G-N10] FAIL: Brak pliku docs/REPORT_V4.md
+Sprawdzanie testów pytest i kompilacji frontendu...
+[G-TESTS] PASS: pytest i npm run build kończą się kodem 0
+----------------------------------------------
+WYNIK KOŃCOWY: 22 BRAMEK CZERWONYCH (FAIL)
+```
 
 ---
 
