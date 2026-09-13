@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { DecisionCase, FormalizeResponse } from '../api'
+import React, { useState, useEffect } from 'react'
+import { api, DecisionCase, FormalizeResponse } from '../api'
 
 interface ModelApprovalGateProps {
   formalized: FormalizeResponse
@@ -46,6 +46,26 @@ export const ModelApprovalGate: React.FC<ModelApprovalGateProps> = ({
   isSolving,
 }) => {
   const [selectedSolver, setSelectedSolver] = useState<'cp_sat' | 'qaoa_aer' | 'both'>('cp_sat')
+  const [solversStatus, setSolversStatus] = useState<Record<string, boolean>>({
+    cp_sat: true,
+    qaoa_aer: false, // Default to false until health/solvers verifies availability
+  })
+
+  useEffect(() => {
+    let mounted = true
+    api.getSolvers().then((data) => {
+      if (!mounted) return
+      const map: Record<string, boolean> = {}
+      for (const s of data.solvers || []) {
+        map[s.name] = s.available !== false
+      }
+      setSolversStatus((prev) => ({ ...prev, ...map }))
+    }).catch(() => {
+      // Offline fallback: keep cp_sat available, qaoa_aer false
+    })
+    return () => { mounted = false }
+  }, [])
+
   const [weights, setWeights] = useState<Record<string, number>>(() => ({
     ...formalized.objective_coefficients,
   }))
@@ -566,18 +586,25 @@ export const ModelApprovalGate: React.FC<ModelApprovalGateProps> = ({
                 gap: '0.75rem',
               }}>
                 {SOLVER_OPTIONS.map((opt) => {
-                  const isSelected = selectedSolver === opt.id
+                  const isAvailable = opt.id === 'cp_sat'
+                    ? (solversStatus.cp_sat !== false)
+                    : opt.id === 'qaoa_aer'
+                      ? (solversStatus.qaoa_aer === true)
+                      : (solversStatus.cp_sat !== false && solversStatus.qaoa_aer === true)
+                  const isSelected = selectedSolver === opt.id && isAvailable
                   return (
                     <button
                       key={opt.id}
                       type="button"
-                      onClick={() => setSelectedSolver(opt.id)}
+                      disabled={!isAvailable}
+                      onClick={() => isAvailable && setSelectedSolver(opt.id)}
                       style={{
                         textAlign: 'left', padding: '1.125rem',
                         borderRadius: '10px',
                         border: `2px solid ${isSelected ? 'oklch(75% 0.12 80)' : 'oklch(22% 0.025 250)'}`,
                         background: isSelected ? 'oklch(14% 0.03 80)' : 'oklch(13% 0.022 250)',
-                        cursor: 'pointer',
+                        cursor: isAvailable ? 'pointer' : 'not-allowed',
+                        opacity: isAvailable ? 1 : 0.45,
                         transition: 'all 200ms ease',
                         boxShadow: isSelected ? '0 0 20px oklch(75% 0.12 80 / 0.15)' : 'none',
                       }}
@@ -587,11 +614,19 @@ export const ModelApprovalGate: React.FC<ModelApprovalGateProps> = ({
                         <span style={{
                           fontSize: '0.6875rem', fontWeight: 800,
                           letterSpacing: '0.08em', textTransform: 'uppercase',
-                          color: isSelected ? 'oklch(75% 0.12 80)' : 'oklch(42% 0.02 250)',
+                          color: !isAvailable
+                            ? 'oklch(60% 0.05 25)'
+                            : isSelected
+                              ? 'oklch(75% 0.12 80)'
+                              : 'oklch(42% 0.02 250)',
                           padding: '0.125rem 0.5rem', borderRadius: '3px',
-                          background: isSelected ? 'oklch(75% 0.12 80 / 0.12)' : 'oklch(17% 0.025 250)',
+                          background: !isAvailable
+                            ? 'oklch(20% 0.05 25)'
+                            : isSelected
+                              ? 'oklch(75% 0.12 80 / 0.12)'
+                              : 'oklch(17% 0.025 250)',
                         }}>
-                          {opt.tagline}
+                          {!isAvailable ? 'Niedostępny na serwerze' : opt.tagline}
                         </span>
                       </div>
                       <div style={{
@@ -602,7 +637,11 @@ export const ModelApprovalGate: React.FC<ModelApprovalGateProps> = ({
                         {opt.name}
                       </div>
                       <div style={{ fontSize: '0.8125rem', color: 'oklch(58% 0.018 250)', lineHeight: 1.5 }}>
-                        {opt.desc}
+                        {!isAvailable && opt.id === 'qaoa_aer'
+                          ? 'Wymaga uruchomionego dedykowanego kontenera obliczeniowego z pakietem Qiskit Aer (DEC-022).'
+                          : !isAvailable && opt.id === 'both'
+                            ? 'Dostępne tylko, gdy oba silniki (dokładny i kwantowy) są aktywne na serwerze.'
+                            : opt.desc}
                       </div>
                     </button>
                   )

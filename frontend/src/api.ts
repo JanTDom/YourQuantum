@@ -416,7 +416,7 @@ export const api = {
     request<JobResult>(`/jobs/${id}/result`),
 
   getSolvers: () =>
-    request<{ solvers: Array<{ name: string; version: string }> }>(
+    request<{ solvers: Array<{ name: string; version: string; available?: boolean; reason?: string }> }>(
       '/health/solvers',
     ),
 

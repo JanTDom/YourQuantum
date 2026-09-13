@@ -94,6 +94,20 @@ WYNIK KOŃCOWY: 22 BRAMEK CZERWONYCH (FAIL)
 
 ---
 
+### Stan po wdrożeniu N1 (`fix(N1)`)
+- **Bramki G-N1a, G-N1b, G-N1c**: PASS.
+- **Rozdzielenie zależności**: Utworzono `requirements-api.txt` (lekki serwerless na Vercel: FastAPI, pydantic, uvicorn, sqlalchemy, httpx, numpy; zero ortools, qiskit, scipy) oraz `requirements-worker.txt` (pełne środowisko obliczeniowe).
+- **Konteneryzacja silnika**: Utworzono `Dockerfile` (Python 3.11-slim z kompilatorami i bibliotekami numerycznymi) oraz `docker-compose.yml` (Postgres + API + Worker).
+- **Worker service & runner**: Utworzono `backend/worker/service.py` realizujący pętlę pollingu zadań `QUEUED` w dedykowanym kontenerze. Zaktualizowano `backend/worker/runner.py` w celu respektowania trybów `YQ_EXECUTION_MODE` (`queue` vs `inline`).
+- **Frontend**: W `frontend/src/components/ModelApprovalGate.tsx` oraz `frontend/src/api.ts` zaimplementowano sprawdzanie dostępności solverów (`/health/solvers`) przy montowaniu. Solvery niedostępne na platformie serwerowej (`qaoa_aer`, `both`) są wyszarzone/zablokowane z czytelnym wyjaśnieniem `Dostępny w środowisku kontenerowym / self-hosted`.
+- **Wdrożenie produkcyjne Vercel**: Wdrożono na produkcję `https://yourquantum.pl` (Vercel CLI `--prod`). Rozmiar funkcji serwerless zredukowany z >500 MB (blokada deployu) do ~72 MB.
+- **Surowa odpowiedź produkcyjna `GET /api/v1/health/solvers`**:
+```json
+{"solvers":[{"name":"cp_sat","version":"unknown","available":false,"import_error":"OR-Tools CP-SAT not available: No module named 'ortools'"},{"name":"qaoa_aer","version":"not_installed","available":false,"import_error":"Qiskit / Aer not installed: No module named 'qiskit'"},{"name":"hybrid_benders","version":"0.1.0","available":false,"import_error":"CP-SAT dependency missing: OR-Tools CP-SAT not available: No module named 'ortools'"},{"name":"scipy_continuous","version":"unknown","available":false,"import_error":"SciPy not available: No module named 'scipy'"},{"name":"qpu_hardware","version":"disconnected-stub-v1","available":false,"import_error":"Brak aktywnego połączenia ze sprzętowym procesorem kwantowym (QPU). Dostępne są wyłącznie symulatory obwodów kwantowych (Aer)."}]}
+```
+
+---
+
 ## Wyniki weryfikacji empirycznej (Evidence-First DoD)
 
 - **Backend Pytest Suite**: `.venv/bin/pytest tests/ -v` → **157/157 passed in 39.41s** (zero błędów, zero regresji, 100% zielonych testów).

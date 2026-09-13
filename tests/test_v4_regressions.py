@@ -434,3 +434,50 @@ def test_r4_documentation_paths_exist():
     assert missing == [], f"Found non-existent paths referenced in documentation: {missing}"
 
 
+# ---------------------------------------------------------------------------
+# N1: Decoupled API/Worker Dependencies and Containerized Engine
+# ---------------------------------------------------------------------------
+
+def test_n1_split_requirements_and_container_files():
+    """
+    N1: Verify Dockerfile, docker-compose.yml, requirements-api.txt, and requirements-worker.txt exist.
+    Verify requirements-api.txt does not have heavy solvers (ortools, qiskit, scipy).
+    Verify requirements-worker.txt includes heavy compute dependencies.
+    Verify CURRENT_STATE.md contains production health/solvers raw json response with 'available'.
+    """
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+
+    # 1. Existence of container and config files
+    expected_files = [
+        "Dockerfile",
+        "docker-compose.yml",
+        "requirements-api.txt",
+        "requirements-worker.txt",
+        "backend/worker/service.py",
+    ]
+    for rel_path in expected_files:
+        full_path = os.path.join(repo_root, rel_path)
+        assert os.path.isfile(full_path), f"Expected file missing: {rel_path}"
+
+    # 2. requirements-api.txt has no heavy solvers
+    with open(os.path.join(repo_root, "requirements-api.txt"), "r", encoding="utf-8") as f:
+        api_reqs = f.read()
+    assert not re.search(r"\b(ortools|qiskit|scipy)\b", api_reqs, re.IGNORECASE), (
+        "requirements-api.txt contains heavy numerical packages"
+    )
+
+    # 3. requirements-worker.txt contains heavy solvers
+    with open(os.path.join(repo_root, "requirements-worker.txt"), "r", encoding="utf-8") as f:
+        worker_reqs = f.read()
+    assert "ortools" in worker_reqs.lower()
+    assert "qiskit" in worker_reqs.lower()
+    assert "scipy" in worker_reqs.lower()
+
+    # 4. CURRENT_STATE.md contains raw production json
+    with open(os.path.join(repo_root, "docs", "memory", "CURRENT_STATE.md"), "r", encoding="utf-8") as f:
+        current_state = f.read()
+    pattern = re.compile(r"```json\s*\{.*?\"available\".*?\}\s*```", re.DOTALL)
+    assert pattern.search(current_state), "CURRENT_STATE.md does not contain raw production json with 'available'"
+
+
+

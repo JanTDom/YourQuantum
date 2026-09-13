@@ -12,6 +12,7 @@ import asyncio
 import dataclasses
 import json
 import logging
+import os
 import time
 import uuid
 from datetime import datetime, timezone
@@ -90,8 +91,13 @@ async def enqueue_job(
         await session.commit()
 
 
-    # Schedule as background task (fire-and-forget from caller's perspective)
-    asyncio.create_task(_run_job(job_id), name=f"job-{job_id[:8]}")
+    # Schedule execution based on execution mode (queue vs inline)
+    exec_mode = os.getenv("YQ_EXECUTION_MODE", "inline").lower().strip()
+    if exec_mode == "queue":
+        logger.info(f"Job {job_id} enqueued in queue mode, awaiting dedicated worker.")
+    else:
+        # Schedule as background task in inline/local mode
+        asyncio.create_task(_run_job(job_id), name=f"job-{job_id[:8]}")
     return job_id
 
 
