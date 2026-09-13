@@ -953,6 +953,30 @@ def test_n8_no_unsupported_hallucination_claims_in_ui_and_help_service():
     assert len(res.stdout.strip()) == 0
 
 
+# ---------------------------------------------------------------------------
+# N9: Problem IR Schema Version 0.3
+# ---------------------------------------------------------------------------
+
+def test_n9_problem_ir_schema_version_is_0_3():
+    """
+    N9: Verify that ProblemIR.schema_version is exactly '0.3'.
+    """
+    from backend.domain.problem_ir import ProblemIR
+    ir = ProblemIR(
+        description_raw="Test N9",
+        description_formalised="Formalized test N9",
+    )
+    assert ir.schema_version == "0.3"
+
+    import subprocess
+    from pathlib import Path
+    repo_root = Path(__file__).parent.parent
+    cmd = 'grep -n \'schema_version: str = "0.3"\' backend/domain/problem_ir.py'
+    res = subprocess.run(cmd, shell=True, cwd=repo_root, capture_output=True, text=True)
+    assert res.returncode == 0, "schema_version is not 0.3 in problem_ir.py"
+
+
+
 
 
 

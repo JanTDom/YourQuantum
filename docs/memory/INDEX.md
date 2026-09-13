@@ -50,7 +50,7 @@ Next action: paste the build specification prompt into `docs/BUILD_SPEC.md`.
 | `docs/BUILD_SPEC.md` | Full build prompt (awaiting) |
 | `docs/BUILD_SPEC_V2.md` | V2 remediation & development prompt (2026-09-13) |
 | `docs/ARCHITECTURE.md` | 5-layer architecture, component contracts |
-| `docs/PROBLEM_IR.md` | Versioned problem representation schema |
+| `docs/PROBLEM_IR.md` | Versioned problem representation schema (v0.3) |
 | `docs/QUANTUM_CORE.md` | Quantum module design and execution path |
 | `docs/VERIFICATION.md` | What can be verified and how |
 | `docs/BENCHMARK_PROTOCOL.md` | How benchmarks are run and reported |
