@@ -3,7 +3,7 @@ _Last updated: 2026-09-14 (Fix black screen on compute & add web-grounded system
 
 ## Status: SYNTEZA SYSTEMOWA Z SIECI I FIX CZARNEGO EKRANU ZWERYFIKOWANE (100% BRAMEK I TESTÓW E2E ZIELONYCH)
 
-- **Gałąź i stan repo**: `main` — pełna synchronizacja i 100% zielonych bramek.
+- **Gałąź i stan repo**: `main` (commit `80d1b54`) — wypchnięty do `origin/main` i wdrożony na produkcję Vercel (`https://yourquantum.pl`, deployment `dpl_6AnCizDQx6C92TnxFXSW1nRimnPn`). Zweryfikowany na żywo w przeglądarce pod kątem eliminacji czarnego ekranu i pełnej syntezy systemowej.
 - **Wszystkie mechaniczne bramki weryfikacyjne w `scripts/check_v4.sh`**: 23/23 ZIELONE (PASS).
 - **Testy Playwright E2E na żywym backendzie (`frontend/e2e/v4-real-backend.spec.ts`)**: 4/4 ZIELONE (PASS):
   * Health check backendu aktywny i osiągalny (`GET /api/v1/health` -> `status: "ok"`).
