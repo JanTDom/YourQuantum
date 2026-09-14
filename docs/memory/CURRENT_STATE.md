@@ -1,28 +1,49 @@
 # YourQuantum — CURRENT STATE
-_Last updated: 2026-09-14 (V5: Uczciwe prognozy scenariuszowe, ważony softmax, pasmo wrażliwości, usunięcie pseudokwantowych metafor, czysty git i audyt bezpieczeństwa; poprawka Gemini schema i renderingu)_
+_Last updated: 2026-09-15 (V7: Weryfikacja produkcyjna V6 i domknięcie raportu; scalenie fix/v6-closeout do main)_
 
-## Status: V5 — UCZCIWE PROGNOZY SCENARIUSZOWE I REGRESJE ZIELONE (100% PASS)
+## Status: V6/V7 — WDROŻENIE PRODUKCYJNE ZWERYFIKOWANE EMPIRYCZNIE (100% PASS)
 
-- **Gałąź i stan repo**: `main` — pomyślna realizacja audytu V5 i natychmiastowe usunięcie błędu schema 400 z Gemini API:
-  * Naprawiono definicję `SCENARIO_EXTRACTION_SCHEMA` (zastąpienie nieobsługiwanego przez Google Gemini `additionalProperties` w JSON schema jawną listą obiektów `impacts: [{"scenario_id": "...", "impact": 0.5}]`).
-  * Dodano `llm_suggested` do walidacji `ScoredValue.provenance` w `backend/domain/decision_case.py`.
-  * Włączono `is_accepted: true` jako stan początkowy dla propozycji przesłanek generowanych przez dekompozytor (z zachowaniem oznaczenia `🤖 Sugestia AI` i pełnej edytowalności), dzięki czemu użytkownik natychmiast po zapytaniu otrzymuje policzony rozkład i briefing, zamiast pustego ekranu wyboru.
-  * Zabezpieczono `frontend/src/App.tsx` oraz `backend/domain/cognitive/active_inference_engine.py` przed przejściem do widoku wyników, gdy scenariusze są puste (`len(scenarios) < 2`).
+- **Gałąź i stan repo**: `main` — pomyślna realizacja audytu V6 (5 punktów naprawczych), korekta raportu V7 (zgodność ze stanem faktycznym kodu, usunięcie pojęć bayesowskich, odzwierciedlenie metody `weighted_softmax_aggregation`) oraz scalenie gałęzi `fix/v6-closeout` do `main` (commit merge `c2ed416`).
+  * Przywrócono bramkę akceptacji przesłanek decydenta: `backend/domain/cognitive/scenario_decomposer.py` emituje `is_accepted = False` dla wszystkich propozycji modelu (`llm_suggested`).
+  * Zaimplementowano stan zerowy w UI (`RecommendationView.tsx`): gdy żadna przesłanka nie jest zatwierdzona (`liveForecast.activeCount === 0`), nagłówki h1 i h3 wyświetlają „Rozkład równomierny – nie zatwierdzono jeszcze żadnej przesłanki”, a pod wykresem widnieje „Rozkład równomierny (równe prawdopodobieństwo bazowe)”. Ukryto plakietkę „★ Dominujący kierunek”, pasma wrażliwości oraz sekcję punktów zwrotnych. Dodano licznik `Zatwierdzone: {activeCount} z {totalCount}` oraz przyciski masowej akcji: „Zatwierdź wszystkie propozycje modelu” i „Odznacz wszystkie”.
+  * Usunięto zmyśloną telemetrię ładowania z `QuantumLoadingOverlay.tsx` — brak rotacji faz, brak sztucznych interwałów, zero wzmianek o Qiskicie, symulacji unitarnej i regule Borna.
+  * Usunięto martwe pola pseudokwantowe (`amplitude_real`, `amplitude_imag`, `quantum_telemetry`) z kontraktu frontendu `frontend/src/api.ts`.
+  * Naprawiono bramkę G-R2 w `scripts/check_v4.sh` (użycie `git grep -n` zamiast `grep -rn`).
 - **Stan i typografia (Polska norma sentence case)**:
-  * Wprowadzono funkcję normalizującą `to_polish_sentence_case` w `backend/domain/scenario_weighting.py` z zachowaniem nazw własnych (np. Polska, Rosja, NATO, Ukraina, USA, UE) oraz małych liter dla przymiotników od nazw państw (np. rosyjski, polski).
-  * Zaktualizowano instrukcję dekompozytora w `backend/domain/cognitive/scenario_decomposer.py` z bezwzględnym zakazem angielskiego Title Case.
-  * Usunięto reguły CSS `textTransform: 'uppercase'` ze wszystkich nagłówków, pytań, etykiet, kart i przycisków w komponentach frontendu (`frontend/src/components/RecommendationView.tsx`, `frontend/src/components/CaseWorkspace.tsx`, `frontend/src/components/DesignWorkspace.tsx`, `frontend/src/components/ModelApprovalGate.tsx`, `frontend/src/components/EvidenceDrawer.tsx`, `frontend/src/components/HelpCenterModal.tsx`, `frontend/src/components/AuthGate.tsx`, `frontend/src/components/ConversationPanel.tsx`, `frontend/src/components/LandingPage.tsx`).
+  * Zachowano funkcję normalizującą `to_polish_sentence_case` w `backend/domain/scenario_weighting.py` z uwzględnieniem nazw własnych.
+  * Zgodność ścieżek komponentów frontendu z pełnymi relatywnymi ścieżkami na dysku (`frontend/src/components/RecommendationView.tsx`, `frontend/src/components/CaseWorkspace.tsx`, `frontend/src/components/DesignWorkspace.tsx`, `frontend/src/components/ModelApprovalGate.tsx`, `frontend/src/components/EvidenceDrawer.tsx`, `frontend/src/components/HelpCenterModal.tsx`, `frontend/src/components/AuthGate.tsx`, `frontend/src/components/ConversationPanel.tsx`, `frontend/src/components/LandingPage.tsx`).
 - **Weryfikacja testowa**:
-  * `tests/unit/test_scenario_weighting.py`: 8/8 testów PASS (w tym test reguły sentence case).
-  * `tests/test_v4_regressions.py`: 26/26 testów PASS.
-  * Łącznie: 34/34 testy PASS (0 awarii, 0 regresji).
-  * `npm run build`: Kompilacja TypeScript/Vite czysta (0 błędów, kod 0).
-- **Wdrożenie produkcyjne**: `https://yourquantum.pl` (Vercel prod deployment `dpl_CbFgGLjcV6CXt5i1F8g252CpYKuw`):
-  * Zweryfikowano empirycznie na żywo zapytaniem `"Czy Rosja w najbliższym czasie napadnie na Polskę?"`:
-  * Odpowiedź na żywo zwraca tytuły w poprawnym sentence case: "Utrzymanie status quo z podwyższonymi napięciami", "Eskalacja działań hybrydowych Rosji wobec Polski", "Bezpośrednia inwazja konwencjonalna Rosji na Polskę".
-  * Wyeliminowano krzyczące ALL CAPS oraz kalki z angielskiego Title Case w całym systemie.
+  * `scripts/check_v4.sh`: Wszystkie bramki PASS (G-R1a do G-N11 oraz G-TESTS: PASS).
+  * `pytest -q tests/`: 193/193 PASS (kod wyjścia 0, 0 błędów, 0 regresji).
+  * `npm run build`: Kompilacja TypeScript/Vite czysta (kod 0, 0 błędów).
+- **Wdrożenie produkcyjne**: `https://yourquantum.pl` (Vercel prod deployment `dpl_AMjryi2a1Xc6HcwBvmmZojPBcXM6`, status `READY`):
+  * Nowy bundle produkcyjny frontendu: `assets/index-DYAG9ngC.js`.
+  * Potwierdzony region serwerowy Vercel: `fra1` nagłówkiem HTTP `x-vercel-id: arn1::fra1::mj9g4-1789425647787-752bc4d44759`.
+  * Surowa odpowiedź produkcyjna `GET /api/v1/health/solvers?cb=...` (2026-09-14T22:40:57Z):
+```json
+{"solvers":[{"name":"cp_sat","version":"9.15.6755","available":true,"import_error":null},{"name":"qaoa_aer","version":"qiskit-aer-0.17.2","available":true,"import_error":null},{"name":"hybrid_benders","version":"0.1.0","available":true,"import_error":null},{"name":"scipy_continuous","version":"1.18.1","available":true,"import_error":null},{"name":"qpu_hardware","version":"disconnected-stub-v1","available":false,"import_error":"Brak aktywnego połączenia ze sprzętowym procesorem kwantowym (QPU). Dostępne są wyłącznie symulatory obwodów kwantowych (Aer)."}]}
+```
+  * Zweryfikowano empirycznie na żywo w przeglądarce i API (`POST /api/v1/cognitive/intake`) zapytaniem `"Czy Rosja w najbliższym czasie napadnie na Polskę?"`:
+    - Ekran ładowania: wyświetla wyłącznie prawdziwe komunikaty stanu (`Silnik w toku obliczeń`, `Percepcja kognitywna i formalizacja zadania (Active Inference)...`, `Obliczenia w toku. Wynik pojawi się po zakończeniu pracy solvera i niezależnej weryfikacji.`), zero wzmianek o Qiskicie, symulacji unitarnej czy regule Borna.
+    - Stan zerowy (zero zatwierdzonych przesłanek):
+      * Wszystkie 4 przesłanki wygenerowane z `is_accepted: false` i `provenance: "llm_suggested"`.
+      * Nagłówek główny h1: `Rozkład równomierny – nie zatwierdzono jeszcze żadnej przesłanki`.
+      * Nagłówek karty h3: `Rozkład równomierny – nie zatwierdzono jeszcze żadnej przesłanki`.
+      * Treść akapitu: `Poniżej znajdziesz przesłanki zaproponowane przez model. Zatwierdź te, które uznajesz za trafne – rozkład przeliczy się natychmiast. Możesz też zmienić ich wagi.`.
+      * Licznik obok przycisków: `Zatwierdzone: 0 z 4`.
+      * Przyciski: `Zatwierdź wszystkie propozycje modelu`, `Odznacz wszystkie` oraz `+ Zatwierdź do obliczeń` przy każdej przesłance.
+      * Plakietka `★ Dominujący kierunek` ukryta.
+      * Podpis pod każdym ze scenariuszy: `Rozkład równomierny (równe prawdopodobieństwo bazowe)`.
+      * Sekcja 4 (Punkty zwrotne) w całości ukryta.
+      * Surowa telemetria silnika: `{"method":"weighted_softmax_aggregation","beta":1.0,"n_scenarios":3,"n_premises":4,"n_active_premises":0,"dominant_scenario":"Bezpośredni atak militarny Rosji na Polskę","dominant_probability":0.3333,"dominant_sensitivity_band":"33,3%–33,3%","solve_time_seconds":0.0027}`.
+    - Po kliknięciu „Zatwierdź wszystkie propozycje modelu”:
+      * Licznik natychmiast aktualizuje się do `Zatwierdzone: 4 z 4`.
+      * Przyciski zmieniają stan na `✓ Uwzględniona w rozkładzie`.
+      * Rozkład scenariuszy przelicza się natychmiast w hooku `useMemo` na podstawie wag zatwierdzonych przesłanek metodą ważonego softmaxu.
+      * Odsłania się plakietka `★ Dominujący kierunek` oraz analityczne podsumowanie diagnozy strategicznej.
 
 ### Stan przed V4 — Surowy wynik bramek mechanicznych (`scripts/check_v4.sh`):
+
 
 
 ```text
