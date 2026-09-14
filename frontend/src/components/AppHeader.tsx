@@ -98,12 +98,11 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           <div style={{
             fontSize: '0.625rem',
             fontWeight: 700,
-            letterSpacing: '0.14em',
-            textTransform: 'uppercase',
+            letterSpacing: '0.04em',
             color: 'oklch(62% 0.18 240 / 0.8)',
             marginTop: '1px',
           }}>
-            Quantum Decision Engine
+            Kwantowy silnik decyzyjny
           </div>
         </div>
       </button>

@@ -391,7 +391,7 @@ export const CaseWorkspace: React.FC<CaseWorkspaceProps> = ({
               marginBottom: '2rem', gap: '1rem',
             }}>
               <div>
-                <p style={{ margin: '0 0 0.375rem 0', fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'oklch(75% 0.12 80)' }}>
+                <p style={{ margin: '0 0 0.375rem 0', fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.04em', color: 'oklch(75% 0.12 80)' }}>
                   Krok 1 z 2 — Twoja sytuacja
                 </p>
                 <h2 style={{ margin: '0 0 0.5rem 0', fontSize: 'clamp(1.25rem, 3vw, 1.75rem)', fontWeight: 900, color: 'oklch(97% 0.008 250)', letterSpacing: '-0.03em', lineHeight: 1.1 }}>
@@ -429,7 +429,7 @@ export const CaseWorkspace: React.FC<CaseWorkspaceProps> = ({
               gap: '0.75rem',
             }}>
               <div>
-                <span style={{ fontSize: '0.75rem', color: 'oklch(60% 0.02 250)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>
+                <span style={{ fontSize: '0.75rem', color: 'oklch(60% 0.02 250)', letterSpacing: '0.04em', fontWeight: 700 }}>
                   Rozpoznana klasa problemu:
                 </span>{' '}
                 <span style={{
@@ -481,7 +481,7 @@ export const CaseWorkspace: React.FC<CaseWorkspaceProps> = ({
             {/* Options grid with photo accents */}
             <div style={{ marginBottom: '2.25rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.875rem' }}>
-                <h3 style={{ fontSize: '0.875rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'oklch(54% 0.018 250)', margin: 0 }}>
+                <h3 style={{ fontSize: '0.875rem', fontWeight: 800, letterSpacing: '0.04em', color: 'oklch(54% 0.018 250)', margin: 0 }}>
                   {decisionCase.options.length > 1
                     ? `Rozważane opcje (${decisionCase.options.length})`
                     : 'Opcja do zbadania'}
@@ -520,7 +520,7 @@ export const CaseWorkspace: React.FC<CaseWorkspaceProps> = ({
                     <div style={{ height: '3px', background: i === 0 ? 'oklch(75% 0.12 80)' : i === 1 ? 'oklch(62% 0.18 240)' : 'oklch(72% 0.18 152)' }} />
                     <div style={{ padding: '1.125rem' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.375rem' }}>
-                        <div style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'oklch(54% 0.018 250)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                        <div style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'oklch(54% 0.018 250)', letterSpacing: '0.04em' }}>
                           Opcja {i + 1}
                         </div>
                         {decisionCase.options.length > 2 && (
@@ -621,8 +621,7 @@ export const CaseWorkspace: React.FC<CaseWorkspaceProps> = ({
                 <h3 style={{
                   fontSize: '0.875rem',
                   fontWeight: 800,
-                  letterSpacing: '0.08em',
-                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
                   color: 'oklch(75% 0.12 80)',
                   margin: 0,
                   display: 'flex',
@@ -1102,7 +1101,7 @@ export const CaseWorkspace: React.FC<CaseWorkspaceProps> = ({
             {/* Tradeoffs */}
             {decisionCase.tradeoffs.length > 0 && (
               <div style={{ marginBottom: '2rem' }}>
-                <h3 style={{ fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'oklch(54% 0.018 250)', marginBottom: '0.75rem' }}>
+                <h3 style={{ fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.04em', color: 'oklch(54% 0.018 250)', marginBottom: '0.75rem' }}>
                   Na co warto zwrócić uwagę:
                 </h3>
                 {decisionCase.tradeoffs.map((tr, idx) => (

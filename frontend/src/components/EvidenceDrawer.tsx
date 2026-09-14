@@ -73,8 +73,7 @@ export const EvidenceDrawer: React.FC<EvidenceDrawerProps> = ({ result, comparis
             fontSize: '0.8125rem',
             fontWeight: 700,
             color: 'var(--text-secondary)',
-            textTransform: 'uppercase',
-            letterSpacing: '0.04em',
+            letterSpacing: '0.02em',
           }}>
             Dowody obliczeniowe i weryfikacja niezależna
           </span>
@@ -250,21 +249,21 @@ export const EvidenceDrawer: React.FC<EvidenceDrawerProps> = ({ result, comparis
                       marginBottom: '1rem',
                     }}>
                       <div style={{ background: 'oklch(11% 0.02 250)', padding: '0.625rem 0.75rem', borderRadius: '6px', border: '1px solid oklch(20% 0.02 250)' }}>
-                        <div style={{ fontSize: '0.6875rem', color: 'oklch(60% 0.02 250)', textTransform: 'uppercase' }}>Bramki splątujące (2-qubit)</div>
+                        <div style={{ fontSize: '0.6875rem', color: 'oklch(60% 0.02 250)' }}>Bramki splątujące (2-qubit)</div>
                         <div style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'oklch(92% 0.01 250)', marginTop: '0.2rem' }}>
                           {qRecord.two_qubit_gate_count || 0} bramek CNOT
                         </div>
                       </div>
 
                       <div style={{ background: 'oklch(11% 0.02 250)', padding: '0.625rem 0.75rem', borderRadius: '6px', border: '1px solid oklch(20% 0.02 250)' }}>
-                        <div style={{ fontSize: '0.6875rem', color: 'oklch(60% 0.02 250)', textTransform: 'uppercase' }}>Głębokość obwodu (Depth)</div>
+                        <div style={{ fontSize: '0.6875rem', color: 'oklch(60% 0.02 250)' }}>Głębokość obwodu (depth)</div>
                         <div style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'oklch(92% 0.01 250)', marginTop: '0.2rem' }}>
                           {qRecord.circuit_depth || 0} warstw logicznych
                         </div>
                       </div>
 
                       <div style={{ background: 'oklch(11% 0.02 250)', padding: '0.625rem 0.75rem', borderRadius: '6px', border: '1px solid oklch(20% 0.02 250)' }}>
-                        <div style={{ fontSize: '0.6875rem', color: 'oklch(60% 0.02 250)', textTransform: 'uppercase' }}>Trafienie stanu optymalnego</div>
+                        <div style={{ fontSize: '0.6875rem', color: 'oklch(60% 0.02 250)' }}>Trafienie stanu optymalnego</div>
                         <div style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'oklch(82% 0.16 150)', marginTop: '0.2rem' }}>
                           {qRecord.ground_state_prob ? `${(qRecord.ground_state_prob * 100).toFixed(1)}%` : '—'}
                           <span style={{ fontSize: '0.6875rem', color: 'oklch(60% 0.02 250)', fontWeight: 400, marginLeft: '0.35rem' }}>
@@ -274,7 +273,7 @@ export const EvidenceDrawer: React.FC<EvidenceDrawerProps> = ({ result, comparis
                       </div>
 
                       <div style={{ background: 'oklch(11% 0.02 250)', padding: '0.625rem 0.75rem', borderRadius: '6px', border: '1px solid oklch(20% 0.02 250)' }}>
-                        <div style={{ fontSize: '0.6875rem', color: 'oklch(60% 0.02 250)', textTransform: 'uppercase' }}>Inicjalizacja i przeszukiwanie</div>
+                        <div style={{ fontSize: '0.6875rem', color: 'oklch(60% 0.02 250)' }}>Inicjalizacja i przeszukiwanie</div>
                         <div style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'oklch(92% 0.01 250)', marginTop: '0.2rem' }}>
                           TQA Adiabatic Ramp ({qRecord.n_evaluations} prób)
                         </div>
@@ -395,7 +394,7 @@ export const EvidenceDrawer: React.FC<EvidenceDrawerProps> = ({ result, comparis
 
                   {verification.limitations && verification.limitations.length > 0 && (
                     <div style={{ marginTop: '1rem' }}>
-                      <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                      <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>
                         Ograniczenia i uwagi metodologiczne
                       </div>
                       <ul style={{ margin: '0.25rem 0 0 1.25rem', fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>

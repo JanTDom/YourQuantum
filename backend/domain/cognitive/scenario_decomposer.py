@@ -129,6 +129,8 @@ async def decompose_scenario_query_async(
             "Wartości dodatnie oznaczają, że dana przesłanka zwiększa szansę scenariusza; "
             "wartości ujemne oznaczają, że mu przeciwdziała lub go wyklucza.\n\n"
             "BEZWZGLĘDNA ZASADA ORTOGRAFII I JĘZYKA POLSKIEGO:\n"
+            "- W zdaniach, tytułach scenariuszy i nazwach przesłanek TYLKO pierwsza litera w zdaniu/tytule ma być wielka (sentence case), chyba że występuje nazwa własna (np. Polska, Rosja, NATO, Ukraina).\n"
+            "- NIGDY nie pisz każdego wyrazu wielką literą (zakaz angielskiego Title Case). Przymiotniki od nazw państw (np. rosyjski, polski, ukraiński) pisz z małej litery.\n"
             "- Wszystkie nazwy własne państw, sojuszy i instytucji pisz Z DUŻEJ LITERY (np. Polska, Ukraina, NATO, USA, UE).\n"
             "- Opisy formułuj w nienagannym, obiektywnym języku analitycznym.\n"
             "- Zakaz jakiegokolwiek żargonu pseudokwantowego (amplitudy, wektory stanów, fale)."

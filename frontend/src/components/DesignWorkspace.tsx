@@ -243,11 +243,10 @@ export const DesignWorkspace: React.FC<DesignWorkspaceProps> = ({
           <span style={{
             fontSize: '0.75rem',
             fontWeight: 800,
-            letterSpacing: '0.12em',
-            textTransform: 'uppercase',
+            letterSpacing: '0.04em',
             color: 'oklch(75% 0.12 80)',
           }}>
-            Klasa DESIGN — Synteza Wielodźwigniowa
+            Klasa DESIGN — synteza wielodźwigniowa
           </span>
           <h2 style={{ margin: '0.35rem 0', fontSize: '1.5rem', fontWeight: 900, color: 'oklch(95% 0.01 250)' }}>
             {designProblem.title}

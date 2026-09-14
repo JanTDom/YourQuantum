@@ -254,3 +254,31 @@ def test_7_zero_qiskit_imports_in_scenario_weighting():
     assert "amplitude_real" not in code
     assert "amplitude_imag" not in code
     assert "born_rule" not in code_lower
+
+
+def test_8_polish_sentence_case_enforcement():
+    """
+    Case 8: Verifies strict Polish sentence case enforcement:
+    - Only the first letter is capitalized
+    - Proper nouns (Polska, Rosja, NATO, Ukraina, USA) remain capitalized
+    - Derived adjectives (rosyjski, polski) are lowercased
+    - Screaming ALL CAPS is converted to sentence case
+    """
+    from backend.domain.scenario_weighting import to_polish_sentence_case, normalize_polish_geopolitical_text
+
+    # Title case with proper noun
+    res1 = to_polish_sentence_case("Bezpośredni Atak Konwencjonalny Na Polskę")
+    assert res1 == "Bezpośredni atak konwencjonalny na Polskę", f"Got: {res1}"
+
+    # All caps with acronyms and proper nouns
+    res2 = to_polish_sentence_case("DZIAŁANIA HYBRYDOWE ROSJI WOBEC NATO I POLSKI")
+    assert res2 == "Działania hybrydowe Rosji wobec NATO i Polski", f"Got: {res2}"
+
+    # Full geopolitical text normalization
+    res3 = normalize_polish_geopolitical_text("BEZPOŚREDNI ATAK NA UKRAINĘ I KRAJE BAŁTYCKIE")
+    assert res3 == "Bezpośredni atak na Ukrainę i kraje bałtyckie", f"Got: {res3}"
+
+    # Derived adjectives
+    res4 = to_polish_sentence_case("Atak Rosyjskich Sił Zbrojnych")
+    assert res4 == "Atak rosyjskich sił zbrojnych", f"Got: {res4}"
+

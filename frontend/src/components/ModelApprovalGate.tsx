@@ -236,10 +236,10 @@ export const ModelApprovalGate: React.FC<ModelApprovalGateProps> = ({
               <p style={{
                 margin: '0 0 0.5rem 0',
                 fontSize: '0.75rem', fontWeight: 800,
-                letterSpacing: '0.12em', textTransform: 'uppercase',
+                letterSpacing: '0.04em',
                 color: 'oklch(75% 0.12 80)',
               }}>
-                Krok 2 z 2 — Gotowe do obliczenia
+                Krok 2 z 2 — gotowe do obliczenia
               </p>
               <h2 style={{
                 margin: '0 0 0.75rem 0',
@@ -319,7 +319,7 @@ export const ModelApprovalGate: React.FC<ModelApprovalGateProps> = ({
               }}>
                 <div style={{
                   fontSize: '0.75rem', fontWeight: 800,
-                  letterSpacing: '0.1em', textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
                   color: 'oklch(75% 0.12 80)',
                 }}>
                   Co system zrozumiał z Twojego opisu
@@ -359,10 +359,10 @@ export const ModelApprovalGate: React.FC<ModelApprovalGateProps> = ({
                 <div>
                   <div style={{
                     fontSize: '0.75rem', fontWeight: 800,
-                    letterSpacing: '0.1em', textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
                     color: 'oklch(62% 0.18 240)',
                   }}>
-                    Model matematyczny — Funkcja celu i wagi kryteriów
+                    Model matematyczny — funkcja celu i wagi kryteriów
                   </div>
                   <div style={{ fontSize: '0.8125rem', color: 'oklch(56% 0.018 250)', marginTop: '0.2rem' }}>
                     Kierunek: <strong style={{ color: 'oklch(85% 0.02 250)' }}>{direction === 'maximize' ? 'Maksymalizacja' : 'Minimalizacja'}</strong>
@@ -387,8 +387,8 @@ export const ModelApprovalGate: React.FC<ModelApprovalGateProps> = ({
               {/* Decision Matrix Table with Cell Provenance (G3 / C6) */}
               {decisionCase?.score_matrix && Object.keys(decisionCase.score_matrix).length > 0 && (
                 <div style={{ marginBottom: '1.5rem', overflowX: 'auto' }}>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'oklch(62% 0.18 240)', marginBottom: '0.5rem' }}>
-                    Macierz Decyzyjna ze Źródłami i Pochodzeniem Danych (C6)
+                  <div style={{ fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.04em', color: 'oklch(62% 0.18 240)', marginBottom: '0.5rem' }}>
+                    Macierz decyzyjna ze źródłami i pochodzeniem danych (C6)
                   </div>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem', textAlign: 'left' }}>
                     <thead>
@@ -527,7 +527,7 @@ export const ModelApprovalGate: React.FC<ModelApprovalGateProps> = ({
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
               {/* Założenia */}
               <div style={{ background: 'oklch(10% 0.018 250)', border: '1px solid oklch(20% 0.025 250)', borderRadius: '10px', padding: '1.25rem' }}>
-                <div style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'oklch(75% 0.12 80)', marginBottom: '0.5rem' }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.04em', color: 'oklch(75% 0.12 80)', marginBottom: '0.5rem' }}>
                   Założenia modelowe ({formalized.assumptions?.length || decisionCase?.facts?.length || 0})
                 </div>
                 {formalized.assumptions && formalized.assumptions.length > 0 ? (
@@ -547,7 +547,7 @@ export const ModelApprovalGate: React.FC<ModelApprovalGateProps> = ({
                 border: `1px solid ${hasBlockingMissingInfo ? 'oklch(40% 0.15 25)' : 'oklch(20% 0.025 250)'}`,
                 borderRadius: '10px', padding: '1.25rem'
               }}>
-                <div style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: hasBlockingMissingInfo ? 'oklch(75% 0.15 25)' : 'oklch(62% 0.18 240)', marginBottom: '0.5rem' }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.04em', color: hasBlockingMissingInfo ? 'oklch(75% 0.15 25)' : 'oklch(62% 0.18 240)', marginBottom: '0.5rem' }}>
                   Czego nie wiemy ({blockingUnknowns.length + blockingMissingInfo.length > 0 ? `${blockingUnknowns.length + blockingMissingInfo.length} blokujących` : 'Brak luk'})
                 </div>
                 {hasBlockingMissingInfo ? (
@@ -613,7 +613,7 @@ export const ModelApprovalGate: React.FC<ModelApprovalGateProps> = ({
                         <span style={{ fontSize: '1.375rem', lineHeight: 1 }}>{opt.icon}</span>
                         <span style={{
                           fontSize: '0.6875rem', fontWeight: 800,
-                          letterSpacing: '0.08em', textTransform: 'uppercase',
+                          letterSpacing: '0.03em',
                           color: !isAvailable
                             ? 'oklch(60% 0.05 25)'
                             : isSelected

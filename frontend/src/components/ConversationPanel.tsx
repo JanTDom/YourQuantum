@@ -73,25 +73,23 @@ export const ConversationPanel: React.FC<ConversationPanelProps> = ({ onSubmit, 
             <span style={{
               fontSize: '0.75rem',
               fontWeight: 800,
-              letterSpacing: '0.14em',
-              textTransform: 'uppercase',
+              letterSpacing: '0.04em',
               color: 'oklch(80% 0.10 80)',
             }}>
-              TERMINAL OBLICZEŃ KWANTOWYCH
+              Terminal obliczeń kwantowych
             </span>
           </div>
           <div style={{
             fontSize: '0.6875rem',
             fontWeight: 700,
-            letterSpacing: '0.06em',
+            letterSpacing: '0.04em',
             padding: '0.2rem 0.625rem',
             borderRadius: '4px',
             background: 'oklch(62% 0.18 240 / 0.18)',
             border: '1px solid oklch(62% 0.18 240 / 0.4)',
             color: 'oklch(85% 0.09 240)',
-            textTransform: 'uppercase',
           }}>
-            QAOA + CP-SAT · ŚCISŁY DOWÓD I WERYFIKACJA
+            QAOA + CP-SAT · ścisły dowód i weryfikacja
           </div>
         </div>
 
@@ -185,8 +183,7 @@ export const ConversationPanel: React.FC<ConversationPanelProps> = ({ onSubmit, 
             fontWeight: 700,
             color: 'oklch(80% 0.10 80)',
             marginBottom: '0.75rem',
-            textTransform: 'uppercase',
-            letterSpacing: '0.08em',
+            letterSpacing: '0.02em',
           }}>
             Przykładowe codzienne dylematy
           </p>

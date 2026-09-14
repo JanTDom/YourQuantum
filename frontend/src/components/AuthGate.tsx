@@ -162,12 +162,11 @@ export const AuthGate: React.FC<AuthGateProps> = ({ children, onLogoutRegistered
           <div style={{
             fontSize: '0.6875rem',
             fontWeight: 800,
-            letterSpacing: '0.15em',
-            textTransform: 'uppercase',
+            letterSpacing: '0.04em',
             color: 'oklch(75% 0.12 80)',
             marginBottom: '0.35rem',
           }}>
-            YourQuantum · Strefa Decyzyjna
+            YourQuantum · strefa decyzyjna
           </div>
           <h1 style={{
             margin: '0 0 0.5rem 0',
@@ -197,8 +196,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({ children, onLogoutRegistered
                 display: 'block',
                 fontSize: '0.75rem',
                 fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.08em',
+                letterSpacing: '0.02em',
                 color: 'oklch(80% 0.08 80)',
                 marginBottom: '0.5rem',
               }}
@@ -285,8 +283,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({ children, onLogoutRegistered
               color: '#0a0f1d',
               fontSize: '0.9375rem',
               fontWeight: 800,
-              letterSpacing: '0.04em',
-              textTransform: 'uppercase',
+              letterSpacing: '0.02em',
               cursor: isVerifying || !password ? 'not-allowed' : 'pointer',
               boxShadow: '0 4px 20px oklch(75% 0.14 80 / 0.4)',
               transition: 'all 180ms ease',
@@ -305,7 +302,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({ children, onLogoutRegistered
           fontSize: '0.75rem',
           color: 'oklch(55% 0.02 250)',
         }}>
-          Szyfrowanie SHA-256 · Niezależna weryfikacja matematyczna
+          Szyfrowanie SHA-256 · niezależna weryfikacja matematyczna
         </div>
       </div>
     </div>

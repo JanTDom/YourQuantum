@@ -205,8 +205,7 @@ export const QuantumLoadingOverlay: React.FC<QuantumLoadingOverlayProps> = ({ st
         <div style={{
           fontSize: '0.6875rem',
           fontWeight: 800,
-          letterSpacing: '0.15em',
-          textTransform: 'uppercase',
+          letterSpacing: '0.04em',
           color: 'oklch(75% 0.14 80)',
           marginBottom: '0.5rem',
           display: 'flex',
@@ -221,7 +220,7 @@ export const QuantumLoadingOverlay: React.FC<QuantumLoadingOverlayProps> = ({ st
             background: 'oklch(75% 0.14 80)',
             boxShadow: '0 0 10px oklch(75% 0.14 80)',
           }} />
-          <span>Silnik Kwantowy w Toku Obliczeń</span>
+          <span>Silnik w toku obliczeń</span>
         </div>
 
         <h2 style={{

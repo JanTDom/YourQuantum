@@ -450,8 +450,7 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
                         style={{
                           fontSize: '0.75rem',
                           fontWeight: 700,
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.08em',
+                          letterSpacing: '0.04em',
                           color: 'oklch(75% 0.12 80)',
                         }}
                       >
@@ -704,8 +703,8 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
 
               <div style={{ display: 'grid', gap: '1rem', marginTop: '1.25rem' }}>
                 <div style={{ background: 'oklch(14% 0.02 250)', border: '1px solid oklch(22% 0.03 250)', borderRadius: '12px', padding: '1.25rem' }}>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'oklch(75% 0.12 80)', marginBottom: '0.75rem' }}>
-                    Zarejestrowane Solvery i Moduły Obliczeniowe ({data.engine_status.active_solvers_count})
+                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'oklch(75% 0.12 80)', marginBottom: '0.75rem' }}>
+                    Zarejestrowane solvery i moduły obliczeniowe ({data.engine_status.active_solvers_count})
                   </div>
                   {data.engine_status.solvers.map((s, idx) => (
                     <div
@@ -734,8 +733,8 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
                 </div>
 
                 <div style={{ background: 'oklch(14% 0.02 250)', border: '1px solid oklch(22% 0.03 250)', borderRadius: '12px', padding: '1.25rem' }}>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'oklch(75% 0.12 80)', marginBottom: '0.75rem' }}>
-                    Obsługiwane Klasy Dylematów
+                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'oklch(75% 0.12 80)', marginBottom: '0.75rem' }}>
+                    Obsługiwane klasy dylematów
                   </div>
                   <ul style={{ margin: 0, paddingLeft: '1.25rem', color: 'oklch(80% 0.015 250)', fontSize: '0.84375rem', lineHeight: 1.8 }}>
                     {data.engine_status.supported_dilemma_types.map((type, idx) => (
@@ -745,8 +744,8 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({
                 </div>
 
                 <div style={{ background: 'oklch(14% 0.02 250)', border: '1px solid oklch(22% 0.03 250)', borderRadius: '12px', padding: '1.25rem' }}>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'oklch(75% 0.12 80)', marginBottom: '0.375rem' }}>
-                    Protokół Weryfikacji
+                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'oklch(75% 0.12 80)', marginBottom: '0.375rem' }}>
+                    Protokół weryfikacji
                   </div>
                   <p style={{ margin: 0, fontSize: '0.84375rem', color: 'oklch(80% 0.015 250)', lineHeight: 1.6 }}>
                     {data.engine_status.verification_mode}

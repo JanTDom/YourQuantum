@@ -64,6 +64,22 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
   const [scenarioPremises, setScenarioPremises] = useState<EvidencePremise[]>(() => forecast?.evidence_premises || [])
   const [scenarioBeta, setScenarioBeta] = useState<number>(1.0)
 
+  const handleTogglePremiseAccepted = (premiseId: string) => {
+    setScenarioPremises((prev) =>
+      prev.map((p) =>
+        p.id === premiseId ? { ...p, is_accepted: !p.is_accepted } : p
+      )
+    )
+  }
+
+  const handlePremiseWeightChange = (premiseId: string, newWeight: number) => {
+    setScenarioPremises((prev) =>
+      prev.map((p) =>
+        p.id === premiseId ? { ...p, weight: newWeight } : p
+      )
+    )
+  }
+
   useEffect(() => {
     if (forecast?.evidence_premises) {
       setScenarioPremises(forecast.evidence_premises)
@@ -364,18 +380,17 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                   <span style={{
                     fontSize: '0.6875rem',
                     fontWeight: 800,
-                    letterSpacing: '0.12em',
-                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
                     color: 'oklch(75% 0.12 80)',
                     background: 'oklch(75% 0.12 80 / 0.12)',
                     padding: '0.25rem 0.75rem',
                     borderRadius: '6px',
                     border: '1px solid oklch(75% 0.12 80 / 0.3)',
                   }}>
-                    ✦ PROGNOZA SCENARIUSZOWA · WAŻONA AGREGACJA PRZESŁANEK
+                    ✦ Prognoza scenariuszowa · ważona agregacja przesłanek
                   </span>
                   <span style={{ fontSize: '0.75rem', color: 'oklch(65% 0.02 250)' }}>
-                    Model ważonego rozkładu softmax · Badanie wrażliwości i analiza punktów zwrotnych
+                    Model ważonego rozkładu softmax · badanie wrażliwości i analiza punktów zwrotnych
                   </span>
                 </div>
 
@@ -422,7 +437,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       <span style={{ fontSize: '1.25rem' }}>📋</span>
                       <h3 style={{ margin: 0, fontSize: '1.0625rem', fontWeight: 800, color: 'oklch(96% 0.01 250)', letterSpacing: '-0.01em' }}>
-                        Wnioski w pigułce (Diagnoza Strategiczna)
+                        Wnioski w pigułce (diagnoza strategiczna)
                       </h3>
                     </div>
 
@@ -436,7 +451,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                       flexDirection: 'column',
                       alignItems: 'flex-end',
                     }}>
-                      <span style={{ fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', color: 'oklch(75% 0.12 80)' }}>
+                      <span style={{ fontSize: '0.625rem', fontWeight: 700, color: 'oklch(75% 0.12 80)' }}>
                         Przedział wrażliwości wariantu wiodącego:
                       </span>
                       <span style={{ fontSize: '1rem', fontWeight: 900, color: 'oklch(96% 0.12 80)' }}>
@@ -461,15 +476,14 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                     margin: 0,
                     fontSize: '0.8125rem',
                     fontWeight: 800,
-                    letterSpacing: '0.1em',
-                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
                     color: 'oklch(75% 0.12 80)',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '0.5rem',
                   }}>
                     <span>🎲</span>
-                    <span>Rozkład Prawdopodobieństwa Scenariuszy (Ważony Softmax)</span>
+                    <span>Rozkład prawdopodobieństwa scenariuszy (ważony softmax)</span>
                   </h3>
 
                   {/* Beta sensitivity selector */}
@@ -478,10 +492,10 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                       Parametr ostrości (β):
                     </span>
                     {[
-                      { val: 0.5, label: '0.5 (Zbalansowany)' },
-                      { val: 1.0, label: '1.0 (Bazowy)' },
-                      { val: 2.0, label: '2.0 (Wyrazisty)' },
-                      { val: 3.0, label: '3.0 (Skrajny)' },
+                      { val: 0.5, label: '0.5 (zbalansowany)' },
+                      { val: 1.0, label: '1.0 (bazowy)' },
+                      { val: 2.0, label: '2.0 (wyrazisty)' },
+                      { val: 3.0, label: '3.0 (skrajny)' },
                     ].map((bOpt) => {
                       const isSelected = scenarioBeta === bOpt.val
                       return (
@@ -560,26 +574,24 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                               fontSize: '0.8125rem',
                               color: isDominant ? 'oklch(75% 0.12 80)' : 'oklch(60% 0.02 250)',
                             }}>
-                              SCENARIUSZ #{idx + 1}
+                              Scenariusz #{idx + 1}
                             </span>
                             {isDominant && (
                               <span style={{
                                 fontSize: '0.625rem',
                                 fontWeight: 800,
-                                textTransform: 'uppercase',
                                 padding: '0.15rem 0.5rem',
                                 borderRadius: '4px',
                                 background: 'oklch(75% 0.12 80 / 0.2)',
                                 color: 'oklch(85% 0.14 80)',
                                 border: '1px solid oklch(75% 0.12 80 / 0.5)',
                               }}>
-                                ★ DOMINUJĄCY KIERUNEK
+                                ★ Dominujący kierunek
                               </span>
                             )}
                             <span style={{
                               fontSize: '0.625rem',
                               fontWeight: 700,
-                              textTransform: 'uppercase',
                               padding: '0.15rem 0.5rem',
                               borderRadius: '4px',
                               background: sc.risk_level === 'CRITICAL' || sc.risk_level === 'HIGH'
@@ -661,15 +673,14 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                     margin: '0 0 0.35rem 0',
                     fontSize: '0.8125rem',
                     fontWeight: 800,
-                    letterSpacing: '0.1em',
-                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
                     color: 'oklch(75% 0.12 80)',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '0.5rem',
                   }}>
                     <span>🏛️</span>
-                    <span>Edytor Przesłanek i Pochodzenie Danych (Weryfikacja Założeń)</span>
+                    <span>Edytor przesłanek i pochodzenie danych (weryfikacja założeń)</span>
                   </h3>
                   <p style={{ margin: 0, fontSize: '0.8125rem', color: 'oklch(70% 0.02 250)' }}>
                     Dostosuj suwaki wag, aby zbadać jak Twoje założenia wpływają na rozkład. Propozycje modelu (🤖) nie wchodzą do obliczeń, dopóki ich nie zatwierdzisz.
@@ -677,130 +688,97 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  {scenarioPremises.map((premise, pIdx) => {
+                  {scenarioPremises.map((premise) => {
                     const prov = premise.provenance || 'assumed'
                     const isLlm = prov === 'llm_suggested'
                     const isAccepted = !isLlm || Boolean(premise.is_accepted)
 
-                    const provMeta: Record<string, { icon: string; label: string; bg: string; color: string }> = {
-                      user_supplied: { icon: '👤', label: 'Decydent (Twoje dane)', bg: 'oklch(18% 0.06 140)', color: 'oklch(85% 0.14 140)' },
-                      web_sourced: { icon: '🌐', label: 'Zweryfikowane źródło sieciowe', bg: 'oklch(18% 0.06 220)', color: 'oklch(85% 0.14 220)' },
-                      llm_suggested: { icon: '🤖', label: 'Propozycja modelu LLM', bg: 'oklch(18% 0.06 280)', color: 'oklch(85% 0.14 280)' },
-                      assumed: { icon: '⚠️', label: 'Założenie analityczne', bg: 'oklch(18% 0.06 60)', color: 'oklch(85% 0.14 60)' },
-                    }
-                    const pMeta = provMeta[prov] || provMeta.assumed
-
                     return (
                       <div
-                        key={premise.id || pIdx}
+                        key={premise.id}
                         style={{
-                          background: isAccepted ? 'oklch(12% 0.02 250)' : 'oklch(10% 0.015 250)',
-                          border: isAccepted ? '1px solid oklch(24% 0.03 250)' : '1px dashed oklch(28% 0.04 40)',
+                          background: isAccepted ? 'oklch(12% 0.025 250)' : 'oklch(11% 0.01 250 / 0.6)',
+                          border: isAccepted ? '1px solid oklch(24% 0.03 250)' : '1px dashed oklch(20% 0.02 250)',
                           borderRadius: '10px',
-                          padding: '1.25rem',
-                          opacity: isAccepted ? 1 : 0.85,
+                          padding: '1.125rem 1.25rem',
+                          opacity: isAccepted ? 1 : 0.65,
                           transition: 'all 200ms ease',
                         }}
                       >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '0.75rem' }}>
-                          <div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem', flexWrap: 'wrap' }}>
-                              <span style={{
-                                fontSize: '0.6875rem',
-                                fontWeight: 700,
-                                padding: '0.2rem 0.5rem',
-                                borderRadius: '4px',
-                                background: pMeta.bg,
-                                color: pMeta.color,
-                                border: '1px solid oklch(30% 0.05 250)',
-                              }}>
-                                {pMeta.icon} {pMeta.label}
-                              </span>
-                              {!isAccepted && (
-                                <span style={{
-                                  fontSize: '0.6875rem',
-                                  fontWeight: 700,
-                                  padding: '0.2rem 0.5rem',
-                                  borderRadius: '4px',
-                                  background: 'oklch(20% 0.08 40)',
-                                  color: 'oklch(85% 0.14 40)',
-                                  border: '1px solid oklch(35% 0.1 40)',
-                                }}>
-                                  ⚠️ Wstrzymana — nie wpływa na rozkład
-                                </span>
-                              )}
-                            </div>
-                            <div style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'oklch(95% 0.01 250)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'oklch(60% 0.02 250)' }}>
+                              #{premise.id}
+                            </span>
+                            <span style={{ fontSize: '0.875rem', fontWeight: 800, color: isAccepted ? 'oklch(95% 0.01 250)' : 'oklch(70% 0.02 250)' }}>
                               {premise.name}
-                            </div>
-                          </div>
-
-                          {/* Toggle accept button for LLM suggestions */}
-                          {isLlm && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setScenarioPremises((prev) =>
-                                  prev.map((p, idx) => (idx === pIdx ? { ...p, is_accepted: !p.is_accepted } : p))
-                                )
-                              }}
-                              style={{
-                                padding: '0.35rem 0.75rem',
-                                borderRadius: '6px',
-                                fontSize: '0.75rem',
-                                fontWeight: 700,
-                                background: isAccepted ? 'oklch(20% 0.06 25)' : 'oklch(75% 0.12 80 / 0.2)',
-                                color: isAccepted ? 'oklch(85% 0.12 25)' : 'oklch(95% 0.12 80)',
-                                border: isAccepted ? '1px solid oklch(35% 0.1 25)' : '1px solid oklch(75% 0.12 80 / 0.6)',
-                                cursor: 'pointer',
-                                transition: 'all 150ms ease',
-                              }}
-                            >
-                              {isAccepted ? '✕ Wyłącz z obliczeń' : '✓ Zatwierdź przesłankę'}
-                            </button>
-                          )}
-                        </div>
-
-                        <p style={{ margin: '0 0 0.75rem 0', fontSize: '0.8125rem', color: 'oklch(78% 0.02 250)', lineHeight: 1.5 }}>
-                          {premise.description} {premise.source ? `(Źródło: ${premise.source})` : ''}
-                        </p>
-
-                        {/* Weight slider & impact summary */}
-                        <div style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '1rem',
-                          background: 'oklch(14% 0.02 250)',
-                          padding: '0.625rem 0.875rem',
-                          borderRadius: '8px',
-                          flexWrap: 'wrap',
-                        }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, minWidth: '220px' }}>
-                            <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'oklch(70% 0.02 250)' }}>
-                              Waga decydenta:
-                            </label>
-                            <input
-                              type="range"
-                              min="0"
-                              max="3"
-                              step="0.1"
-                              value={premise.weight}
-                              onChange={(e) => {
-                                const newW = parseFloat(e.target.value)
-                                setScenarioPremises((prev) =>
-                                  prev.map((p, idx) => (idx === pIdx ? { ...p, weight: newW } : p))
-                                )
-                              }}
-                              style={{ flex: 1, accentColor: 'oklch(75% 0.12 80)', cursor: 'pointer' }}
-                            />
-                            <span style={{ fontSize: '0.8125rem', fontWeight: 800, color: 'oklch(95% 0.01 250)', minWidth: '2.5rem' }}>
-                              {premise.weight.toFixed(1)}
+                            </span>
+                            <span style={{
+                              fontSize: '0.625rem',
+                              fontWeight: 700,
+                              padding: '0.15rem 0.4rem',
+                              borderRadius: '4px',
+                              background: prov === 'web_sourced' ? 'oklch(62% 0.18 240 / 0.15)' : isLlm ? 'oklch(75% 0.15 45 / 0.15)' : 'oklch(72% 0.18 152 / 0.15)',
+                              color: prov === 'web_sourced' ? 'oklch(75% 0.15 240)' : isLlm ? 'oklch(80% 0.15 45)' : 'oklch(78% 0.15 152)',
+                              border: `1px solid ${prov === 'web_sourced' ? 'oklch(62% 0.18 240 / 0.3)' : isLlm ? 'oklch(75% 0.15 45 / 0.3)' : 'oklch(72% 0.18 152 / 0.3)'}`,
+                            }}>
+                              {prov === 'web_sourced' ? '🌐 Zweryfikowane źródło sieciowe' : isLlm ? '🤖 Sugestia AI' : '👤 Podane przez użytkownika'}
                             </span>
                           </div>
 
-                          <div style={{ fontSize: '0.75rem', color: 'oklch(65% 0.02 250)' }}>
-                            Wiarygodność źródła: {(premise.confidence * 100).toFixed(0)}%
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            {isLlm && (
+                              <button
+                                type="button"
+                                onClick={() => handleTogglePremiseAccepted(premise.id)}
+                                style={{
+                                  padding: '0.2rem 0.6rem',
+                                  borderRadius: '5px',
+                                  fontSize: '0.6875rem',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  background: isAccepted ? 'oklch(22% 0.04 150)' : 'oklch(18% 0.03 45)',
+                                  color: isAccepted ? 'oklch(85% 0.18 150)' : 'oklch(85% 0.12 45)',
+                                  border: `1px solid ${isAccepted ? 'oklch(60% 0.15 150 / 0.5)' : 'oklch(60% 0.12 45 / 0.5)'}`,
+                                }}
+                              >
+                                {isAccepted ? '✓ Uwzględniona w rozkładzie' : '+ Zatwierdź do obliczeń'}
+                              </button>
+                            )}
+                            <span style={{ fontSize: '0.75rem', color: 'oklch(60% 0.02 250)' }}>
+                              Wiarygodność: {(premise.confidence * 100).toFixed(0)}%
+                            </span>
                           </div>
+                        </div>
+
+                        {premise.description && (
+                          <p style={{ margin: '0 0 0.75rem 0', fontSize: '0.8125rem', color: 'oklch(70% 0.02 250)', lineHeight: 1.5 }}>
+                            {premise.description}
+                          </p>
+                        )}
+
+                        {/* Weight Slider */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
+                          <span style={{ fontSize: '0.75rem', color: 'oklch(65% 0.02 250)', width: '130px', flexShrink: 0 }}>
+                            Waga przesłanki: <strong style={{ color: 'oklch(75% 0.12 80)' }}>{premise.weight.toFixed(2)}</strong>
+                          </span>
+                          <input
+                            type="range"
+                            min="0.0"
+                            max="3.0"
+                            step="0.05"
+                            value={premise.weight}
+                            disabled={!isAccepted}
+                            onChange={(e) => handlePremiseWeightChange(premise.id, parseFloat(e.target.value))}
+                            style={{
+                              flex: 1,
+                              accentColor: 'oklch(75% 0.12 80)',
+                              cursor: isAccepted ? 'pointer' : 'not-allowed',
+                            }}
+                          />
+                          <span style={{ fontSize: '0.6875rem', color: 'oklch(50% 0.02 250)', width: '60px', textAlign: 'right' }}>
+                            [0.0 — 3.0]
+                          </span>
                         </div>
                       </div>
                     )
@@ -808,8 +786,13 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                 </div>
               </div>
 
-              {/* ── 4. TRADEOFF & ANALYTICAL TIPPING POINTS ── */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.25rem', marginBottom: '2.5rem' }}>
+              {/* ── 4. ANALYTICAL TIPPING POINTS (TRIPWIRES) & TRADEOFF ── */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+                gap: '1.25rem',
+                marginBottom: '2.5rem',
+              }}>
                 <div style={{
                   background: 'oklch(11% 0.02 250)',
                   border: '1px solid oklch(22% 0.03 250)',
@@ -818,8 +801,8 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
                     <span style={{ fontSize: '1rem' }}>⚖️</span>
-                    <h4 style={{ margin: 0, fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'oklch(75% 0.12 80)' }}>
-                      Główny kompromis (Cena Oceny)
+                    <h4 style={{ margin: 0, fontSize: '0.8125rem', fontWeight: 800, letterSpacing: '0.04em', color: 'oklch(75% 0.12 80)' }}>
+                      Główny kompromis (cena wyboru)
                     </h4>
                   </div>
                   <p style={{ margin: 0, fontSize: '0.875rem', color: 'oklch(85% 0.02 250)', lineHeight: 1.6 }}>
@@ -835,8 +818,8 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
                     <span style={{ fontSize: '1rem' }}>🎯</span>
-                    <h4 style={{ margin: 0, fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'oklch(75% 0.12 80)' }}>
-                      Kiedy wynik uległby zmianie (Punkty Krytyczne / Tripwires)
+                    <h4 style={{ margin: 0, fontSize: '0.8125rem', fontWeight: 800, letterSpacing: '0.04em', color: 'oklch(75% 0.12 80)' }}>
+                      Kiedy wynik uległby zmianie (punkty zwrotne)
                     </h4>
                   </div>
                   <ul style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.875rem', color: 'oklch(85% 0.02 250)', lineHeight: 1.6 }}>
@@ -898,8 +881,8 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                   }}>
                     {/* Mathematical Formula */}
                     <div style={{ marginBottom: '1.5rem', background: 'oklch(12% 0.02 250)', padding: '1rem', borderRadius: '8px' }}>
-                      <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.8125rem', fontWeight: 800, color: 'oklch(75% 0.12 80)', textTransform: 'uppercase' }}>
-                        Wzór matematyczny ważonej agregacji (Softmax / Gibbs):
+                      <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.8125rem', fontWeight: 800, color: 'oklch(75% 0.12 80)' }}>
+                        Wzór matematyczny ważonej agregacji (softmax / Gibbs):
                       </h4>
                       <p style={{ margin: '0 0 0.5rem 0', fontFamily: 'monospace', fontSize: '0.8125rem', color: 'oklch(90% 0.01 250)' }}>
                         S(s_i) = ∑ [w_p · c_p · I(s_i, p)]  dla p ∈ Przesłanki_Aktywne
@@ -911,8 +894,8 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
 
                     {/* Scenarios score table */}
                     <div style={{ marginBottom: '1.5rem' }}>
-                      <h4 style={{ margin: '0 0 0.75rem 0', fontSize: '0.875rem', fontWeight: 800, color: 'oklch(75% 0.12 80)', textTransform: 'uppercase' }}>
-                        Tabela Wskaźników Poparcia Scenariuszy (Evidence Score & Prawdopodobieństwo)
+                      <h4 style={{ margin: '0 0 0.75rem 0', fontSize: '0.875rem', fontWeight: 800, color: 'oklch(75% 0.12 80)' }}>
+                        Tabela wskaźników poparcia scenariuszy (wskaźnik poparcia i prawdopodobieństwo)
                       </h4>
                       <div style={{ overflowX: 'auto' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
@@ -957,7 +940,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                       color: 'oklch(70% 0.02 250)',
                     }}>
                       <div style={{ fontWeight: 800, color: 'oklch(90% 0.01 250)', marginBottom: '0.5rem' }}>
-                        TELEMETRIA OBLICZEŃ (SOFTMAX EVIDENCE AGGREGATION):
+                        Telemetria obliczeń (ważona agregacja softmax):
                       </div>
                       <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
                         {JSON.stringify(
@@ -1006,15 +989,14 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                   <span style={{
                     fontSize: '0.6875rem',
                     fontWeight: 800,
-                    letterSpacing: '0.12em',
-                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
                     color: 'oklch(75% 0.12 80)',
                     background: 'oklch(75% 0.12 80 / 0.12)',
                     padding: '0.25rem 0.75rem',
                     borderRadius: '6px',
                     border: '1px solid oklch(75% 0.12 80 / 0.3)',
                   }}>
-                    ✦ SYNTEZA STRATEGICZNA · REKOMENDACJA DLA DECYDENTA
+                    ✦ Synteza strategiczna · rekomendacja dla decydenta
                   </span>
                   <span style={{ fontSize: '0.75rem', color: 'oklch(65% 0.02 250)' }}>
                     Wielokryterialna optymalizacja oparta na faktach i twardych ograniczeniach
@@ -1029,7 +1011,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                   color: 'oklch(97% 0.008 250)',
                   lineHeight: 1.15,
                 }}>
-                  {designData?.briefing?.headline || (decisionCase?.title ? `Diagnoza i rekomendacja: ${decisionCase.title}` : 'Optymalna Konfiguracja Architektury Systemowej')}
+                  {designData?.briefing?.headline || (decisionCase?.title ? `Diagnoza i rekomendacja: ${decisionCase.title}` : 'Optymalna konfiguracja architektury systemowej')}
                 </h1>
 
                 {/* Model-optimal mandatory honesty banner */}
@@ -1064,7 +1046,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
                     <span style={{ fontSize: '1.25rem' }}>📋</span>
                     <h3 style={{ margin: 0, fontSize: '1.0625rem', fontWeight: 800, color: 'oklch(96% 0.01 250)', letterSpacing: '-0.01em' }}>
-                      Wnioski w pigułce (Diagnoza i Główny Kierunek)
+                      Wnioski w pigułce (diagnoza i główny kierunek)
                     </h3>
                   </div>
                   <p style={{ margin: 0, fontSize: '1.0625rem', color: 'oklch(92% 0.01 250)', lineHeight: 1.7, fontWeight: 400 }}>
@@ -1081,11 +1063,10 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                     margin: 0,
                     fontSize: '0.875rem',
                     fontWeight: 800,
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
+                    letterSpacing: '0.02em',
                     color: 'oklch(75% 0.12 80)',
                   }}>
-                    Kluczowe Filary Rozwiązania (Dlaczego ten kierunek)
+                    Kluczowe filary rozwiązania (dlaczego ten kierunek)
                   </h2>
                 </div>
 
@@ -1116,7 +1097,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                             justifyContent: 'space-between',
                             marginBottom: '0.5rem',
                           }}>
-                            <span style={{ fontSize: '0.6875rem', color: 'oklch(60% 0.02 250)', textTransform: 'uppercase', fontWeight: 800 }}>
+                            <span style={{ fontSize: '0.6875rem', color: 'oklch(60% 0.02 250)', fontWeight: 800 }}>
                               Filar #{idx + 1}
                             </span>
                             <span style={{
@@ -1128,7 +1109,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                               borderRadius: '4px',
                               border: '1px solid oklch(75% 0.12 80 / 0.3)',
                             }}>
-                              REKOMENDOWANY WYBÓR
+                              Rekomendowany wybór
                             </span>
                           </div>
 
@@ -1179,7 +1160,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                           padding: '1.25rem',
                         }}
                       >
-                        <div style={{ fontSize: '0.6875rem', color: 'oklch(55% 0.02 250)', textTransform: 'uppercase', fontWeight: 700 }}>
+                        <div style={{ fontSize: '0.6875rem', color: 'oklch(55% 0.02 250)', fontWeight: 700 }}>
                           Filar #{idx + 1}
                         </div>
                         <div style={{ fontSize: '0.9375rem', fontWeight: 800, color: 'oklch(95% 0.01 250)', margin: '0.35rem 0' }}>
@@ -1209,8 +1190,8 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.625rem' }}>
                     <span style={{ fontSize: '1.125rem' }}>⚖️</span>
-                    <h3 style={{ margin: 0, fontSize: '0.875rem', fontWeight: 800, color: 'oklch(92% 0.01 250)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      Główny kompromis (Cena wyboru)
+                    <h3 style={{ margin: 0, fontSize: '0.875rem', fontWeight: 800, color: 'oklch(92% 0.01 250)' }}>
+                      Główny kompromis (cena wyboru)
                     </h3>
                   </div>
                   <p style={{ margin: 0, fontSize: '0.875rem', color: 'oklch(78% 0.02 250)', lineHeight: 1.6 }}>
@@ -1226,8 +1207,8 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.625rem' }}>
                     <span style={{ fontSize: '1.125rem' }}>🔀</span>
-                    <h3 style={{ margin: 0, fontSize: '0.875rem', fontWeight: 800, color: 'oklch(92% 0.01 250)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      Kiedy wynik uległby zmianie (Punkty wrażliwości)
+                    <h3 style={{ margin: 0, fontSize: '0.875rem', fontWeight: 800, color: 'oklch(92% 0.01 250)' }}>
+                      Kiedy wynik uległby zmianie (punkty wrażliwości)
                     </h3>
                   </div>
                   <ul style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.8125rem', color: 'oklch(75% 0.02 250)', lineHeight: 1.55 }}>
@@ -1303,11 +1284,10 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                           margin: 0,
                           fontSize: '0.8125rem',
                           fontWeight: 800,
-                          letterSpacing: '0.1em',
-                          textTransform: 'uppercase',
+                          letterSpacing: '0.04em',
                           color: 'oklch(75% 0.12 80)',
                         }}>
-                          Front Pareto — Warianty Niezdominowane ({designData?.pareto_frontier.length || 0} punktów kompromisu)
+                          Front Pareto — warianty niezdominowane ({designData?.pareto_frontier.length || 0} punktów kompromisu)
                         </h3>
                         <span style={{ fontSize: '0.75rem', color: 'oklch(60% 0.02 250)' }}>
                           Żaden punkt nie jest gorszy we wszystkich kryteriach od innego
@@ -1323,8 +1303,8 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                         marginBottom: '1rem',
                       }}>
                         <div style={{ fontSize: '0.75rem', color: 'oklch(70% 0.02 250)', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between' }}>
-                          <span>▲ Jakość kliniczna i dostępność (Maksymalizacja)</span>
-                          <span>Koszt publiczny systemu (Minimalizacja) ►</span>
+                          <span>▲ Jakość kliniczna i dostępność (maksymalizacja)</span>
+                          <span>Koszt publiczny systemu (minimalizacja) ►</span>
                         </div>
 
                         <svg
@@ -1395,8 +1375,8 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                             gap: '0.75rem',
                           }}>
                             <div>
-                              <div style={{ fontSize: '0.75rem', color: 'oklch(75% 0.12 80)', fontWeight: 800, textTransform: 'uppercase' }}>
-                                Aktywny punkt kompromisu: P{selectedParetoIdx + 1} {selectedParetoIdx === 0 ? '(Rekomendowany globalnie)' : '(Wariant alternatywny)'}
+                              <div style={{ fontSize: '0.75rem', color: 'oklch(75% 0.12 80)', fontWeight: 800 }}>
+                                Aktywny punkt kompromisu: P{selectedParetoIdx + 1} {selectedParetoIdx === 0 ? '(rekomendowany globalnie)' : '(wariant alternatywny)'}
                               </div>
                               <div style={{ fontSize: '0.8125rem', color: 'oklch(80% 0.01 250)', marginTop: '0.25rem' }}>
                                 Wartości kryteriów:{' '}
@@ -1419,11 +1399,10 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                         margin: '0 0 1rem 0',
                         fontSize: '0.8125rem',
                         fontWeight: 800,
-                        letterSpacing: '0.1em',
-                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em',
                         color: 'oklch(75% 0.12 80)',
                       }}>
-                        Ranking wrażliwości dźwigni (Wpływ na wynik systemu)
+                        Ranking wrażliwości dźwigni (wpływ na wynik systemu)
                       </h3>
 
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -1487,8 +1466,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                         margin: '0 0 1rem 0',
                         fontSize: '0.8125rem',
                         fontWeight: 800,
-                        letterSpacing: '0.1em',
-                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em',
                         color: 'oklch(75% 0.12 80)',
                       }}>
                         Podstawy dowodowe i źródła
@@ -1577,8 +1555,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                   margin: '0 0 0.5rem 0',
                   fontSize: '0.75rem',
                   fontWeight: 800,
-                  letterSpacing: '0.12em',
-                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
                   color: 'oklch(75% 0.12 80)',
                 }}>
                   Odpowiedź
@@ -1623,8 +1600,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                   margin: '0 0 1rem 0',
                   fontSize: '0.75rem',
                   fontWeight: 800,
-                  letterSpacing: '0.1em',
-                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
                   color: 'oklch(54% 0.018 250)',
                 }}>
                   Dlaczego właśnie ta opcja?
@@ -1710,7 +1686,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                     }}>🛡️</span>
                     <div>
                       <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: 'oklch(95% 0.02 220)' }}>
-                        Kryptograficzny Paszport Matematyczny & Test Odporności
+                        Kryptograficzny paszport matematyczny i test odporności
                       </h3>
                       <span style={{ fontSize: '0.75rem', color: 'oklch(65% 0.04 240)' }}>
                         Twardy dowód weryfikatora niezależnego — 0% zmyśleń czatu AI
@@ -1739,7 +1715,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                   marginBottom: '1rem',
                 }}>
                   <div style={{ padding: '0.875rem', borderRadius: '10px', background: 'oklch(8% 0.02 250 / 0.7)', border: '1px solid oklch(20% 0.04 250 / 0.5)' }}>
-                    <span style={{ fontSize: '0.6875rem', textTransform: 'uppercase', color: 'oklch(60% 0.04 240)', fontWeight: 700 }}>Residuum Naruszeń</span>
+                    <span style={{ fontSize: '0.6875rem', color: 'oklch(60% 0.04 240)', fontWeight: 700 }}>Residuum naruszeń</span>
                     <div style={{ fontSize: '1.15rem', fontWeight: 900, color: 'oklch(75% 0.2 150)', fontFamily: 'ui-monospace, monospace' }}>
                       {result.verification?.numerical_residual !== null && result.verification?.numerical_residual !== undefined ? `${result.verification.numerical_residual.toFixed(4)}` : '0.0000'}
                     </div>
@@ -1747,7 +1723,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                   </div>
 
                   <div style={{ padding: '0.875rem', borderRadius: '10px', background: 'oklch(8% 0.02 250 / 0.7)', border: '1px solid oklch(20% 0.04 250 / 0.5)' }}>
-                    <span style={{ fontSize: '0.6875rem', textTransform: 'uppercase', color: 'oklch(60% 0.04 240)', fontWeight: 700 }}>Luka Optymalności</span>
+                    <span style={{ fontSize: '0.6875rem', color: 'oklch(60% 0.04 240)', fontWeight: 700 }}>Luka optymalności</span>
                     <div style={{ fontSize: '1.15rem', fontWeight: 900, color: 'oklch(75% 0.15 80)', fontFamily: 'ui-monospace, monospace' }}>
                       {result.verification?.optimality_gap_percent !== null && result.verification?.optimality_gap_percent !== undefined ? `≤ ${result.verification.optimality_gap_percent}%` : 'Brak danych'}
                     </div>
@@ -1757,7 +1733,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                   </div>
 
                   <div style={{ padding: '0.875rem', borderRadius: '10px', background: 'oklch(8% 0.02 250 / 0.7)', border: '1px solid oklch(20% 0.04 250 / 0.5)' }}>
-                    <span style={{ fontSize: '0.6875rem', textTransform: 'uppercase', color: 'oklch(60% 0.04 240)', fontWeight: 700 }}>Odporność na Szok (±25%)</span>
+                    <span style={{ fontSize: '0.6875rem', color: 'oklch(60% 0.04 240)', fontWeight: 700 }}>Odporność na szok (±25%)</span>
                     <div style={{ fontSize: '1.15rem', fontWeight: 900, color: 'oklch(85% 0.15 220)', fontFamily: 'ui-monospace, monospace' }}>
                       {result.verification?.robustness ? `${(result.verification.robustness.robustness_score * 100).toFixed(0)}%` : 'Brak danych'}
                     </div>
@@ -1789,8 +1765,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                   margin: '0 0 1rem 0',
                   fontSize: '0.75rem',
                   fontWeight: 800,
-                  letterSpacing: '0.1em',
-                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
                   color: 'oklch(54% 0.018 250)',
                 }}>
                   Bilans decyzyjny — dlaczego ten wybór przeważa
@@ -1814,7 +1789,6 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                         color: 'oklch(6% 0.01 250)',
                         fontSize: '0.6875rem',
                         fontWeight: 900,
-                        textTransform: 'uppercase',
                         padding: '0.2rem 0.55rem',
                         borderRadius: '4px',
                       }}>
@@ -1848,11 +1822,10 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                         color: 'oklch(68% 0.02 250)',
                         fontSize: '0.6875rem',
                         fontWeight: 800,
-                        textTransform: 'uppercase',
                         padding: '0.2rem 0.55rem',
                         borderRadius: '4px',
                       }}>
-                        Druga opcja / Alternatywa
+                        Druga opcja / alternatywa
                       </span>
                     </div>
                     <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1.15rem', fontWeight: 800, color: 'oklch(80% 0.015 250)' }}>
@@ -1874,11 +1847,10 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                     margin: '0 0 1rem 0',
                     fontSize: '0.75rem',
                     fontWeight: 800,
-                    letterSpacing: '0.1em',
-                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
                     color: 'oklch(54% 0.018 250)',
                   }}>
-                    Na co rezygnujesz wybierając tę opcję?
+                    Z czego rezygnujesz, wybierając tę opcję?
                   </p>
                   <div style={{
                     background: 'oklch(8% 0.015 250)',
@@ -1967,8 +1939,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                   margin: '0 0 1rem 0',
                   fontSize: '0.75rem',
                   fontWeight: 800,
-                  letterSpacing: '0.1em',
-                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
                   color: 'oklch(54% 0.018 250)',
                 }}>
                   A co jeśli zmienisz warunki?
@@ -2014,7 +1985,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                     <div style={{
                       display: 'flex', alignItems: 'center', gap: '0.5rem',
                       fontSize: '0.8125rem', fontWeight: 800,
-                      letterSpacing: '0.08em', textTransform: 'uppercase',
+                      letterSpacing: '0.04em',
                       color: 'oklch(75% 0.12 80)', marginBottom: '0.75rem',
                     }}>
                       <span>🌐</span> Na czym oparliśmy tę rekomendację
@@ -2049,7 +2020,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                     <div style={{
                       display: 'flex', alignItems: 'center', gap: '0.5rem',
                       fontSize: '0.8125rem', fontWeight: 800,
-                      letterSpacing: '0.08em', textTransform: 'uppercase',
+                      letterSpacing: '0.04em',
                       color: 'oklch(75% 0.15 45)', marginBottom: '0.75rem',
                     }}>
                       <span>⚠️</span> Czego nie wiemy i co założyliśmy
@@ -2092,8 +2063,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                   margin: '0 0 0.375rem 0',
                   fontSize: '0.75rem',
                   fontWeight: 800,
-                  letterSpacing: '0.1em',
-                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
                   color: 'oklch(75% 0.12 80)',
                 }}>
                   Następny krok

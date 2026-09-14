@@ -488,16 +488,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <div className={s.terminalHeader}>
                 <div className={s.terminalStatus}>
                   <span className={s.terminalStatusDot} />
-                  <span className={s.terminalStatusText}>INTERFEJS KOGNITYWNY · BRAIN ARCHITECTURE</span>
+                  <span className={s.terminalStatusText}>Interfejs kognitywny · architektura silnika</span>
                 </div>
                 <div className={s.terminalEngineBadge}>
-                  145 TESTÓW CI · NIEZALEŻNA WERYFIKACJA
+                  145 testów CI · niezależna weryfikacja
                 </div>
               </div>
 
               {/* G2: Problem Class Selector & Auto-Explanation */}
               <div style={{ padding: '0.875rem 1.25rem 0.5rem', borderBottom: '1px solid oklch(18% 0.02 250)' }}>
-                <div style={{ fontSize: '0.6875rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'oklch(65% 0.15 240)', marginBottom: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ fontSize: '0.6875rem', fontWeight: 800, letterSpacing: '0.04em', color: 'oklch(65% 0.15 240)', marginBottom: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span>Klasa problemu decyzyjnego (D1)</span>
                   <span style={{ color: 'oklch(75% 0.12 80)', fontWeight: 600 }}>Kliknij klasę, aby załadować przykładowy problem</span>
                 </div>

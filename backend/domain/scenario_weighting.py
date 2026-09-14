@@ -25,13 +25,95 @@ from backend.domain.problem_classes import ExecutiveBriefing, KeyPillar
 logger = logging.getLogger(__name__)
 
 
+PROPER_NOUNS: set[str] = {
+    # Państwa, krainy, sojusze, podmioty geopolityczne
+    "polska", "polski", "polsce", "polskę", "polską",
+    "rosja", "rosji", "rosję", "rosją",
+    "ukraina", "ukrainy", "ukrainie", "ukrainę", "ukrainą",
+    "białoruś", "białorusi", "białorusią",
+    "chiny", "chin", "chinom", "chinami",
+    "tajwan", "tajwanu", "tajwanie",
+    "iran", "iranu", "iranie",
+    "litwa", "litwy", "litwie", "litwę",
+    "łotwa", "łotwy", "łotwie", "łotwę",
+    "estonia", "estonii", "estonię",
+    "niemcy", "niemiec", "niemcom", "niemcami",
+    "francja", "francji", "francję",
+    "europa", "europy", "europie", "europę",
+    # Miasta, ośrodki, akweny
+    "warszawa", "warszawy", "warszawie", "warszawę",
+    "moskwa", "moskwy", "moskwie", "moskwę",
+    "kijów", "kijowa", "kijowie",
+    "kreml", "kremla", "kremlu", "kremlem",
+    "bałtyk", "bałtyku", "bałtykiem",
+    # Skrótowce
+    "nato", "usa", "ue", "pkb", "mon", "isw", "osw", "sipri", "iiss", "bbn", "msz", "krld"
+}
+
+ACRONYMS: set[str] = {"nato", "usa", "ue", "pkb", "mon", "isw", "osw", "sipri", "iiss", "bbn", "msz", "krld"}
+
+
+def to_polish_sentence_case(text: str) -> str:
+    """
+    W zdaniach i tytułach tylko pierwsza litera ma być wielka, chyba że występuje nazwa własna
+    (np. Polska, Rosja, NATO). Przymiotniki od nazw państw (rosyjski, polski) są z małej litery.
+    """
+    if not text or not text.strip():
+        return text
+
+    def process_segment(seg: str) -> str:
+        words = seg.split()
+        if not words:
+            return seg
+        out_words = []
+        for i, w in enumerate(words):
+            clean = re.sub(r"^[^\w]+|[^\w]+$", "", w).lower()
+            prefix = re.match(r"^[^\w]+", w)
+            p_str = prefix.group(0) if prefix else ""
+            suffix = re.search(r"[^\w]+$", w)
+            s_str = suffix.group(0) if suffix else ""
+
+            # Jeśli to pierwsze słowo segmentu lub słowo w cudzysłowie
+            if i == 0 or (p_str and any(q in p_str for q in ("'", '"', "„", "«", "'"))):
+                if clean in ACRONYMS:
+                    w_core = clean.upper()
+                else:
+                    w_core = clean.capitalize()
+            else:
+                if clean in ACRONYMS:
+                    w_core = clean.upper()
+                elif clean in PROPER_NOUNS:
+                    w_core = clean.capitalize()
+                else:
+                    w_core = clean.lower()
+            out_words.append(f"{p_str}{w_core}{s_str}")
+        return " ".join(out_words)
+
+    sentences = re.split(r"(?<=[.!?\n])\s+", text.strip())
+    processed_sentences = []
+    for s in sentences:
+        if not s:
+            continue
+        if ": " in s:
+            parts = s.split(": ")
+            processed_parts = [process_segment(p) for p in parts]
+            processed_sentences.append(": ".join(processed_parts))
+        else:
+            processed_sentences.append(process_segment(s))
+
+    return " ".join(processed_sentences)
+
+
 def normalize_polish_geopolitical_text(text: str) -> str:
     """
     Enforces correct Polish orthography, proper casing for countries,
-    geographical names, and institutional acronyms (e.g. Ukraina, NATO, Polska, USA).
+    geographical names, and institutional acronyms (e.g. Ukraina, NATO, Polska, USA),
+    as well as sentence case (only first letter capitalized unless proper noun).
     """
     if not text:
         return text
+
+    res = to_polish_sentence_case(text)
 
     replacements: list[tuple[str, Any]] = [
         (r"\b(ukrain)(a|y|ie|ę|ą|o)\b", lambda m: "Ukrain" + m.group(2)),
@@ -65,7 +147,6 @@ def normalize_polish_geopolitical_text(text: str) -> str:
         (r"\bart\.?\s*5\b", "art. 5"),
         (r"\bartyku[łl]\s*5\b", "artykuł 5"),
     ]
-    res = text
     for pattern, repl in replacements:
         res = re.sub(pattern, repl, res, flags=re.IGNORECASE)
     return res
