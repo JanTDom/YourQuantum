@@ -313,7 +313,13 @@ async def decompose_design_query_async(query: str, gateway: LLMGateway | None = 
     )
 
     try:
-        res = await gw.complete_async(prompt=prompt, response_schema=schema, temperature=0.1)
+        res = await gw.generate(
+            system_instruction="Jesteś ekspertem inżynierii systemowej i dekompozycji wielodźwigniowej. Zwracaj wyłącznie poprawny JSON.",
+            user_content=prompt,
+            purpose="decompose_design",
+            response_schema=schema,
+            temperature=0.1,
+        )
         if res.parsed_json and isinstance(res.parsed_json, dict):
             raw_levers = res.parsed_json.get("levers") or []
             raw_criteria = res.parsed_json.get("criteria") or []

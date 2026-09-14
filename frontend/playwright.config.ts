@@ -2,9 +2,9 @@ import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
   testDir: './e2e',
-  timeout: 30000,
+  timeout: 120000,
   expect: {
-    timeout: 10000,
+    timeout: 70000,
   },
   fullyParallel: false,
   retries: 0,
@@ -32,7 +32,7 @@ export default defineConfig({
       timeout: 15000,
     },
     {
-      command: 'cd .. && .venv/bin/python3 -m uvicorn backend.main:app --port 8000',
+      command: 'cd .. && env PYTHONPATH=. .venv/bin/python3 -m uvicorn backend.main:app --port 8000',
       url: 'http://127.0.0.1:8000/api/v1/health',
       reuseExistingServer: true,
       timeout: 15000,

@@ -4,7 +4,7 @@ import { api, HelpResponse } from '../api'
 interface HelpCenterModalProps {
   isOpen: boolean
   onClose: () => void
-  currentStage: 'INTAKE' | 'CASE_WORKSPACE' | 'MODEL_APPROVAL' | 'RECOMMENDATION'
+  currentStage: 'INTAKE' | 'CASE_WORKSPACE' | 'DESIGN_WORKSPACE' | 'MODEL_APPROVAL' | 'RECOMMENDATION'
   onSelectExample?: (exampleText: string) => void
 }
 

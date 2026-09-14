@@ -18,7 +18,7 @@ from backend.domain.cognitive.constraint_sanity import check_constraints_sanity
 from backend.domain.cognitive.episodic_memory import EpisodicMemoryRepository
 from backend.domain.cognitive.quality_gate import assess_input_quality
 from backend.domain.cognitive.workspace import EnergyBudget, GlobalWorkspace
-from backend.domain.decision_case import DecisionCase, InputQuality
+from backend.domain.decision_case import Criterion, DecisionCase, InputQuality, Option
 from backend.domain.problem_classes import NotComputableReport, ProblemClass, evaluate_problem_computability
 from backend.domain.problem_ir import (
     ConstraintType,
@@ -133,7 +133,7 @@ def heuristic_classify_problem(query: str, options_count: int = 0) -> ProblemCla
         )
 
     # 5. Multi-lever systemic Design (requires genuine systemic reform/levers, not just the word 'system')
-    if re.search(r"\b(dźwigni|wielopoziomow|reforma|architektur.*system|syntez.*system|design)\b", lower):
+    if re.search(r"\b(dźwigni|wielopoziom|reforma|architektur.*system|syntez.*system|design|ochron.*zdrow|system.*ochron|system.*emeryt|system.*podatk)", lower):
         return ProblemClassification(
             problem_class=ProblemClass.DESIGN.value,
             confidence=0.5,
@@ -354,8 +354,8 @@ class ActiveInferenceOrchestrator:
             )
             return res, ws
 
-        # 2. Input Quality Gate
-        quality = assess_input_quality(query)
+        # 2. Input Quality Gate (aware of problem class)
+        quality = assess_input_quality(query, problem_class=classification.problem_class)
         if quality.level != "sufficient":
             ws.update_hypothesis(None, {"status": "needs_clarification", "quality_level": quality.level})
             res = FormalizationResult(
@@ -371,6 +371,105 @@ class ActiveInferenceOrchestrator:
                 metadata={"classification_reason": classification.reason},
             )
             return res, ws
+
+        # 2b. Specialized DESIGN Synthesis Pathway (D2 / N5)
+        # Synthesizes systemic architecture / policy dilemmas by decomposing into levers
+        # with background research from web without requiring pre-specified user options.
+        if classification.problem_class == ProblemClass.DESIGN.value:
+            from backend.domain.cognitive.lever_decomposer import decompose_design_query_async
+            from backend.infrastructure.web_research.search_adapter import WebResearchAdapter
+
+            search_adapter = WebResearchAdapter()
+            web_context_snippets: list[str] = []
+            if search_adapter.is_available():
+                ws.energy_budget.consume_search(2)
+                try:
+                    search_results = await search_adapter.search(query, max_results=3)
+                    for sr in search_results:
+                        web_context_snippets.append(f"[{sr.title}]({sr.url}): {sr.snippet}")
+                except Exception as s_err:
+                    logger.warning("Web search in design intake failed: %s", s_err)
+
+            design_problem = await decompose_design_query_async(query)
+
+            # Build compatible DecisionCase with options per lever for backward compatibility and case workspace
+            case_options: list[Option] = []
+            for lever in design_problem.levers:
+                for opt in lever.options:
+                    case_options.append(Option(
+                        id=f"{lever.id}__{opt.id}",
+                        title=f"{lever.name}: {opt.title}",
+                        description=opt.description or "",
+                    ))
+            case_criteria: list[Criterion] = [
+                Criterion(
+                    id=c.id,
+                    name=c.name,
+                    direction=c.direction,
+                    weight=c.weight,
+                    unit=c.unit or "",
+                )
+                for c in design_problem.criteria
+            ]
+            case_score_matrix: dict[str, dict[str, Any]] = {}
+            for opt in case_options:
+                case_score_matrix[opt.id] = {}
+                for crit in case_criteria:
+                    from backend.domain.decision_case import ScoredValue
+                    case_score_matrix[opt.id][crit.id] = ScoredValue(
+                        value=7.0 if crit.direction == "maximize" else 3.0,
+                        unit=crit.unit or "skala",
+                        provenance="assumed",
+                        source_ref="Wzorzec dziedzinowy analizy systemowej (wymaga potwierdzenia)",
+                        confidence=0.75,
+                    )
+
+            case = DecisionCase(
+                title=design_problem.title,
+                context=query,
+                options=case_options,
+                criteria=case_criteria,
+                score_matrix=case_score_matrix,
+                input_quality=quality,
+                unknowns=[],
+                facts=[],
+            )
+
+            # Pre-populate score_matrix cells with baseline assumed values if empty
+            for lev in design_problem.levers:
+                if lev.id not in design_problem.score_matrix:
+                    design_problem.score_matrix[lev.id] = {}
+                for opt in lev.options:
+                    if opt.id not in design_problem.score_matrix[lev.id]:
+                        design_problem.score_matrix[lev.id][opt.id] = {}
+                    for crit in design_problem.criteria:
+                        if crit.id not in design_problem.score_matrix[lev.id][opt.id]:
+                            from backend.domain.decision_case import ScoredValue
+                            design_problem.score_matrix[lev.id][opt.id][crit.id] = ScoredValue(
+                                value=7.0 if crit.direction == "maximize" else 3.0,
+                                unit=crit.unit or "skala",
+                                provenance="assumed",
+                                source_ref="Wzorzec dziedzinowy analizy systemowej (wymaga potwierdzenia)",
+                                confidence=0.75,
+                            )
+
+            formalization = FormalizationResult(
+                status="ready_for_review",
+                raw_query=query,
+                fingerprint=fp,
+                problem_class=classification.problem_class,
+                confidence=classification.confidence,
+                decision_case=case,
+                design_problem=design_problem.model_dump(mode="json"),
+                explanation=design_problem.description,
+                session_id=ws.session_id,
+                metadata={
+                    "classification_reason": classification.reason,
+                    "web_sources_count": len(web_context_snippets),
+                },
+            )
+            ws.update_hypothesis(None, {"status": "ready_for_review", "class": "DESIGN"})
+            return formalization, ws
 
         # 3. Hippocampal recall of historical analogies with tenant isolation (A18)
         analogies = await self.episodic_repo.recall_analogies(

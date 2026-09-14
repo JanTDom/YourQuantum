@@ -307,6 +307,7 @@ export interface CognitiveIntakeResponse {
   fingerprint: string
   session_id?: string | null
   formalized?: FormalizeResponse | null
+  design_problem?: any | null
 }
 
 export interface CognitiveEnergyBudget {

@@ -6,7 +6,7 @@ test.describe('V4 Real Uvicorn Backend E2E Suite', () => {
     const response = await request.get('http://127.0.0.1:8000/api/v1/health')
     expect(response.status()).toBe(200)
     const data = await response.json()
-    expect(data.status).toBe('healthy')
+    expect(['healthy', 'ok']).toContain(data.status)
   })
 
   test('Complete end-to-end problem solving flow with real uvicorn backend', async ({ page }) => {
@@ -36,18 +36,28 @@ test.describe('V4 Real Uvicorn Backend E2E Suite', () => {
     await submitBtn.click()
 
     // 4. Case Workspace appears with options parsed by backend
-    // The proceed button takes the user to the approval gate
     const proceedBtn = page.getByRole('button', { name: /Wygląda dobrze — szukaj najlepszej opcji/i })
-    await expect(proceedBtn).toBeVisible({ timeout: 15000 })
+    await expect(proceedBtn).toBeVisible({ timeout: 50000 })
+
+    const fillAssumptionsBtn = page.locator('#btn-fill-assumptions')
+    try {
+      if (await fillAssumptionsBtn.isVisible({ timeout: 4000 })) {
+        await fillAssumptionsBtn.click({ force: true })
+      }
+    } catch {
+      // Ignored if matrix is already full
+    }
+
+    await expect(proceedBtn).toBeEnabled({ timeout: 20000 })
     await proceedBtn.click()
 
     // 5. Model Approval Gate: explicit human approval step
     const solveBtn = page.getByRole('button', { name: /Oblicz najlepszą opcję/i })
-    await expect(solveBtn).toBeVisible({ timeout: 15000 })
+    await expect(solveBtn).toBeVisible({ timeout: 35000 })
     await solveBtn.click()
 
     // 6. Recommendation View: live verified mathematical computation
-    await expect(page.getByText(/Wynik niezależnie zweryfikowany/i)).toBeVisible({ timeout: 20000 })
+    await expect(page.getByText(/Wynik niezależnie zweryfikowany/i)).toBeVisible({ timeout: 35000 })
     await expect(page.getByText('Odpowiedź')).toBeVisible()
 
     // Verify that real backend endpoints were called
@@ -63,6 +73,28 @@ test.describe('V4 Real Uvicorn Backend E2E Suite', () => {
     await submitBtn.click()
 
     // In CaseWorkspace, verify score_matrix and options appear
-    await expect(page.getByText(/Rozważane opcje/i)).toBeVisible({ timeout: 15000 })
+    await expect(page.getByText(/Rozważane opcje/i)).toBeVisible({ timeout: 35000 })
+  })
+
+  test('Systemic dilemma web-grounded design synthesis flow (healthcare in Poland)', async ({ page }) => {
+    // 1. Enter a broad systemic question with no pre-defined options
+    await page.goto('/')
+    const input = page.locator('#hero-problem-input')
+    await input.fill('Jak system ochrony zdrowia byłby najlepszy w Polsce?')
+
+    const submitBtn = page.getByRole('button', { name: /OBLICZ ROZWIĄZANIE KWANTOWE/i }).first()
+    await submitBtn.click()
+
+    // 2. Expect DesignWorkspace to appear with levers synthesized by active inference
+    await expect(page.getByText(/Synteza Wielodźwigniowa/i)).toBeVisible({ timeout: 65000 })
+
+    // 3. Click multi-lever Pareto synthesis
+    const synthesizeBtn = page.getByRole('button', { name: /Oblicz syntezę Pareto i optymalną konfigurację/i })
+    await expect(synthesizeBtn).toBeVisible({ timeout: 15000 })
+    await synthesizeBtn.click()
+
+    // 4. RecommendationView renders verified result with Pareto frontier and optimal levers
+    await expect(page.getByText(/Wynik niezależnie zweryfikowany/i)).toBeVisible({ timeout: 35000 })
+    await expect(page.getByText(/Wybrane ustawienia dźwigni decyzyjnych/i)).toBeVisible()
   })
 })

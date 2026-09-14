@@ -3,6 +3,8 @@ import { Component, ErrorInfo, ReactNode } from "react"
 interface Props {
   children: ReactNode
   fallback?: ReactNode
+  title?: string
+  description?: string
   onReset?: () => void
 }
 
@@ -70,10 +72,10 @@ export class ErrorBoundary extends Component<Props, State> {
           </div>
           <div>
             <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "1.125rem", fontWeight: 700 }}>
-              Komponent wizualizacji napotkał ograniczenie graficzne
+              {this.props.title || "Wystąpił nieoczekiwany problem z wyświetlaniem widoku"}
             </h3>
             <p style={{ margin: 0, fontSize: "0.875rem", color: "oklch(70% 0.02 250)", maxWidth: "480px" }}>
-              Twoja przeglądarka lub karta graficzna tymczasowo zresetowała kontekst WebGL. Główny silnik obliczeniowy działa normalnie.
+              {this.props.description || (this.state.error?.message ? `Szczegóły: ${this.state.error.message}` : "Główny silnik obliczeniowy działa normalnie. Możesz zresetować widok i spróbować ponownie.")}
             </p>
           </div>
           <div style={{ display: "flex", gap: "0.75rem", marginTop: "0.5rem" }}>

@@ -1,22 +1,22 @@
 # YourQuantum — CURRENT STATE
-_Last updated: 2026-09-13 (Commit da051ec — Naprawa UX intake i odporność tabeli cognitive_sessions)_
+_Last updated: 2026-09-14 (Fix black screen on compute & add web-grounded systemic design synthesis)_
 
-## Status: STOS NUMERYCZNY I KWANTOWY AKTYWNY NA VERCEL PRODUCTION (100% BRAMEK ZIELONYCH)
+## Status: SYNTEZA SYSTEMOWA Z SIECI I FIX CZARNEGO EKRANU ZWERYFIKOWANE (100% BRAMEK I TESTÓW E2E ZIELONYCH)
 
-- **Gałąź i commit**: `main` — `da051ec` (`fix(ux): surface intake errors on landing page and ensure database session table creation`)
-- **Wdrożenie produkcyjne**: Vercel (`https://yourquantum.pl`, ID: `dpl_4ddWRTm2YfqaApWnFdWVvyL6NRUZ`) — Status: `READY`
-- **Dostępność solverów na produkcji (`GET /api/v1/health/solvers`)**:
-  * `cp_sat` (Google OR-Tools 9.15.6755): **available=true**
-  * `qaoa_aer` (Qiskit Aer 0.17.2): **available=true**
-  * `hybrid_benders` (v0.1.0): **available=true**
-  * `scipy_continuous` (SciPy 1.18.1): **available=true**
-  * `qpu_hardware` (disconnected-stub-v1): **available=false** (uczciwy brak sprzętu QPU)
-- **Wszystkie mechaniczne bramki weryfikacyjne w `scripts/check_v4.sh`**: 23/23 ZIELONE (PASS)
-- **Regresje i kompilacja**: 100% testów pytest (184 testy) oraz `npm run build` przechodzą bez błędów.
-- **Weryfikacja błędu intake**:
-  * Przyczyna źródłowa: `cognitive_intake` w PostgreSQL zwracało błąd `UndefinedTableError: relation "cognitive_sessions" does not exist`, a frontend w `frontend/src/App.tsx` ukrywał komunikaty o błędach w stanie `stage === 'INTAKE'` (`{stage !== 'INTAKE' && errorMessage && ...}`). Po błędzie przycisk przestawał ładować bez żadnego feedbacku.
-  * Rozwiązanie: Dodano jawne `CREATE TABLE IF NOT EXISTS` w `init_db()` dla PostgreSQL/SQLite, graceful degradation do pamięci roboczej w razie opóźnienia bazy, globalną widoczność komunikatów w `frontend/src/App.tsx` oraz baner ostrzegawczy z zachowaniem tekstu w `frontend/src/components/LandingPage.tsx`.
-  * Weryfikacja E2E w przeglądarce: Wprowadzenie dylematu decyzyjnego na `https://yourquantum.pl` i kliknięcie „⚡ OBLICZ ROZWIĄZANIE KWANTOWE →” przechodzi płynnie do `CaseWorkspace` (Krok 1 z 2).
+- **Gałąź i stan repo**: `main` — pełna synchronizacja i 100% zielonych bramek.
+- **Wszystkie mechaniczne bramki weryfikacyjne w `scripts/check_v4.sh`**: 23/23 ZIELONE (PASS).
+- **Testy Playwright E2E na żywym backendzie (`frontend/e2e/v4-real-backend.spec.ts`)**: 4/4 ZIELONE (PASS):
+  * Health check backendu aktywny i osiągalny (`GET /api/v1/health` -> `status: "ok"`).
+  * Pełna ścieżka rozwiązywania zadania decyzyjnego CP-SAT z uzupełnieniem macierzy.
+  * Macierz decyzyjna i dodawanie kryteriów na żywym backendzie.
+  * **Nowość**: Ścieżka dylematu systemowego bez predefiniowanych wariantów (*„Jak system ochrony zdrowia byłby najlepszy w Polsce?”*): automatyczna dekompozycja Active Inference na dźwignie systemowe (`DESIGN`), przejście do `DesignWorkspace`, obliczenie syntezy Pareto i wyświetlenie optymalnej konfiguracji wielodźwigniowej w `RecommendationView`.
+- **Eliminacja czarnego ekranu po kliknięciu „Oblicz”**:
+  * Przyczyna źródłowa: Wcześniej przy statusie `needs_clarification` dla klasy `DESIGN` (lub braku `decisionCase`), frontend ustawiał `stage === 'CASE_WORKSPACE'`, w którym brakowało renderowania komponentu `DesignWorkspace`, co powodowało renderowanie pustego znacznika `<main>` na ciemnym tle kanwy. Dodatkowo brakowało nadrzędnego `ErrorBoundary` wokół etapów aplikacji.
+  * Rozwiązanie: W `frontend/src/App.tsx` dodano stan `stage === 'DESIGN_WORKSPACE'`, zintegrowano `<DesignWorkspace>`, otoczono główny obszar roboczy przez `<ErrorBoundary onReset={handleReset}>`, dodano fallbacki dla brakujących danych oraz wprowadzono przycisk szybkiego uzupełnienia założeń roboczych `#btn-fill-assumptions`.
+- **Dekompozycja i badanie tła dla dylematów systemowych (Klasa DESIGN)**:
+  * W `backend/domain/cognitive/quality_gate.py` dostosowano ocenę jakości zapytań dla klasy `DESIGN` — zapytania systemowe (np. reforma ochrony zdrowia, emerytur, podatków) nie wymagają podawania wariantów wyboru i są akceptowane od 4 słów.
+  * W `backend/domain/cognitive/active_inference_engine.py` dodano dedykowaną ścieżkę syntezy dla klasy `DESIGN`, która uruchamia wyszukiwanie w sieci przez `WebResearchAdapter`, wywołuje `decompose_design_query_async` tworzący 3–7 dźwigni i 2–5 opcji, wypełnia macierz bazową i przekazuje pełny `DesignProblem` do frontendu.
+  * Poprawiono integrację `LLMGateway` w `backend/domain/cognitive/lever_decomposer.py` (`gw.generate` z system_instruction i schematem odpowiedzi).
 
 ### Stan przed V4 — Surowy wynik bramek mechanicznych (`scripts/check_v4.sh`):
 

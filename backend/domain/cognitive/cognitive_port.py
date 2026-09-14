@@ -36,6 +36,7 @@ class FormalizationResult(BaseModel):
     penalty_multipliers: dict[str, float] = Field(default_factory=dict)
     session_id: str | None = None
     formalized: dict[str, Any] | None = None
+    design_problem: dict[str, Any] | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 

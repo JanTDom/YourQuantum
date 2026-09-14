@@ -525,7 +525,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                         <div style={{ fontSize: '0.8125rem', color: 'oklch(80% 0.01 250)', marginTop: '0.25rem' }}>
                           Wartości kryteriów:{' '}
                           {Object.entries(designData.pareto_frontier[selectedParetoIdx].objective_values)
-                            .map(([k, v]) => `${k}: ${v.toFixed(1)}`)
+                            .map(([k, v]) => `${k}: ${Number(v).toFixed(1)}`)
                             .join(' | ')}
                         </div>
                       </div>

@@ -117,6 +117,31 @@ export const CaseWorkspace: React.FC<CaseWorkspaceProps> = ({
     })
   }
 
+  const handleFillAllMissingAssumptions = (): void => {
+    const currentMatrix = { ...(decisionCase.score_matrix || {}) }
+    for (const opt of options) {
+      if (!currentMatrix[opt.id]) {
+        currentMatrix[opt.id] = {}
+      }
+      for (const crit of criteria) {
+        const cell = currentMatrix[opt.id][crit.id]
+        if (!cell || cell.value === undefined || cell.value === null || isNaN(cell.value) || !cell.source_ref) {
+          currentMatrix[opt.id][crit.id] = {
+            value: cell?.value !== undefined && !isNaN(cell.value) ? cell.value : (crit.direction === 'maximize' ? 7.0 : 3.0),
+            unit: crit.unit || '',
+            provenance: 'assumed',
+            source_ref: 'Założenie robocze użytkownika (wypełnienie wstępne)',
+            confidence: 0.7,
+          }
+        }
+      }
+    }
+    onUpdateCase({
+      ...decisionCase,
+      score_matrix: currentMatrix,
+    })
+  }
+
   const handleAddCriterionSubmit = (): void => {
     const name = newCritName.trim()
     if (!name) return
@@ -1113,6 +1138,25 @@ export const CaseWorkspace: React.FC<CaseWorkspaceProps> = ({
                       <li key={idx}>{err}</li>
                     ))}
                   </ul>
+                  <div style={{ marginTop: '0.75rem' }}>
+                    <button
+                      id="btn-fill-assumptions"
+                      type="button"
+                      onClick={handleFillAllMissingAssumptions}
+                      style={{
+                        background: 'oklch(22% 0.05 35)',
+                        border: '1px solid oklch(50% 0.15 35)',
+                        color: 'oklch(90% 0.12 35)',
+                        padding: '0.4rem 0.8rem',
+                        borderRadius: '6px',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      ⚡ Uzupełnij brakujące komórki jako wstępne założenia robocze
+                    </button>
+                  </div>
                 </div>
               )}
               <button

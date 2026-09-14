@@ -11,7 +11,7 @@ import s from './LandingPage.module.css'
 // ── Types ─────────────────────────────────────────────────────
 
 interface LandingPageProps {
-  onSubmit: (text: string) => void
+  onSubmit: (text: string, problemClassOverride?: string) => void
   isLoading: boolean
   errorMessage?: string | null
   onClearError?: () => void
@@ -263,8 +263,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
   const handleHeroSubmit = useCallback((): void => {
     const trimmed = heroText.trim()
-    if (trimmed) onSubmit(trimmed)
-  }, [heroText, onSubmit])
+    if (trimmed) onSubmit(trimmed, selectedClassId !== 'CHOICE' ? selectedClassId : undefined)
+  }, [heroText, onSubmit, selectedClassId])
 
   return (
     <div className={s.root}>

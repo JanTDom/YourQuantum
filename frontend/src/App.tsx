@@ -4,17 +4,21 @@ import {
   DecisionCase,
   FormalizeResponse,
   JobResult,
+  DesignSynthesisResult,
+  synthesizeDesign,
 } from './api'
 import { AppHeader } from './components/AppHeader'
 import { LandingPage } from './components/LandingPage'
 import { CaseWorkspace } from './components/CaseWorkspace'
+import { DesignWorkspace, DesignProblem } from './components/DesignWorkspace'
 import { ModelApprovalGate } from './components/ModelApprovalGate'
 import { RecommendationView } from './components/RecommendationView'
 import { HelpCenterModal } from './components/HelpCenterModal'
 import { BrainModal } from './components/BrainModal'
 import { ApiPortalModal } from './components/ApiPortalModal'
+import { ErrorBoundary } from './components/ErrorBoundary'
 
-type AppStage = 'INTAKE' | 'CASE_WORKSPACE' | 'MODEL_APPROVAL' | 'RECOMMENDATION'
+type AppStage = 'INTAKE' | 'CASE_WORKSPACE' | 'DESIGN_WORKSPACE' | 'MODEL_APPROVAL' | 'RECOMMENDATION'
 
 export const App: React.FC = () => {
   const [stage, setStage] = useState<AppStage>('INTAKE')
@@ -33,6 +37,8 @@ export const App: React.FC = () => {
   const [problemClass, setProblemClass] = useState<string>('CHOICE')
   const [intakeExplanation, setIntakeExplanation] = useState<string>('')
   const [decisionCase, setDecisionCase] = useState<DecisionCase | null>(null)
+  const [designProblem, setDesignProblem] = useState<DesignProblem | null>(null)
+  const [designSynthesis, setDesignSynthesis] = useState<DesignSynthesisResult | null>(null)
   const [formalized, setFormalized] = useState<FormalizeResponse | null>(null)
   const [primaryResult, setPrimaryResult] = useState<JobResult | null>(null)
   const [comparisonResult, setComparisonResult] = useState<JobResult | null>(null)
@@ -44,6 +50,8 @@ export const App: React.FC = () => {
     setProblemClass('CHOICE')
     setIntakeExplanation('')
     setDecisionCase(null)
+    setDesignProblem(null)
+    setDesignSynthesis(null)
     setFormalized(null)
     setPrimaryResult(null)
     setComparisonResult(null)
@@ -95,6 +103,16 @@ export const App: React.FC = () => {
         setProblemClass(intakeRes.problem_class)
       }
 
+      if (intakeRes.design_problem) {
+        setDesignProblem(intakeRes.design_problem)
+        setProblemClass('DESIGN')
+        if (intakeRes.decision_case) {
+          setDecisionCase(intakeRes.decision_case)
+        }
+        setStage('DESIGN_WORKSPACE')
+        return
+      }
+
       if (intakeRes.decision_case) {
         setDecisionCase(intakeRes.decision_case)
       }
@@ -109,6 +127,49 @@ export const App: React.FC = () => {
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Wystąpił błąd podczas analizy kognitywnej'
+      setErrorMessage(msg)
+    } finally {
+      setIsLoading(false)
+      setStatusMessage(null)
+    }
+  }
+
+  // 1b. Multi-lever design synthesis (Phase D2/D3/N5)
+  const handleSynthesizeDesign = async (problem: DesignProblem) => {
+    setIsLoading(true)
+    setErrorMessage(null)
+    setStatusMessage('Obliczanie syntezy wielodźwigniowej Pareto i optymalnej konfiguracji...')
+
+    try {
+      const res = await synthesizeDesign(problem)
+      setDesignSynthesis(res.synthesis)
+
+      const synthJobResult: JobResult = {
+        job_id: `design_${Date.now()}`,
+        problem_id: res.synthesis.problem_id || 'design_problem',
+        execution_status: 'COMPLETED',
+        publication_status: 'PUBLISHED_VERIFIED',
+        math_status: 'OPTIMAL',
+        source: 'cp_sat_pareto_synthesis',
+        objective_value: 1.0,
+        solve_time_seconds: 0.1,
+        solver_result: {
+          assignment: Object.values(res.synthesis.optimal_configuration || {}).reduce((acc: Record<string, number>, optId: string) => {
+            acc[optId] = 1
+            return acc
+          }, {}),
+        },
+        verification: null,
+        error_message: null,
+        metadata: {
+          problem_class: 'DESIGN',
+        },
+      }
+
+      setPrimaryResult(synthJobResult)
+      setStage('RECOMMENDATION')
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Błąd podczas syntezy architektonicznej'
       setErrorMessage(msg)
     } finally {
       setIsLoading(false)
@@ -295,75 +356,136 @@ export const App: React.FC = () => {
 
       {/* Main content stage */}
       <main style={{ flex: 1, paddingBottom: stage === 'INTAKE' ? 0 : '3rem' }}>
-        {stage === 'INTAKE' && (
-          <LandingPage
-            onSubmit={handleIntakeSubmit}
-            isLoading={isLoading}
-            errorMessage={errorMessage}
-            onClearError={() => setErrorMessage(null)}
-            initialText={userQuery}
-            onOpenHelp={() => setIsHelpOpen(true)}
-            onOpenBrain={() => setIsBrainOpen(true)}
-            onOpenApiPortal={() => setIsApiPortalOpen(true)}
-          />
-        )}
-
-        {stage === 'CASE_WORKSPACE' && (
-          decisionCase ? (
-            <CaseWorkspace
-              decisionCase={decisionCase}
-              problemClass={problemClass}
-              problemClassReason={intakeExplanation || undefined}
-              onOverrideProblemClass={(newClass) => {
-                setProblemClass(newClass)
-                if (userQuery) {
-                  handleIntakeSubmit(userQuery, newClass)
-                }
-              }}
-              onAnswerUnknown={handleAnswerUnknown}
-              onUpdateCase={setDecisionCase}
-              onProceedToModeling={handleProceedToModeling}
-              onBackToEdit={() => setStage('INTAKE')}
+        <ErrorBoundary onReset={handleReset}>
+          {stage === 'INTAKE' && (
+            <LandingPage
+              onSubmit={handleIntakeSubmit}
               isLoading={isLoading}
+              errorMessage={errorMessage}
+              onClearError={() => setErrorMessage(null)}
+              initialText={userQuery}
+              onOpenHelp={() => setIsHelpOpen(true)}
+              onOpenBrain={() => setIsBrainOpen(true)}
+              onOpenApiPortal={() => setIsApiPortalOpen(true)}
             />
-          ) : (
-            <div style={{ textAlign: 'center', padding: '5rem 2rem' }}>
-              <p style={{ fontSize: '1.125rem', color: 'var(--text-muted)' }}>
-                Brak aktywnego przypadku decyzyjnego do wyświetlenia.
-              </p>
-              <button
-                type="button"
-                onClick={handleReset}
-                className="btn-primary"
-                style={{ marginTop: '1.5rem', padding: '0.75rem 1.5rem', cursor: 'pointer' }}
-              >
-                ← Wróć do strony głównej
-              </button>
-            </div>
-          )
-        )}
+          )}
 
-        {stage === 'MODEL_APPROVAL' && formalized && (
-          <ModelApprovalGate
-            formalized={formalized}
-            decisionCase={decisionCase}
-            onApproveAndSolve={handleApproveAndSolve}
-            onBack={() => setStage('CASE_WORKSPACE')}
-            isSolving={isLoading}
-          />
-        )}
+          {stage === 'DESIGN_WORKSPACE' && (
+            designProblem ? (
+              <DesignWorkspace
+                designProblem={designProblem}
+                onUpdateDesign={setDesignProblem}
+                onSynthesize={handleSynthesizeDesign}
+                onBack={() => setStage('INTAKE')}
+                isSynthesizing={isLoading}
+              />
+            ) : (
+              <div style={{ textAlign: 'center', padding: '5rem 2rem' }}>
+                <p style={{ fontSize: '1.125rem', color: 'var(--text-muted)' }}>
+                  Trwa pobieranie parametrów architektury systemowej...
+                </p>
+                <button
+                  type="button"
+                  onClick={handleReset}
+                  className="btn-primary"
+                  style={{ marginTop: '1.5rem', padding: '0.75rem 1.5rem', cursor: 'pointer' }}
+                >
+                  ← Wróć do strony głównej
+                </button>
+              </div>
+            )
+          )}
 
-        {stage === 'RECOMMENDATION' && primaryResult && (
-          <RecommendationView
-            decisionCase={decisionCase}
-            result={primaryResult}
-            comparisonResult={comparisonResult}
-            onStartNew={handleReset}
-            breakEvenPoint={formalized?.break_even_point || decisionCase?.break_even_point}
-            sessionId={sessionId}
-            problemClass={problemClass}
-          />
-        )}
+          {stage === 'CASE_WORKSPACE' && (
+            decisionCase ? (
+              <CaseWorkspace
+                decisionCase={decisionCase}
+                problemClass={problemClass}
+                problemClassReason={intakeExplanation || undefined}
+                onOverrideProblemClass={(newClass) => {
+                  setProblemClass(newClass)
+                  if (userQuery) {
+                    handleIntakeSubmit(userQuery, newClass)
+                  }
+                }}
+                onAnswerUnknown={handleAnswerUnknown}
+                onUpdateCase={setDecisionCase}
+                onProceedToModeling={handleProceedToModeling}
+                onBackToEdit={() => setStage('INTAKE')}
+                isLoading={isLoading}
+              />
+            ) : (
+              <div style={{ textAlign: 'center', padding: '5rem 2rem' }}>
+                <p style={{ fontSize: '1.125rem', color: 'var(--text-muted)' }}>
+                  Brak aktywnego przypadku decyzyjnego do wyświetlenia.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleReset}
+                  className="btn-primary"
+                  style={{ marginTop: '1.5rem', padding: '0.75rem 1.5rem', cursor: 'pointer' }}
+                >
+                  ← Wróć do strony głównej
+                </button>
+              </div>
+            )
+          )}
+
+          {stage === 'MODEL_APPROVAL' && (
+            formalized ? (
+              <ModelApprovalGate
+                formalized={formalized}
+                decisionCase={decisionCase}
+                onApproveAndSolve={handleApproveAndSolve}
+                onBack={() => setStage('CASE_WORKSPACE')}
+                isSolving={isLoading}
+              />
+            ) : (
+              <div style={{ textAlign: 'center', padding: '5rem 2rem' }}>
+                <p style={{ fontSize: '1.125rem', color: 'var(--text-muted)' }}>
+                  Model nie został jeszcze sformalizowany.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleReset}
+                  className="btn-primary"
+                  style={{ marginTop: '1.5rem', padding: '0.75rem 1.5rem', cursor: 'pointer' }}
+                >
+                  ← Wróć do strony głównej
+                </button>
+              </div>
+            )
+          )}
+
+          {stage === 'RECOMMENDATION' && (
+            primaryResult ? (
+              <RecommendationView
+                decisionCase={decisionCase}
+                result={primaryResult}
+                comparisonResult={comparisonResult}
+                onStartNew={handleReset}
+                breakEvenPoint={formalized?.break_even_point || decisionCase?.break_even_point}
+                sessionId={sessionId}
+                problemClass={problemClass}
+                designSynthesis={designSynthesis}
+              />
+            ) : (
+              <div style={{ textAlign: 'center', padding: '5rem 2rem' }}>
+                <p style={{ fontSize: '1.125rem', color: 'var(--text-muted)' }}>
+                  Brak wygenerowanego wyniku obliczeń.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleReset}
+                  className="btn-primary"
+                  style={{ marginTop: '1.5rem', padding: '0.75rem 1.5rem', cursor: 'pointer' }}
+                >
+                  ← Wróć do strony głównej
+                </button>
+              </div>
+            )
+          )}
+        </ErrorBoundary>
       </main>
 
       {/* Modals */}

@@ -13,22 +13,44 @@ from backend.domain.decision_case import InputQuality
 logger = logging.getLogger(__name__)
 
 
-def assess_input_quality(text: str, options_count: int = 0) -> InputQuality:
+def assess_input_quality(text: str, options_count: int = 0, problem_class: str = "CHOICE") -> InputQuality:
     """
     Evaluate whether the user prompt contains enough degrees of freedom
     and specific data to model an exact mathematical dilemma.
 
-    Checks:
+    For CHOICE:
     1. Too short / vague (< 8 words)
     2. Lack of alternatives / degrees of freedom (< 2 options or lack of alternative markers)
     3. Missing numbers in financial / resource allocation contexts
+
+    For DESIGN (systemic synthesis):
+    1. Only rejects if extremely short (< 4 words)
+    2. Does not require user to pre-specify options, as the engine decomposes
+       the system into architectural levers via domain knowledge and web research.
     """
     cleaned = text.strip()
     words = [w for w in cleaned.split() if len(w) > 1]
     lower = cleaned.lower()
 
-    # 1. Too short / vague
-    if len(words) < 8:
+    # DESIGN class handling: systemic architecture & policy synthesis
+    is_design_context = (
+        problem_class == "DESIGN"
+        or bool(re.search(r"\b(dźwigni|wielopoziomow|reforma|architektur.*system|syntez.*system|design|ochron.*zdrow)\b", lower))
+    )
+    if is_design_context:
+        if len(words) < 4:
+            return InputQuality(
+                level="too_vague",
+                reason="Opis systemu jest zbyt skrótowy, by wyodrębnić dźwignie architektoniczne.",
+                suggestions=[
+                    "Wskaż dziedzinę i cel reformy (np. 'Jak zreformować system ochrony zdrowia w Polsce, aby skrócić kolejki').",
+                    "Określ główny obszar odpowiedzialności lub kontekst instytucjonalny.",
+                ],
+            )
+        return InputQuality(level="sufficient", reason="", suggestions=[])
+
+    # 1. Too short / vague (< 5 words)
+    if len(words) < 5:
         return InputQuality(
             level="too_vague",
             reason="Opis sytuacji jest zbyt skrótowy lub ogólnikowy, by zbudować z niego rzetelny model matematyczny.",
@@ -42,7 +64,7 @@ def assess_input_quality(text: str, options_count: int = 0) -> InputQuality:
     # 2. Lack of alternatives / degrees of freedom
     has_alternatives = bool(
         options_count >= 2
-        or re.search(r"\b(czy|albo|lub|zamiast|wyb[oó]r|wariant|opcj[aei]|versus|vs|mi[eę]dzy)\b", lower)
+        or re.search(r"\b(czy|albo|lub|zamiast|wyb[oó]r|wybierz|wariant|opcj[aei]|versus|vs|mi[eę]dzy|spo[sś]r[oó]d|ofert[aeiy]|projekt[a-ząćęłńóśźż]*)\b", lower)
         or re.search(r"\b(zmieni[cć]|zosta[cć]|kupi[cć]|sprzeda[cć]|zainwestowa[cć])\b", lower)
     )
     if not has_alternatives and options_count < 2:
