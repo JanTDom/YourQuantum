@@ -647,6 +647,20 @@ export interface LeverRankingItem {
   relative_impact_percent: number
 }
 
+export interface KeyPillar {
+  title: string
+  chosen_option: string
+  rationale: string
+}
+
+export interface ExecutiveBriefing {
+  headline: string
+  executive_summary: string
+  key_pillars: KeyPillar[]
+  primary_tradeoff: string
+  tipping_points: string[]
+}
+
 export interface DesignSynthesisResult {
   problem_id: string
   optimal_configuration: Record<string, string>
@@ -656,6 +670,7 @@ export interface DesignSynthesisResult {
   lever_importance_ranking: LeverRankingItem[]
   unknowns_and_decisive_assumptions: string[]
   practical_manifestation: string
+  briefing?: ExecutiveBriefing
 }
 
 export async function getDesignFixture(fixtureName: string): Promise<any> {

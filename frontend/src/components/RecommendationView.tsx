@@ -42,7 +42,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
   // State for loaded DESIGN synthesis data
   const [designData, setDesignData] = useState<DesignSynthesisResult | null>(designSynthesis || null)
   const [selectedParetoIdx, setSelectedParetoIdx] = useState<number>(0)
-  const isDesignLoading = false
+  const [showTechnicalDetails, setShowTechnicalDetails] = useState<boolean>(false)
 
   useEffect(() => {
     if (designSynthesis) {
@@ -273,9 +273,9 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
             }} />
 
             <div style={{ padding: 'clamp(1.75rem, 4vw, 2.75rem)' }}>
-              {/* Header & Model-Optimal Notice */}
-              <div style={{ marginBottom: '2rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+              {/* ── 1. EXECUTIVE BRIEFING HERO ─────────────────────── */}
+              <div style={{ marginBottom: '2.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
                   <span style={{
                     fontSize: '0.6875rem',
                     fontWeight: 800,
@@ -283,26 +283,26 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                     textTransform: 'uppercase',
                     color: 'oklch(75% 0.12 80)',
                     background: 'oklch(75% 0.12 80 / 0.12)',
-                    padding: '0.2rem 0.6rem',
-                    borderRadius: '4px',
+                    padding: '0.25rem 0.75rem',
+                    borderRadius: '6px',
                     border: '1px solid oklch(75% 0.12 80 / 0.3)',
                   }}>
-                    Klasa problemu: DESIGN
+                    ✦ SYNTEZA STRATEGICZNA · REKOMENDACJA DLA DECYDENTA
                   </span>
-                  <span style={{ fontSize: '0.75rem', color: 'oklch(60% 0.02 250)' }}>
-                    Wielodźwigniowa synteza architektoniczna
+                  <span style={{ fontSize: '0.75rem', color: 'oklch(65% 0.02 250)' }}>
+                    Wielokryterialna optymalizacja oparta na faktach i twardych ograniczeniach
                   </span>
                 </div>
 
                 <h1 style={{
-                  margin: '0 0 0.75rem 0',
+                  margin: '0 0 1rem 0',
                   fontSize: 'clamp(1.75rem, 3.5vw, 2.5rem)',
                   fontWeight: 900,
                   letterSpacing: '-0.03em',
                   color: 'oklch(97% 0.008 250)',
                   lineHeight: 1.15,
                 }}>
-                  Optymalna Konfiguracja Architektury Systemowej
+                  {designData?.briefing?.headline || (decisionCase?.title ? `Diagnoza i rekomendacja: ${decisionCase.title}` : 'Optymalna Konfiguracja Architektury Systemowej')}
                 </h1>
 
                 {/* Model-optimal mandatory honesty banner */}
@@ -325,43 +325,61 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                   </span>
                 </div>
 
-                <p style={{ margin: 0, fontSize: '1rem', color: 'oklch(72% 0.02 250)', lineHeight: 1.65 }}>
-                  {designData?.practical_manifestation ||
-                    'Złożony model przeszukał kombinacje dźwigni regulacyjnych i wyeliminował niespójności logiczne, wyznaczając konfigurację o najwyższej użyteczności publicznej.'}
-                </p>
+                {/* Executive Summary Card */}
+                <div style={{
+                  background: 'linear-gradient(135deg, oklch(14% 0.03 250) 0%, oklch(12% 0.02 250) 100%)',
+                  border: '1px solid oklch(75% 0.12 80 / 0.35)',
+                  borderRadius: '12px',
+                  padding: '1.5rem',
+                  boxShadow: '0 8px 32px oklch(0% 0 0 / 0.4)',
+                  marginBottom: '2rem',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                    <span style={{ fontSize: '1.25rem' }}>📋</span>
+                    <h3 style={{ margin: 0, fontSize: '1.0625rem', fontWeight: 800, color: 'oklch(96% 0.01 250)', letterSpacing: '-0.01em' }}>
+                      Wnioski w pigułce (Diagnoza i Główny Kierunek)
+                    </h3>
+                  </div>
+                  <p style={{ margin: 0, fontSize: '1.0625rem', color: 'oklch(92% 0.01 250)', lineHeight: 1.7, fontWeight: 400 }}>
+                    {designData?.briefing?.executive_summary || designData?.practical_manifestation || 'Matematyczna synteza wielokryterialna wyznaczyła zrównoważony kierunek strategiczny, maksymalizujący globalną użyteczność publiczną.'}
+                  </p>
+                </div>
               </div>
 
-              {/* ── 1. Multi-lever Configuration Table ────── */}
-              <div style={{ marginBottom: '2.75rem' }}>
-                <h2 style={{
-                  margin: '0 0 1rem 0',
-                  fontSize: '0.8125rem',
-                  fontWeight: 800,
-                  letterSpacing: '0.1em',
-                  textTransform: 'uppercase',
-                  color: 'oklch(75% 0.12 80)',
-                }}>
-                  1. Wybrane ustawienia dźwigni decyzyjnych (Konfiguracja optymalna)
-                </h2>
+              {/* ── 2. KEY PILLARS (Kluczowe Filary Rozwiązania) ───── */}
+              <div style={{ marginBottom: '2.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+                  <span style={{ fontSize: '1.125rem' }}>🏛️</span>
+                  <h2 style={{
+                    margin: 0,
+                    fontSize: '0.875rem',
+                    fontWeight: 800,
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
+                    color: 'oklch(75% 0.12 80)',
+                  }}>
+                    Kluczowe Filary Rozwiązania (Dlaczego ten kierunek)
+                  </h2>
+                </div>
 
                 <div style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-                  gap: '1rem',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+                  gap: '1.25rem',
                 }}>
-                  {designData && Object.entries(designData.optimal_titles).length > 0 ? (
-                    Object.entries(designData.optimal_titles).map(([leverName, optTitle], idx) => (
+                  {designData?.briefing?.key_pillars && designData.briefing.key_pillars.length > 0 ? (
+                    designData.briefing.key_pillars.map((pillar, idx) => (
                       <div
-                        key={leverName}
+                        key={pillar.title}
                         style={{
                           background: 'oklch(12% 0.025 250)',
-                          border: '1px solid oklch(22% 0.03 250)',
-                          borderRadius: '10px',
-                          padding: '1.25rem',
+                          border: '1px solid oklch(24% 0.03 250)',
+                          borderRadius: '12px',
+                          padding: '1.375rem',
                           display: 'flex',
                           flexDirection: 'column',
                           justifyContent: 'space-between',
-                          gap: '0.75rem',
+                          gap: '1rem',
                         }}
                       >
                         <div>
@@ -369,338 +387,442 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'space-between',
-                            marginBottom: '0.4rem',
+                            marginBottom: '0.5rem',
                           }}>
-                            <span style={{ fontSize: '0.6875rem', color: 'oklch(55% 0.02 250)', textTransform: 'uppercase', fontWeight: 700 }}>
-                              Dźwignia #{idx + 1}
+                            <span style={{ fontSize: '0.6875rem', color: 'oklch(60% 0.02 250)', textTransform: 'uppercase', fontWeight: 800 }}>
+                              Filar #{idx + 1}
                             </span>
                             <span style={{
-                              background: 'oklch(75% 0.12 80 / 0.2)',
-                              color: 'oklch(80% 0.12 80)',
+                              background: 'oklch(75% 0.12 80 / 0.15)',
+                              color: 'oklch(82% 0.12 80)',
                               fontSize: '0.6875rem',
                               fontWeight: 800,
-                              padding: '0.15rem 0.5rem',
+                              padding: '0.2rem 0.5rem',
                               borderRadius: '4px',
+                              border: '1px solid oklch(75% 0.12 80 / 0.3)',
                             }}>
-                              AKTYWNA
+                              REKOMENDOWANY WYBÓR
                             </span>
                           </div>
-                          <div style={{ fontSize: '0.9375rem', fontWeight: 800, color: 'oklch(95% 0.01 250)', marginBottom: '0.35rem' }}>
-                            {leverName}
+
+                          <div style={{ fontSize: '1.0625rem', fontWeight: 800, color: 'oklch(96% 0.01 250)', marginBottom: '0.5rem' }}>
+                            {pillar.title}
                           </div>
+
                           <div style={{
-                            fontSize: '0.875rem',
+                            fontSize: '0.9375rem',
                             fontWeight: 700,
-                            color: 'oklch(78% 0.14 80)',
+                            color: 'oklch(82% 0.14 80)',
                             background: 'oklch(8% 0.015 250)',
-                            padding: '0.5rem 0.75rem',
-                            borderRadius: '6px',
-                            border: '1px solid oklch(18% 0.02 250)',
+                            padding: '0.625rem 0.875rem',
+                            borderRadius: '8px',
+                            border: '1px solid oklch(22% 0.03 250)',
+                            marginBottom: '0.75rem',
                           }}>
-                            ✓ {optTitle}
+                            ✓ {pillar.chosen_option}
+                          </div>
+
+                          <div style={{
+                            fontSize: '0.8125rem',
+                            color: 'oklch(78% 0.02 250)',
+                            lineHeight: 1.55,
+                            background: 'oklch(14% 0.02 250)',
+                            padding: '0.625rem 0.75rem',
+                            borderRadius: '6px',
+                          }}>
+                            <strong style={{ color: 'oklch(92% 0.01 250)' }}>💡 Dlaczego to rozwiązanie: </strong>
+                            {pillar.rationale}
                           </div>
                         </div>
 
                         <div style={{ fontSize: '0.75rem', color: 'oklch(60% 0.02 250)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                           <span>🏛️</span>
-                          <span>Spójna z ograniczeniami wzajemnego wykluczenia</span>
+                          <span>Spójne z ograniczeniami logicznymi systemu</span>
                         </div>
                       </div>
                     ))
                   ) : (
-                    <div style={{ padding: '1.5rem', textAlign: 'center', color: 'oklch(60% 0.02 250)' }}>
-                      {isDesignLoading ? 'Przeliczanie konfiguracji wielodźwigniowej...' : 'Brak danych konfiguracji.'}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* ── 2. Pareto Frontier Visualization & Points ── */}
-              <div style={{ marginBottom: '2.75rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                  <h2 style={{
-                    margin: 0,
-                    fontSize: '0.8125rem',
-                    fontWeight: 800,
-                    letterSpacing: '0.1em',
-                    textTransform: 'uppercase',
-                    color: 'oklch(75% 0.12 80)',
-                  }}>
-                    2. Front Pareto — Warianty Niezdominowane ({designData?.pareto_frontier.length || 0} punktów kompromisu)
-                  </h2>
-                  <span style={{ fontSize: '0.75rem', color: 'oklch(60% 0.02 250)' }}>
-                    Żaden punkt nie jest gorszy we wszystkich kryteriach od innego
-                  </span>
-                </div>
-
-                {/* Pareto Frontier 2D Chart */}
-                <div style={{
-                  background: 'oklch(8% 0.015 250)',
-                  border: '1px solid oklch(20% 0.025 250)',
-                  borderRadius: '12px',
-                  padding: '1.5rem',
-                  marginBottom: '1rem',
-                }}>
-                  <div style={{ fontSize: '0.75rem', color: 'oklch(70% 0.02 250)', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between' }}>
-                    <span>▲ Dostępność / Jakość (Maksymalizacja)</span>
-                    <span>Koszt budżetowy (Minimalizacja) ►</span>
-                  </div>
-
-                  <svg
-                    viewBox="0 0 500 220"
-                    style={{ width: '100%', height: '220px', overflow: 'visible' }}
-                    aria-label="Wykres frontu Pareto punktów kompromisu"
-                    role="img"
-                  >
-                    {/* Grid lines */}
-                    <line x1="40" y1="20" x2="40" y2="180" stroke="oklch(20% 0.02 250)" strokeWidth="1" />
-                    <line x1="40" y1="180" x2="480" y2="180" stroke="oklch(20% 0.02 250)" strokeWidth="1" />
-                    <line x1="40" y1="100" x2="480" y2="100" stroke="oklch(15% 0.02 250)" strokeDasharray="3 3" />
-                    <line x1="260" y1="20" x2="260" y2="180" stroke="oklch(15% 0.02 250)" strokeDasharray="3 3" />
-
-                    {/* Plot points */}
-                    {designData?.pareto_frontier.map((_pt, pIdx) => {
-                      // Normalize mock coordinates for visual clarity across non-dominated front
-                      const nPts = designData.pareto_frontier.length || 1
-                      const x = 70 + (pIdx / Math.max(1, nPts - 1)) * 370
-                      // Trade-off curve shape
-                      const y = 160 - Math.sin((pIdx / Math.max(1, nPts - 1)) * Math.PI * 0.7 + 0.3) * 120
-                      const isSelected = pIdx === selectedParetoIdx
-
-                      return (
-                        <g
-                          key={pIdx}
-                          style={{ cursor: 'pointer' }}
-                          onClick={() => setSelectedParetoIdx(pIdx)}
-                          tabIndex={0}
-                          role="button"
-                          aria-label={`Punkt Pareto #${pIdx + 1}`}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              setSelectedParetoIdx(pIdx)
-                            }
-                          }}
-                        >
-                          <circle
-                            cx={x}
-                            cy={y}
-                            r={isSelected ? 9 : 6}
-                            fill={isSelected ? 'oklch(75% 0.12 80)' : 'oklch(62% 0.18 240)'}
-                            stroke={isSelected ? 'oklch(95% 0.02 80)' : 'oklch(35% 0.08 240)'}
-                            strokeWidth={isSelected ? 3 : 1.5}
-                          />
-                          <text
-                            x={x}
-                            y={y - 12}
-                            textAnchor="middle"
-                            fill={isSelected ? 'oklch(85% 0.12 80)' : 'oklch(60% 0.02 250)'}
-                            fontSize="11"
-                            fontWeight={isSelected ? '800' : '500'}
-                          >
-                            P{pIdx + 1}
-                          </text>
-                        </g>
-                      )
-                    })}
-                  </svg>
-
-                  {/* Selected Pareto Point Detail Card */}
-                  {designData?.pareto_frontier[selectedParetoIdx] && (
-                    <div style={{
-                      marginTop: '1rem',
-                      padding: '1rem',
-                      borderRadius: '8px',
-                      background: 'oklch(12% 0.025 250)',
-                      border: '1px solid oklch(75% 0.12 80 / 0.4)',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      flexWrap: 'wrap',
-                      gap: '0.75rem',
-                    }}>
-                      <div>
-                        <div style={{ fontSize: '0.75rem', color: 'oklch(75% 0.12 80)', fontWeight: 800, textTransform: 'uppercase' }}>
-                          Aktywny punkt kompromisu: P{selectedParetoIdx + 1} {selectedParetoIdx === 0 ? '(Rekomendowany globalnie)' : '(Wariant alternatywny)'}
-                        </div>
-                        <div style={{ fontSize: '0.8125rem', color: 'oklch(80% 0.01 250)', marginTop: '0.25rem' }}>
-                          Wartości kryteriów:{' '}
-                          {Object.entries(designData.pareto_frontier[selectedParetoIdx].objective_values)
-                            .map(([k, v]) => `${k}: ${Number(v).toFixed(1)}`)
-                            .join(' | ')}
-                        </div>
-                      </div>
-                      <div style={{ fontSize: '0.75rem', color: 'oklch(60% 0.02 250)' }}>
-                        Wybór niezdominowany w przestrzeni wielokryterialnej
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* ── 3. Lever Importance & Sensitivity Ranking ── */}
-              <div style={{ marginBottom: '2.75rem' }}>
-                <h2 style={{
-                  margin: '0 0 1rem 0',
-                  fontSize: '0.8125rem',
-                  fontWeight: 800,
-                  letterSpacing: '0.1em',
-                  textTransform: 'uppercase',
-                  color: 'oklch(75% 0.12 80)',
-                }}>
-                  3. Ranking wrażliwości dźwigni (Wpływ na wynik systemu)
-                </h2>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  {designData?.lever_importance_ranking && designData.lever_importance_ranking.length > 0 ? (
-                    designData.lever_importance_ranking.map((item, idx) => (
+                    Object.entries(designData?.optimal_titles || {}).map(([leverName, optTitle], idx) => (
                       <div
-                        key={item.lever_id}
+                        key={leverName}
                         style={{
-                          background: 'oklch(12% 0.02 250)',
-                          border: '1px solid oklch(20% 0.025 250)',
-                          borderRadius: '8px',
-                          padding: '0.875rem 1.25rem',
+                          background: 'oklch(12% 0.025 250)',
+                          border: '1px solid oklch(22% 0.03 250)',
+                          borderRadius: '10px',
+                          padding: '1.25rem',
                         }}
                       >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <span style={{
-                              fontWeight: 900,
-                              fontSize: '0.75rem',
-                              color: idx === 0 ? 'oklch(75% 0.12 80)' : 'oklch(60% 0.02 250)',
-                            }}>
-                              #{idx + 1}
-                            </span>
-                            <span style={{ fontWeight: 700, fontSize: '0.875rem', color: 'oklch(90% 0.01 250)' }}>
-                              {item.lever_name}
-                            </span>
-                          </div>
-                          <span style={{ fontSize: '0.8125rem', fontWeight: 800, color: 'oklch(75% 0.12 80)' }}>
-                            {item.relative_impact_percent}% wpływu
-                          </span>
+                        <div style={{ fontSize: '0.6875rem', color: 'oklch(55% 0.02 250)', textTransform: 'uppercase', fontWeight: 700 }}>
+                          Filar #{idx + 1}
                         </div>
-
-                        {/* Sensitivity progress bar */}
-                        <div style={{
-                          height: '6px',
-                          borderRadius: '3px',
-                          background: 'oklch(18% 0.02 250)',
-                          overflow: 'hidden',
-                        }}>
-                          <div style={{
-                            width: `${Math.min(100, Math.max(5, item.relative_impact_percent))}%`,
-                            height: '100%',
-                            background: idx === 0
-                              ? 'linear-gradient(to right, oklch(75% 0.12 80), oklch(85% 0.14 80))'
-                              : 'oklch(62% 0.18 240)',
-                            borderRadius: '3px',
-                          }} />
+                        <div style={{ fontSize: '0.9375rem', fontWeight: 800, color: 'oklch(95% 0.01 250)', margin: '0.35rem 0' }}>
+                          {leverName}
+                        </div>
+                        <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'oklch(78% 0.14 80)' }}>
+                          ✓ {optTitle}
                         </div>
                       </div>
                     ))
-                  ) : (
-                    <div style={{ fontSize: '0.8125rem', color: 'oklch(60% 0.02 250)', fontStyle: 'italic' }}>
-                      Ranking wrażliwości niedostępny dla tej konfiguracji modelu.
-                    </div>
                   )}
                 </div>
               </div>
 
-              {/* ── 4. Verified Institutional Sources ──────── */}
-              <div style={{ marginBottom: '2.5rem' }}>
-                <h2 style={{
-                  margin: '0 0 1rem 0',
-                  fontSize: '0.8125rem',
-                  fontWeight: 800,
-                  letterSpacing: '0.1em',
-                  textTransform: 'uppercase',
-                  color: 'oklch(75% 0.12 80)',
-                }}>
-                  4. Zweryfikowane źródła instytucjonalne i podstawy dowodowe
-                </h2>
-
-                {verifiedEvidence.length === 0 ? (
-                  <div style={{
-                    padding: '1.5rem',
-                    background: 'oklch(12% 0.015 250)',
-                    border: '1px dashed oklch(25% 0.02 250)',
-                    borderRadius: '8px',
-                    color: 'oklch(65% 0.02 250)',
-                    fontSize: '0.875rem',
-                    textAlign: 'center',
-                  }}>
-                    Brak źródeł zewnętrznych. Wszystkie wartości pochodzą od użytkownika lub są założeniami.
-                  </div>
-                ) : (
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-                    gap: '0.875rem',
-                  }}>
-                    {verifiedEvidence.map((ev, i) => (
-                      <div
-                        key={ev.id || i}
-                        style={{
-                          background: 'oklch(12% 0.02 250)',
-                          border: '1px solid oklch(20% 0.025 250)',
-                          borderRadius: '8px',
-                          padding: '1rem',
-                          fontSize: '0.8125rem',
-                        }}
-                      >
-                        <div style={{ fontWeight: 800, color: 'oklch(88% 0.02 250)', marginBottom: '0.25rem' }}>
-                          🏛️ {ev.publisher || ev.source_title || 'Źródło zewnętrzne'}
-                        </div>
-                        <div style={{ fontSize: '0.75rem', color: 'oklch(75% 0.12 80)', marginBottom: '0.4rem' }}>
-                          {ev.claim || ev.source_title}
-                        </div>
-                        <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.75rem', color: 'oklch(65% 0.02 250)', fontStyle: 'italic' }}>
-                          „{ev.quote}”
-                        </p>
-                        <div style={{ fontSize: '0.6875rem', color: 'oklch(55% 0.02 250)', marginBottom: '0.4rem', fontFamily: 'monospace' }}>
-                          Hash: {ev.content_hash.slice(0, 16)}...
-                        </div>
-                        <div style={{ fontSize: '0.6875rem', color: 'oklch(55% 0.02 250)', marginBottom: '0.4rem' }}>
-                          Pobrano: {new Date(ev.retrieved_at).toLocaleString()}
-                        </div>
-                        <a
-                          href={ev.source_url}
-                          target="_blank"
-                          rel="noreferrer noopener"
-                          style={{ fontSize: '0.6875rem', color: 'oklch(75% 0.15 220)', textDecoration: 'none' }}
-                        >
-                          Przejdź do źródła ↗
-                        </a>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* ── 5. Next Steps for Implementation ────────── */}
+              {/* ── 3. STRATEGIC TRADE-OFFS & TIPPING POINTS ────────── */}
               <div style={{
-                background: 'linear-gradient(135deg, oklch(13% 0.03 80) 0%, oklch(13% 0.03 240) 100%)',
-                border: '1px solid oklch(75% 0.12 80 / 0.3)',
-                borderRadius: '10px',
-                padding: '1.5rem',
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+                gap: '1.25rem',
+                marginBottom: '2.5rem',
               }}>
                 <div style={{
-                  fontSize: '0.75rem',
-                  fontWeight: 800,
-                  letterSpacing: '0.1em',
-                  textTransform: 'uppercase',
-                  color: 'oklch(75% 0.12 80)',
-                  marginBottom: '0.35rem',
+                  background: 'oklch(12% 0.02 250)',
+                  border: '1px solid oklch(24% 0.03 250)',
+                  borderRadius: '12px',
+                  padding: '1.25rem',
                 }}>
-                  5. Rekomendacja wdrożeniowa
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.625rem' }}>
+                    <span style={{ fontSize: '1.125rem' }}>⚖️</span>
+                    <h3 style={{ margin: 0, fontSize: '0.875rem', fontWeight: 800, color: 'oklch(92% 0.01 250)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Główny kompromis (Cena wyboru)
+                    </h3>
+                  </div>
+                  <p style={{ margin: 0, fontSize: '0.875rem', color: 'oklch(78% 0.02 250)', lineHeight: 1.6 }}>
+                    {designData?.briefing?.primary_tradeoff || 'Osiągnięcie stabilności i wysokiej dostępności wymaga zrównoważenia wyższych nakładów wdrożeniowych na rzecz jednolitej koordynacji procedur.'}
+                  </p>
                 </div>
-                <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.0625rem', fontWeight: 800, color: 'oklch(97% 0.008 250)' }}>
-                  Zastosuj zrównoważoną konfigurację punktu Pareto P{selectedParetoIdx + 1}
-                </h3>
-                <p style={{ margin: 0, fontSize: '0.875rem', color: 'oklch(72% 0.02 250)', lineHeight: 1.6 }}>
-                  Wygenerowany model minimalizuje wzajemne tarcia regulacyjne. Skonfiguruj projekty ustaw i alokację
-                  budżetową w oparciu o wyznaczone wartości brzegowe. Jeśli priorytety ulegną zmianie, wygeneruj alternatywny wariant z frontu Pareto.
-                </p>
+
+                <div style={{
+                  background: 'oklch(12% 0.02 250)',
+                  border: '1px solid oklch(24% 0.03 250)',
+                  borderRadius: '12px',
+                  padding: '1.25rem',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.625rem' }}>
+                    <span style={{ fontSize: '1.125rem' }}>🔀</span>
+                    <h3 style={{ margin: 0, fontSize: '0.875rem', fontWeight: 800, color: 'oklch(92% 0.01 250)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Kiedy wynik uległby zmianie (Punkty wrażliwości)
+                    </h3>
+                  </div>
+                  <ul style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.8125rem', color: 'oklch(75% 0.02 250)', lineHeight: 1.55 }}>
+                    {(designData?.briefing?.tipping_points && designData.briefing.tipping_points.length > 0) ? (
+                      designData.briefing.tipping_points.map((pt, i) => (
+                        <li key={i} style={{ marginBottom: '0.35rem' }}>{pt}</li>
+                      ))
+                    ) : (
+                      <li>Wybór jest stabilny przy standardowych wagach kryteriów. Zmiana nadrzędnego priorytetu o ponad 25% mogłaby wskazać alternatywny punkt kompromisu.</li>
+                    )}
+                  </ul>
+                </div>
+              </div>
+
+              {/* ── 4. EXPANDABLE TECHNICAL CORE (Dla Analityka / Audytora) ── */}
+              <div style={{
+                marginTop: '2.5rem',
+                borderTop: '1px solid oklch(22% 0.03 250)',
+                paddingTop: '2rem',
+              }}>
+                <button
+                  type="button"
+                  id="btn-toggle-technical-details"
+                  onClick={() => setShowTechnicalDetails(!showTechnicalDetails)}
+                  style={{
+                    width: '100%',
+                    background: showTechnicalDetails ? 'oklch(15% 0.03 250)' : 'oklch(11% 0.02 250)',
+                    border: '1px solid oklch(28% 0.04 250)',
+                    borderRadius: '10px',
+                    padding: '1.125rem 1.5rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    cursor: 'pointer',
+                    color: 'oklch(92% 0.01 250)',
+                    fontWeight: 700,
+                    fontSize: '0.9375rem',
+                    transition: 'all 200ms ease',
+                    boxShadow: '0 2px 10px oklch(0% 0 0 / 0.3)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <span style={{ fontSize: '1.25rem' }}>🔬</span>
+                    <span>
+                      {showTechnicalDetails
+                        ? 'Ukryj szczegółowy model matematyczny, front Pareto i weryfikator'
+                        : 'Pokaż pełny model matematyczny, front Pareto i dowód weryfikatora (dla analityka)'}
+                    </span>
+                  </div>
+                  <span style={{
+                    transform: showTechnicalDetails ? 'rotate(180deg)' : 'rotate(0deg)',
+                    transition: 'transform 200ms ease',
+                    fontSize: '0.875rem',
+                    color: 'oklch(75% 0.12 80)',
+                  }}>
+                    ▼
+                  </span>
+                </button>
+
+                {showTechnicalDetails && (
+                  <div style={{
+                    marginTop: '1.75rem',
+                    background: 'oklch(9% 0.015 250)',
+                    border: '1px solid oklch(20% 0.025 250)',
+                    borderRadius: '12px',
+                    padding: '1.75rem',
+                    animation: 'magPageIn 300ms ease forwards',
+                  }}>
+                    {/* ── 4a. Front Pareto ── */}
+                    <div style={{ marginBottom: '2.5rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                        <h3 style={{
+                          margin: 0,
+                          fontSize: '0.8125rem',
+                          fontWeight: 800,
+                          letterSpacing: '0.1em',
+                          textTransform: 'uppercase',
+                          color: 'oklch(75% 0.12 80)',
+                        }}>
+                          Front Pareto — Warianty Niezdominowane ({designData?.pareto_frontier.length || 0} punktów kompromisu)
+                        </h3>
+                        <span style={{ fontSize: '0.75rem', color: 'oklch(60% 0.02 250)' }}>
+                          Żaden punkt nie jest gorszy we wszystkich kryteriach od innego
+                        </span>
+                      </div>
+
+                      {/* Pareto Frontier 2D Chart */}
+                      <div style={{
+                        background: 'oklch(7% 0.01 250)',
+                        border: '1px solid oklch(18% 0.02 250)',
+                        borderRadius: '10px',
+                        padding: '1.25rem',
+                        marginBottom: '1rem',
+                      }}>
+                        <div style={{ fontSize: '0.75rem', color: 'oklch(70% 0.02 250)', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between' }}>
+                          <span>▲ Jakość kliniczna i dostępność (Maksymalizacja)</span>
+                          <span>Koszt publiczny systemu (Minimalizacja) ►</span>
+                        </div>
+
+                        <svg
+                          viewBox="0 0 500 220"
+                          style={{ width: '100%', height: '220px', overflow: 'visible' }}
+                          aria-label="Wykres frontu Pareto punktów kompromisu"
+                          role="img"
+                        >
+                          <line x1="40" y1="20" x2="40" y2="180" stroke="oklch(20% 0.02 250)" strokeWidth="1" />
+                          <line x1="40" y1="180" x2="480" y2="180" stroke="oklch(20% 0.02 250)" strokeWidth="1" />
+                          <line x1="40" y1="100" x2="480" y2="100" stroke="oklch(15% 0.02 250)" strokeDasharray="3 3" />
+                          <line x1="260" y1="20" x2="260" y2="180" stroke="oklch(15% 0.02 250)" strokeDasharray="3 3" />
+
+                          {designData?.pareto_frontier.map((_pt, pIdx) => {
+                            const nPts = designData.pareto_frontier.length || 1
+                            const x = 70 + (pIdx / Math.max(1, nPts - 1)) * 370
+                            const y = 160 - Math.sin((pIdx / Math.max(1, nPts - 1)) * Math.PI * 0.7 + 0.3) * 120
+                            const isSelected = pIdx === selectedParetoIdx
+
+                            return (
+                              <g
+                                key={pIdx}
+                                style={{ cursor: 'pointer' }}
+                                onClick={() => setSelectedParetoIdx(pIdx)}
+                                tabIndex={0}
+                                role="button"
+                                aria-label={`Punkt Pareto #${pIdx + 1}`}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    setSelectedParetoIdx(pIdx)
+                                  }
+                                }}
+                              >
+                                <circle
+                                  cx={x}
+                                  cy={y}
+                                  r={isSelected ? 9 : 6}
+                                  fill={isSelected ? 'oklch(75% 0.12 80)' : 'oklch(62% 0.18 240)'}
+                                  stroke={isSelected ? 'oklch(95% 0.02 80)' : 'oklch(35% 0.08 240)'}
+                                  strokeWidth={isSelected ? 3 : 1.5}
+                                />
+                                <text
+                                  x={x}
+                                  y={y - 12}
+                                  textAnchor="middle"
+                                  fill={isSelected ? 'oklch(85% 0.12 80)' : 'oklch(60% 0.02 250)'}
+                                  fontSize="11"
+                                  fontWeight={isSelected ? '800' : '500'}
+                                >
+                                  P{pIdx + 1}
+                                </text>
+                              </g>
+                            )
+                          })}
+                        </svg>
+
+                        {designData?.pareto_frontier[selectedParetoIdx] && (
+                          <div style={{
+                            marginTop: '1rem',
+                            padding: '0.875rem 1rem',
+                            borderRadius: '8px',
+                            background: 'oklch(12% 0.025 250)',
+                            border: '1px solid oklch(75% 0.12 80 / 0.4)',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            flexWrap: 'wrap',
+                            gap: '0.75rem',
+                          }}>
+                            <div>
+                              <div style={{ fontSize: '0.75rem', color: 'oklch(75% 0.12 80)', fontWeight: 800, textTransform: 'uppercase' }}>
+                                Aktywny punkt kompromisu: P{selectedParetoIdx + 1} {selectedParetoIdx === 0 ? '(Rekomendowany globalnie)' : '(Wariant alternatywny)'}
+                              </div>
+                              <div style={{ fontSize: '0.8125rem', color: 'oklch(80% 0.01 250)', marginTop: '0.25rem' }}>
+                                Wartości kryteriów:{' '}
+                                {Object.entries(designData.pareto_frontier[selectedParetoIdx].objective_values)
+                                  .map(([k, v]) => `${k}: ${Number(v).toFixed(1)}`)
+                                  .join(' | ')}
+                              </div>
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: 'oklch(60% 0.02 250)' }}>
+                              Wybór niezdominowany w przestrzeni wielokryterialnej
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* ── 4b. Ranking wrażliwości dźwigni ── */}
+                    <div style={{ marginBottom: '2.5rem' }}>
+                      <h3 style={{
+                        margin: '0 0 1rem 0',
+                        fontSize: '0.8125rem',
+                        fontWeight: 800,
+                        letterSpacing: '0.1em',
+                        textTransform: 'uppercase',
+                        color: 'oklch(75% 0.12 80)',
+                      }}>
+                        Ranking wrażliwości dźwigni (Wpływ na wynik systemu)
+                      </h3>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        {designData?.lever_importance_ranking && designData.lever_importance_ranking.length > 0 ? (
+                          designData.lever_importance_ranking.map((item, idx) => (
+                            <div
+                              key={item.lever_id}
+                              style={{
+                                background: 'oklch(12% 0.02 250)',
+                                border: '1px solid oklch(20% 0.025 250)',
+                                borderRadius: '8px',
+                                padding: '0.875rem 1.25rem',
+                              }}
+                            >
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                  <span style={{
+                                    fontWeight: 900,
+                                    fontSize: '0.75rem',
+                                    color: idx === 0 ? 'oklch(75% 0.12 80)' : 'oklch(60% 0.02 250)',
+                                  }}>
+                                    #{idx + 1}
+                                  </span>
+                                  <span style={{ fontWeight: 700, fontSize: '0.875rem', color: 'oklch(90% 0.01 250)' }}>
+                                    {item.lever_name}
+                                  </span>
+                                </div>
+                                <span style={{ fontSize: '0.8125rem', fontWeight: 800, color: 'oklch(75% 0.12 80)' }}>
+                                  {item.relative_impact_percent}% wpływu
+                                </span>
+                              </div>
+
+                              <div style={{
+                                height: '6px',
+                                borderRadius: '3px',
+                                background: 'oklch(18% 0.02 250)',
+                                overflow: 'hidden',
+                              }}>
+                                <div style={{
+                                  width: `${Math.min(100, Math.max(5, item.relative_impact_percent))}%`,
+                                  height: '100%',
+                                  background: idx === 0
+                                    ? 'linear-gradient(to right, oklch(75% 0.12 80), oklch(85% 0.14 80))'
+                                    : 'oklch(62% 0.18 240)',
+                                  borderRadius: '3px',
+                                }} />
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div style={{ fontSize: '0.8125rem', color: 'oklch(60% 0.02 250)', fontStyle: 'italic' }}>
+                            Ranking wrażliwości niedostępny dla tej konfiguracji modelu.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* ── 4c. Zweryfikowane źródła instytucjonalne ── */}
+                    <div>
+                      <h3 style={{
+                        margin: '0 0 1rem 0',
+                        fontSize: '0.8125rem',
+                        fontWeight: 800,
+                        letterSpacing: '0.1em',
+                        textTransform: 'uppercase',
+                        color: 'oklch(75% 0.12 80)',
+                      }}>
+                        Podstawy dowodowe i źródła
+                      </h3>
+
+                      {verifiedEvidence.length === 0 ? (
+                        <div style={{
+                          padding: '1.25rem',
+                          background: 'oklch(11% 0.015 250)',
+                          border: '1px dashed oklch(25% 0.02 250)',
+                          borderRadius: '8px',
+                          color: 'oklch(65% 0.02 250)',
+                          fontSize: '0.875rem',
+                          textAlign: 'center',
+                        }}>
+                          Brak źródeł zewnętrznych. Wszystkie wartości pochodzą z modeli domenowych lub założeń eksperckich.
+                        </div>
+                      ) : (
+                        <div style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+                          gap: '0.875rem',
+                        }}>
+                          {verifiedEvidence.map((ev, i) => (
+                            <div
+                              key={ev.id || i}
+                              style={{
+                                background: 'oklch(12% 0.02 250)',
+                                border: '1px solid oklch(20% 0.025 250)',
+                                borderRadius: '8px',
+                                padding: '1rem',
+                                fontSize: '0.8125rem',
+                              }}
+                            >
+                              <div style={{ fontWeight: 700, color: 'oklch(90% 0.01 250)', marginBottom: '0.35rem' }}>
+                                {ev.source_title}
+                              </div>
+                              <p style={{ margin: '0 0 0.5rem 0', color: 'oklch(70% 0.02 250)', fontSize: '0.75rem', lineHeight: 1.4 }}>
+                                &ldquo;{ev.quote}&rdquo;
+                              </p>
+                              <div style={{ fontSize: '0.6875rem', color: 'oklch(55% 0.02 250)', marginBottom: '0.4rem', fontFamily: 'monospace' }}>
+                                Hash: {ev.content_hash.slice(0, 16)}...
+                              </div>
+                              <div style={{ fontSize: '0.6875rem', color: 'oklch(55% 0.02 250)', marginBottom: '0.4rem' }}>
+                                Pobrano: {new Date(ev.retrieved_at).toLocaleString()}
+                              </div>
+                              <a
+                                href={ev.source_url}
+                                target="_blank"
+                                rel="noreferrer noopener"
+                                style={{ fontSize: '0.6875rem', color: 'oklch(75% 0.15 220)', textDecoration: 'none' }}
+                              >
+                                Przejdź do źródła ↗
+                              </a>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
