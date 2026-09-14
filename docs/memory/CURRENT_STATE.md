@@ -1,22 +1,26 @@
 # YourQuantum — CURRENT STATE
 _Last updated: 2026-09-14 (Fix black screen on compute & add web-grounded systemic design synthesis)_
 
-## Status: SYNTEZA SYSTEMOWA Z SIECI I FIX CZARNEGO EKRANU ZWERYFIKOWANE (100% BRAMEK I TESTÓW E2E ZIELONYCH)
+## Status: DUAL-LAYER HUMAN EXECUTIVE BRIEFING & EXPANDABLE TECHNICAL DRAWER WDROŻONE I ZWERYFIKOWANE NA ŻYWO (100% BRAMEK ZIELONYCH)
 
-- **Gałąź i stan repo**: `main` (commit `80d1b54`) — wypchnięty do `origin/main` i wdrożony na produkcję Vercel (`https://yourquantum.pl`, deployment `dpl_6AnCizDQx6C92TnxFXSW1nRimnPn`). Zweryfikowany na żywo w przeglądarce pod kątem eliminacji czarnego ekranu i pełnej syntezy systemowej.
+- **Gałąź i stan repo**: `main` (commit `2db09f2`) — wypchnięty do `origin/main` i wdrożony na produkcję Vercel (`https://yourquantum.pl`, deployment `dpl_4rXprXXPoJzDxDCsHwJwq8KcqE3s`).
+- **Zweryfikowano na żywo w przeglądarce (Puppeteer E2E na produkcji)**:
+  * Przetestowano zapytanie systemowe *„Jaki system ochrony zdrowia byłby optymalny dla Polski: finansowanie, dostępność i profilaktyka”*.
+  * Silnik kognitywny zintegrował tło z sieci i wygenerował szkielet dźwigni w `DesignWorkspace`.
+  * Po kliknięciu obliczeń syntezy Pareto, aplikacja wyświetliła **Warstwę 1: Human Executive Briefing**:
+    - Nagłówek: `Diagnoza i rekomendacja: Projekt reformy systemu ochrony zdrowia`.
+    - Sekcja *Wnioski w pigułce* w przystępnym języku decyzyjnym (zamiast żargonu badań operacyjnych).
+    - Karty *Kluczowe Filary Rozwiązania* z jasnym uzasadnieniem: `💡 Dlaczego to rozwiązanie: Zapewnia najwyższą efektywność w kryteriach...`.
+    - Sekcje *Główny kompromis (Cena wyboru)* oraz *Kiedy wynik uległby zmianie (Punkty wrażliwości)*.
+  * Przetestowano **Warstwę 2: Rozwijaną Szufladę Techniczną**:
+    - Przycisk `#btn-toggle-technical-details` rozwinął pełny model matematyczny, 2D interaktywny wykres frontu Pareto, ranking ważności dźwigni, synergie i dowody weryfikatora.
+  * Zrzuty ekranu z produkcji zapisano w `screenshots/`:
+    - `1_design_workspace.png`
+    - `2_executive_briefing_top.png`
+    - `3_executive_briefing_tradeoffs.png`
+    - `4_technical_drawer_pareto.png`
 - **Wszystkie mechaniczne bramki weryfikacyjne w `scripts/check_v4.sh`**: 23/23 ZIELONE (PASS).
-- **Testy Playwright E2E na żywym backendzie (`frontend/e2e/v4-real-backend.spec.ts`)**: 4/4 ZIELONE (PASS):
-  * Health check backendu aktywny i osiągalny (`GET /api/v1/health` -> `status: "ok"`).
-  * Pełna ścieżka rozwiązywania zadania decyzyjnego CP-SAT z uzupełnieniem macierzy.
-  * Macierz decyzyjna i dodawanie kryteriów na żywym backendzie.
-  * **Nowość**: Ścieżka dylematu systemowego bez predefiniowanych wariantów (*„Jak system ochrony zdrowia byłby najlepszy w Polsce?”*): automatyczna dekompozycja Active Inference na dźwignie systemowe (`DESIGN`), przejście do `DesignWorkspace`, obliczenie syntezy Pareto i wyświetlenie optymalnej konfiguracji wielodźwigniowej w `RecommendationView`.
-- **Eliminacja czarnego ekranu po kliknięciu „Oblicz”**:
-  * Przyczyna źródłowa: Wcześniej przy statusie `needs_clarification` dla klasy `DESIGN` (lub braku `decisionCase`), frontend ustawiał `stage === 'CASE_WORKSPACE'`, w którym brakowało renderowania komponentu `DesignWorkspace`, co powodowało renderowanie pustego znacznika `<main>` na ciemnym tle kanwy. Dodatkowo brakowało nadrzędnego `ErrorBoundary` wokół etapów aplikacji.
-  * Rozwiązanie: W `frontend/src/App.tsx` dodano stan `stage === 'DESIGN_WORKSPACE'`, zintegrowano `<DesignWorkspace>`, otoczono główny obszar roboczy przez `<ErrorBoundary onReset={handleReset}>`, dodano fallbacki dla brakujących danych oraz wprowadzono przycisk szybkiego uzupełnienia założeń roboczych `#btn-fill-assumptions`.
-- **Dekompozycja i badanie tła dla dylematów systemowych (Klasa DESIGN)**:
-  * W `backend/domain/cognitive/quality_gate.py` dostosowano ocenę jakości zapytań dla klasy `DESIGN` — zapytania systemowe (np. reforma ochrony zdrowia, emerytur, podatków) nie wymagają podawania wariantów wyboru i są akceptowane od 4 słów.
-  * W `backend/domain/cognitive/active_inference_engine.py` dodano dedykowaną ścieżkę syntezy dla klasy `DESIGN`, która uruchamia wyszukiwanie w sieci przez `WebResearchAdapter`, wywołuje `decompose_design_query_async` tworzący 3–7 dźwigni i 2–5 opcji, wypełnia macierz bazową i przekazuje pełny `DesignProblem` do frontendu.
-  * Poprawiono integrację `LLMGateway` w `backend/domain/cognitive/lever_decomposer.py` (`gw.generate` z system_instruction i schematem odpowiedzi).
+- **Testy jednostkowe pytest oraz build TypeScript**: ZIELONE (100% PASS, zero błędów typowania).
 
 ### Stan przed V4 — Surowy wynik bramek mechanicznych (`scripts/check_v4.sh`):
 

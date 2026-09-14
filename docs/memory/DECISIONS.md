@@ -472,3 +472,26 @@ Mechanizm Google Search Grounding modelu Gemini (oraz wszelkie pokrewne narzędz
 
 **Rationale:**
 Zgodnie z regułą dowodową i eliminacją halucynacji (BUILD_SPEC_V2.md §1 pkt 4 oraz audyt V4 R6), uznanie tekstu wygenerowanego przez model za „stronę źródłową" prowadzi do samopotwierdzenia halucynacji modelu w weryfikatorze cytatów, podszywając się pod obiektywne dane empiryczne.
+
+---
+
+## DEC-030 — Prezentacja dwuwarstwowa: Executive Briefing dla decydenta i rozwijany rdzeń techniczny
+
+**Date:** 2026-09-14
+**Status:** ACTIVE
+
+**Decision:**
+Ekran rekomendacji i syntezy decyzyjnej (`RecommendationView.tsx`, `DesignSynthesisResult`) zostaje podzielony na dwie rozłączne warstwy percepcyjne:
+1. **Warstwa 1 (Główna, domyślnie widoczna): Human Executive Briefing**
+   - Naturalny, strategiczny język (klasa ChatGPT/Claude na poziomie doradcy zarządu/decydenta).
+   - Diagnoza sytuacji i *Wnioski w pigułce* wyjaśniające kierunek w sposób zrozumiały dla każdego decydenta.
+   - *Kluczowe Filary Rozwiązania* z kartami odpowiedzi na pytanie: `Dlaczego to rozwiązanie?`.
+   - *Główny kompromis (Cena wyboru)* oraz *Kiedy wynik uległby zmianie (Punkty wrażliwości)*.
+   - Całkowita eliminacja surowego żargonu badań operacyjnych („Front Pareto”, „Dźwignia #1”, „Optymalna konfiguracja architektury systemowej”) z warstwy strategicznej.
+2. **Warstwa 2 (Szuflada analityczna, domyślnie zwinięta): Rdzeń matematyczny i weryfikator**
+   - Przycisk `#btn-toggle-technical-details` rozwijający interaktywny wykres 2D frontu Pareto z wyborem osi kryteriów, ranking ważności dźwigni, synergie i wykluczenia, źródła instytucjonalne oraz dowód weryfikatora.
+   - Zachowuje 100% rygoru dowodowego (brak fikcyjnych danych, niezależna weryfikacja naruszeń ograniczeń).
+
+**Rationale:**
+Użytkownicy i decydenci potrzebują natychmiastowego zrozumienia rekomendacji i jej ceny (kompromisu) w naturalnym języku. Zmuszanie użytkownika do dekodowania surowych wykresów Pareto i macierzy przed zrozumieniem wniosku budziło opór percepcyjny, mimo że silnik obliczeniowy pod spodem działał bezbłędnie. Architektura dwuwarstwowa łączy zrozumiałość interfejsu czatu z niezawodnością i dowodowością matematyczną.
+
