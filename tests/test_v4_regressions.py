@@ -269,7 +269,7 @@ def test_r2_no_master_secret_literal_in_repo():
     ]
 
     invalid_hits = []
-    ignored_dirs = {".git", ".backup", "node_modules", ".venv", "__pycache__", "dist"}
+    ignored_dirs = {".git", ".backup", "node_modules", ".venv", "__pycache__", "dist", "Claude outputs"}
 
     for root, dirs, files in os.walk(repo_root):
         dirs[:] = [d for d in dirs if d not in ignored_dirs]

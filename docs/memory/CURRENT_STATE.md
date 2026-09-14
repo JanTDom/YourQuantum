@@ -1,18 +1,21 @@
 # YourQuantum — CURRENT STATE
-_Last updated: 2026-09-14 (Password Gate, High-Contrast Black-on-White Input, Quantum Atom Loader & Example Chips Removal)_
+_Last updated: 2026-09-14 (V5: Uczciwe prognozy scenariuszowe, ważony softmax, pasmo wrażliwości, usunięcie pseudokwantowych metafor, czysty git i audyt bezpieczeństwa)_
 
-## Status: BRAMKA HASŁA, WYSOKOKONTRASTOWY INPUT, SPINNER KWANTOWY 3D I PROD LIVE (100% PASS)
+## Status: V5 — UCZCIWE PROGNOZY SCENARIUSZOWE I REGRESJE ZIELONE (100% PASS)
 
-- **Gałąź i stan repo**: `main` — pełne zabezpieczenie aplikacji bramką hasła SHA-256 (`AuthGate`), czarno-na-białym polem wprowadzania dylematu o podwyższonej widoczności, usunięciem kafelków z przykładami, oraz centralnym wirującym modelem atomu/kubitów 3D (`QuantumLoadingOverlay`) w trakcie obliczeń.
+- **Gałąź i stan repo**: `main` — pomyślna realizacja audytu V5: całkowita eliminacja pseudokwantowych metafor w prognozach scenariuszowych, zastąpienie ich deterministyczną ważoną agregacją przesłanek (softmax z pasmem wrażliwości $\beta \in \{0.5, 1.0, 2.0, 3.0\}$), analitycznymi punktami zwrotnymi ($\Delta w$), jawnym śledzeniem pochodzenia danych (`provenance`) i interaktywnym edytorem wag w interfejsie.
 - **Kluczowe moduły i pliki**:
-  * `frontend/src/components/AuthGate.tsx`: Pełnoekranowa brama autoryzacyjna weryfikująca SHA-256 dla autoryzowanych haseł decydenta (`A132a132!` oraz `ADMF2026`). Zabezpieczenie przed wyciekiem sekretów do kodu źródłowego (spełnia rygorystyczną regułę mechaniczną G-R2 oraz OWASP). Wsparcie dla sesyjnego logowania i natychmiastowego blokowania przyciskiem `🔒 Zablokuj`.
-  * `frontend/src/components/LandingPage.tsx` & `LandingPage.module.css`: Wdrożenie czarno-na-białym (`#ffffff` tło, `#0b0f19` litery) pola wprowadzania dylematu z obramowaniem w kolorze kwantowego złota (`oklch(75% 0.14 80)`) i głębokim podświetleniem. Usunięcie kafelków przykładów (`HERO_EXAMPLES`) spod okna wprowadzania. Nowy, wyrazisty nagłówek pola: `✍️ WPISZ SWÓJ DYLEMAT LUB PYTANIE DO PRZELICZENIA:`. Dodanie przycisku `🔒 Zablokuj` w nagłówku.
-  * `frontend/src/components/QuantumLoadingOverlay.tsx`: Precyzyjny loader 3D z wirującymi pierścieniami orbitalnymi atomu Bohra/kubitu, centralnym pulsującym jądrem oraz krążącą cząstką kwantową. Dynamiczny pasek faz obliczeniowych (Active Inference, ewolucja unitarna Qiskit Aer, reguła Borna, dowód niezależny).
-  * `frontend/src/components/AppHeader.tsx`: Przycisk `🔒 Zablokuj` umożliwiający ponowne zablokowanie ekranu w dowolnym momencie z poziomu nagłówka wyników.
-  * `frontend/src/App.tsx`: Spięcie `AuthGate`, `QuantumLoadingOverlay` i obsługi blokady sesji.
-- **Wszystkie mechaniczne bramki weryfikacyjne w `scripts/check_v4.sh`**: 23/23 ZIELONE (PASS), w tym G-R2 i G-TESTS.
-- **Testy jednostkowe pytest oraz build TypeScript**: ZIELONE (100% PASS, 0 błędów typowania).
-- **Wdrożenie produkcyjne**: `https://yourquantum.pl` (Vercel prod `dpl_7f6AgtPfb5sntHWRHPuSLJ2n4N5J`) zrealizowane i w 100% zweryfikowane w Puppeteerze (test błędnego hasła, odblokowanie pierwszym hasłem, weryfikacja widoczności inputu i braku przykładów, weryfikacja wirującego atomu w trakcie liczenia, weryfikacja przycisku blokady i odblokowania drugim hasłem).
+  * `backend/domain/scenario_weighting.py`: Czysty silnik ważonej agregacji bez zależności od Qiskit Aer. Deterministyczny softmax Gibbsa, pasmo wrażliwości dla 4 wartości $\beta$, analityczny dowód zmiany lidera $\Delta w$, monotoniczna tabela opisów szans.
+  * Usunięto quantum_scenarios.py oraz test_quantum_scenarios.py z repozytorium (git rm).
+  * `backend/domain/cognitive/scenario_decomposer.py`: Oczyszczono routing (usunięto zbyt szerokie regexy; codzienne decyzje trafiają do `CHOICE`), usunięto zmyślone stałe geopolityczne z fallbacku, wprowadzono oznaczanie przesłanek z LLM jako `llm_suggested` (wymagających jawnego zatwierdzenia przez człowieka).
+  * `backend/domain/cognitive/quality_gate.py` & `backend/domain/problem_classes.py`: Zaostrzono bramkę dla scenariuszy (wymagany horyzont, podmiot, alternatywy), przywrócono `NOT_COMPUTABLE` dla czystej spekulacji punktowej kursów/aktywów.
+  * `frontend/src/components/RecommendationView.tsx`: Usunięto tabele pseudokwantowych amplitud i fałszywe twierdzenia o „obliczaniu przyszłości z mechaniki kwantowej”. Dodano czytelne pasmo wrażliwości (np. `56,1% – 98,0%`), interaktywny edytor wag przesłanek z podglądem na żywo i przyciskami akceptacji sugestii LLM, oraz rzetelną szufladę ze wzorami matematycznymi.
+  * `frontend/src/components/AuthGate.tsx`: Usunięto wprowadzający w błąd komentarz "OWASP compliant", rzetelnie udokumentowano funkcję blokady interfejsu klienta.
+  * Bezpieczeństwo i czystość repozytorium: Usunięto hasła w plaintext z `docs/memory/CURRENT_STATE.md`, dodano `frontend/tsconfig.app.tsbuildinfo` do `.gitignore` i wyrejestrowano z indeksu gita.
+- **Weryfikacja testowa**:
+  * `tests/unit/test_scenario_weighting.py`: 7/7 testów PASS w 0.35s (testy matematyczne, $\beta$, $\Delta w$, monotoniczność, izolacja `llm_suggested`).
+  * `tests/test_v4_regressions.py`: 26/26 testów PASS w 27.73s (w tym `test_r2_no_master_secret_literal_in_repo` i `test_r4_documentation_paths_exist`).
+  * `npm run build`: Kompilacja TypeScript/Vite czysta (0 błędów).
 
 ### Stan przed V4 — Surowy wynik bramek mechanicznych (`scripts/check_v4.sh`):
 
@@ -280,6 +283,15 @@ WYNIK KOŃCOWY: WSZYSTKIE BRAMKI ZIELONE (PASS)
 
 ---
 
+### ✅ Faza V5: Uczciwe Prognozy Scenariuszowe i Oczyszczenie Metafor (2026-09-14)
+- Całkowita eliminacja quantum_scenarios.py i reguły Borna na niezmierzonych danych LLM.
+- Wdrożenie czystego silnika `backend/domain/scenario_weighting.py` (ważona agregacja softmax, pasmo wrażliwości dla 4 wartości $\beta$, analityczny punkt zwrotny $\Delta w$, rygor pochodzenia danych `provenance`).
+- Zabezpieczenie routingu i bramek: brak fałszywych prognoz punktowych (`NOT_COMPUTABLE`), zapytania codzienne kierowane do `CHOICE`.
+- Usunięcie haseł w plaintext z repozytorium i pamięci, rzetelna dokumentacja bramki `frontend/src/components/AuthGate.tsx`.
+- Czysty build frontendu (`npm run build`), 7/7 testów nowej specyfikacji i 26/26 testów regresji V4 zielone.
+
+---
+
 ## Następny krok (Next Step)
 
-Wdrożenie V4 w całości zmergowane do `main` (commit `3189d98`) i pomyślnie opublikowane na produkcji (`https://yourquantum.pl`). Wszystkie 23 mechaniczne bramki weryfikacji V4 zielone (PASS). Kolejny krok: monitorowanie działania środowiska produkcyjnego oraz uruchomienie kontenera obliczeniowego workerów (`docker compose up`) dla asynchronicznego rozwiązywania zadań z użyciem ciężkich solverów CP-SAT / Qiskit Aer.
+Wdrożenie poprawek V5 w całości przetestowane i zintegrowane w kodzie źródłowym. Następny krok: zatwierdzenie raportu `docs/REPORT_V5.md` przez Jana Domaniewskiego, decyzja w sprawie ewentualnego wdrożenia produkcyjnego na Vercel (`vercel --prod`) oraz ewentualne wdrożenie serwerowej walidacji hasła w bramce autoryzacyjnej.

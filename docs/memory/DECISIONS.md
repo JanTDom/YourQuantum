@@ -500,23 +500,48 @@ Użytkownicy i decydenci potrzebują natychmiastowego zrozumienia rekomendacji i
 ## DEC-031 — Kwantowa kombinatoryka scenariuszy i prognozowanie ryzyka metodą reguły Borna
 
 **Date:** 2026-09-14
+**Status:** SUPERSEDED BY DEC-032 (2026-09-14)
+
+**Powód zastąpienia (Ustalenia audytu zewnętrznego V5):**
+1. **Warstwa kwantowa nie wykonywała żadnego obliczenia fizycznego ani kwantowego**:
+   W usuniętym module pseudokwantowym (zastąpionym obecnie przez `backend/domain/scenario_weighting.py`) kod wyliczał analityczne wagi Gibbsa, normalizował je, ładował wektor amplitud przez `qc.initialize` do symulatora `AerSimulator`, po czym odczytywał `save_statevector()` i podnosił moduł do kwadratu. Obwód nie posiadał ani jednej bramki (brak ewolucji, brak interferencji, brak splątania) — zwracał dokładnie to, co wprowadzono:
+   ```text
+   ścieżka przez Qiskit Aer : {'s1': 0.905733, 's2': 0.087247, 's3': 0.00702}
+   ścieżka analityczna      : {'s1': 0.905733, 's2': 0.087247, 's3': 0.00702}
+   identyczne?              : True
+   ```
+   Była to klasyczna funkcja softmax w przebraniu symulatora kwantowego, co bezpośrednio naruszało regułę z `AGENTS.md` §2 (*„Do NOT call weight changes 'quantum interference'”*).
+2. **Zmyślone liczby wejściowe**: wagi, wiarygodność i wpływy generował model językowy bez weryfikacji dowodowej, a fallback zawierał wpisane w kodzie geopolityczne stałe (np. wpływ 0.85 / 0.25 / -0.95 przy pewności 0.98).
+3. **Powołanie się na SafeWebFetcher było nieuprawnione**: silnik pobierał jedynie krótkie snippety z wyszukiwarki i wklejał je do promptu LLM, omijając bezpieczne pobieranie stron, sprawdzanie cytatów i hashowanie treści.
+4. **Ukryta stała beta = 1.8**: wynik zależał w przeważającej mierze od arbitralnie dobranej stałej sterującej ostrością rozkładu.
+
+---
+
+## DEC-032 — Uczciwa prognoza scenariuszowa i badanie wrażliwości założeń decydenta (Ważony Softmax)
+
+**Date:** 2026-09-14
 **Status:** ACTIVE
 
 **Decision:**
-Pytania o przyszłość, prognozy ryzyka geopolitycznego, rynkowego i systemowego (np. *„Czy Rosja napadnie w najbliższym czasie na Polskę?”*) nie mogą być odrzucane z komunikatem o braku możliwości obliczeniowej (`NOT_COMPUTABLE`). Zostają sformalizowane jako dyskretna przestrzeń wzajemnie wykluczających się scenariuszy ($s \in S$) oraz empirycznych wektorów przesłanek dowodowych ($p \in P$) ugruntowanych w badaniach sieciowych (`SafeWebFetcher` i `WebResearchAdapter`).
-1. **Model energetyczny i kombinatoryka stanów kwantowych (`backend/domain/quantum_scenarios.py`)**:
-   - Każda przesłanka posiada wagę $w_k$, wskaźnik wiarygodności $c_k$ oraz wektor wpływu na scenariusze $I(s_i, p_k) \in [-1, 1]$.
-   - Energia konfiguracji scenariusza $H(s_i) = - \sum_k w_k \cdot c_k \cdot I(s_i, p_k)$.
-   - Stan kwantowy $|\psi\rangle = \sum_i \alpha_i |s_i\rangle$ jest ewaluowany z symulatorem `qiskit_aer.AerSimulator` (lub jądrem wektora stanu przy braku QPU).
-   - Zgodnie z regułą Borna, prawdopodobieństwo każdego scenariusza wynosi ściśle:
-     $$P(s_i) = |\langle s_i | \psi \rangle|^2 = |\alpha_i|^2, \quad \sum_{i} P(s_i) = 1.0$$
-2. **Dekompozycja i klasyfikacja kognitywna (`backend/domain/cognitive/scenario_decomposer.py`, `backend/domain/problem_classes.py`)**:
-   - `is_scenario_forecast_query` rozpoznaje zapytania predykcyjne i kieruje je do klasy decyzyjnej `CHOICE` ze statusem `ready_for_review` i kompletnym obiektem `scenario_forecast`.
-   - Klasyfikacja `NOT_COMPUTABLE` zostaje ograniczona wyłącznie do nierozstrzygalnych dylematów czysto etycznych lub zapytań z zerową możliwością modelowania.
-3. **Prezentacja Executive Briefing (`frontend/src/components/RecommendationView.tsx`)**:
-   - Dedykowany widok scenariuszowy: pasek dominanty scenariusza, wskaźniki prawdopodobieństwa reguły Borna, filary dowodowe, punkty zwrotne (*Tripwires*) oraz rozwijana szuflada techniczna z tabelą amplitud zespolonych $\alpha_i$ i telemetrią Qiskit Aer.
-
-**Rationale:**
-Zamiast generatywnych domysłów LLM („wydaje mi się, że wojna jest mało prawdopodobna”), YourQuantum wyznacza rozkład prawdopodobieństw w oparciu o kwantową kombinatorykę stanów energetycznych i regułę Borna, łącząc realne źródła wywiadowcze/ekonomiczne z fizyczno-matematycznym aparatem prawdopodobieństwa.
+Funkcja analizy scenariuszowej zostaje zachowana, lecz oczyszczona z wszelkich fałszywych metafor kwantowych i zastąpiona rzetelnym modelem ważonej agregacji założeń decydenta:
+1. **Silnik ważonej agregacji (`backend/domain/scenario_weighting.py`)**:
+   - Całkowite usunięcie zależności od Qiskit Aer z tej ścieżki (moduł kwantowy w `backend/solvers/quantum/` i klasa `DESIGN` pozostają nietknięte).
+   - Jawny wzór matematyczny softmax / Gibbsa z bazowym parametrem $\beta = 1.0$:
+     $$S(s_i) = \sum_{p \in P_{aktywne}} w_p \cdot c_p \cdot I(s_i, p)$$
+     $$P(s_i) = \frac{\exp(\beta (S(s_i) - \max_j S(s_j)))}{\sum_k \exp(\beta (S(s_k) - \max_j S(s_j)))}$$
+   - Każdy wynik zawiera pasmo wrażliwości (`sensitivity_band`) dla $\beta \in \{0.5, 1.0, 2.0, 3.0\}$, a interfejs prezentuje przedział (np. 56%–98%), uniemożliwiając przedstawianie pojedynczego procentu jako obiektywnej prawdy o świecie.
+2. **Ścisły reżim pochodzenia danych (`provenance`)**:
+   - Przesłanki z oznaczeniem `llm_suggested` **nie wchodzą do obliczeń**, dopóki użytkownik jawnie ich nie zatwierdzi (`is_accepted=True`).
+   - Oznaczenie `web_sourced` przysługuje wyłącznie faktom zweryfikowanym przez `SafeWebFetcher` i `EvidenceExtractor`.
+   - Brak domyślnych stałych geopolitycznych — brak danych skutkuje żądaniem ich wprowadzenia przez użytkownika.
+3. **Analityczne punkty zwrotne (`compute_tipping_points`)**:
+   - Zastąpienie generowanych akapitów geopolitycznych analitycznym wyliczaniem minimalnej delty wagi $\Delta w$ dla każdej przesłanki, która odwraca dominację wariantu wiodącego.
+4. **Zawężenie routingu i przywrócenie rygorystycznych bramek**:
+   - Usunięcie szerokich regexów z `is_scenario_forecast_query`; zapytania o zmianę pracy, wynajem biura, kurs językowy czy wybór taryfy trafiają do standardowej klasy `CHOICE`.
+   - Bramka jakości wejścia dla prognoz scenariuszowych wymaga horyzontu czasowego, przedmiotu i alternatyw.
+   - Przywrócenie odrzucania czystej punktowej spekulacji rynkowej (`NOT_COMPUTABLE`).
+5. **Uczciwy interfejs w `frontend/src/components/RecommendationView.tsx`**:
+   - Usunięcie etykiet kwantowych, tabel amplitud i fałszywych zapewnień o "obliczaniu przyszłości".
+   - Wdrożenie interaktywnego edytora wag przesłanek z natychmiastowym przeliczaniem rozkładu i pasma wrażliwości.
 
 

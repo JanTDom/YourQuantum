@@ -49,16 +49,21 @@ def assess_input_quality(text: str, options_count: int = 0, problem_class: str =
             )
         return InputQuality(level="sufficient", reason="", suggestions=[])
 
-    # Scenario forecasting & future risk handling (Quantum Scenario Combinatorics)
+    # Scenario forecasting & future risk handling
     is_scenario_context = bool(
-        re.search(r"\b(czy\s+rosja|czy\s+zaatakuje|czy\s+napadnie|wojn\w*|inwazj\w*|konflikt\w*|prawdopodobie[nń]stw\w*|prognoz\w*|ryzyk\w*|scenariusz\w*|szansa\s+na|zagro[zż]eni\w*|krach\w*|kryzys\w*)\b", lower)
+        re.search(r"\b(scenariusz\w*|prognoz\w*|czy\s+rosja\s+(zaatakuje|napadnie)|inwazj\w*|wojn\w*\s+w\s+europ)\b", lower)
     )
     if is_scenario_context:
-        if len(words) < 3:
+        has_time_horizon = bool(re.search(r"\b(202\d|lat\w*|miesi[aą]c\w*|perspektyw\w*|horyzont\w*|czas\w*|najbli[zż]sz\w*)\b", lower))
+        if len(words) < 7 or not has_time_horizon:
             return InputQuality(
                 level="too_vague",
-                reason="Pytanie o prognozę przyszłości jest zbyt krótkie.",
-                suggestions=["Sformułuj pełniejsze pytanie o scenariusze rozwoju sytuacji."],
+                reason="Pytanie o analizę scenariuszową wymaga sprecyzowania horyzontu czasowego, przedmiotu prognozy oraz zarysu alternatyw.",
+                suggestions=[
+                    "Określ horyzont czasowy (np. 'w perspektywie najbliższych 12 miesięcy' lub 'do końca 2026 roku').",
+                    "Wskaż rozważane warianty sytuacji (np. deeskalacja vs presja hybrydowa vs otwarty konflikt).",
+                    "Zdefiniuj kluczowe wskaźniki lub założenia wyjściowe.",
+                ],
             )
         return InputQuality(level="sufficient", reason="", suggestions=[])
 

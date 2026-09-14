@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import {
   DecisionCase,
   DesignSynthesisResult,
   Evidence,
+  EvidencePremise,
   JobResult,
   ScenarioForecast,
 } from '../api'
@@ -58,6 +59,81 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
       setDesignData(designSynthesis)
     }
   }, [designSynthesis])
+
+  // State for SCENARIO weighting & live sensitivity (Prompt V5)
+  const [scenarioPremises, setScenarioPremises] = useState<EvidencePremise[]>(() => forecast?.evidence_premises || [])
+  const [scenarioBeta, setScenarioBeta] = useState<number>(1.0)
+
+  useEffect(() => {
+    if (forecast?.evidence_premises) {
+      setScenarioPremises(forecast.evidence_premises)
+    }
+  }, [forecast])
+
+  const liveForecast = useMemo(() => {
+    if (!forecast || !forecast.scenarios || forecast.scenarios.length < 2) return null
+    const activePremises = scenarioPremises.filter((p) => p.provenance !== 'llm_suggested' || p.is_accepted)
+    const k = forecast.scenarios.length
+
+    const scores: Record<string, number> = {}
+    for (const sc of forecast.scenarios) {
+      let s = 0.0
+      for (const p of activePremises) {
+        const imp = p.impact_on_scenarios[sc.id] ?? 0.0
+        s += imp * p.weight * p.confidence
+      }
+      scores[sc.id] = s
+    }
+
+    const computeDist = (b: number) => {
+      const vals = Object.values(scores)
+      const maxS = vals.length > 0 ? Math.max(...vals) : 0
+      const unnorm: Record<string, number> = {}
+      let sumExp = 0.0
+      for (const sc of forecast.scenarios) {
+        const v = Math.exp(b * (scores[sc.id] - maxS))
+        unnorm[sc.id] = v
+        sumExp += v
+      }
+      const res: Record<string, number> = {}
+      for (const sc of forecast.scenarios) {
+        res[sc.id] = sumExp > 0 ? unnorm[sc.id] / sumExp : 1.0 / k
+      }
+      return res
+    }
+
+    const currentDist = computeDist(scenarioBeta)
+    const sensitivityBand: Record<string, Record<string, number>> = {
+      beta_0_5: computeDist(0.5),
+      beta_1_0: computeDist(1.0),
+      beta_2_0: computeDist(2.0),
+      beta_3_0: computeDist(3.0),
+    }
+
+    const updatedScenarios = forecast.scenarios.map((sc) => ({
+      ...sc,
+      probability: currentDist[sc.id] ?? 0,
+      evidence_score: scores[sc.id] ?? 0,
+    }))
+    updatedScenarios.sort((a, b) => b.probability - a.probability)
+    const dominant = updatedScenarios[0]
+
+    const betaKeys = ['beta_0_5', 'beta_1_0', 'beta_2_0', 'beta_3_0']
+    const domPcts = betaKeys.map((bk) => (sensitivityBand[bk][dominant.id] ?? 0) * 100)
+    const minPct = Math.min(...domPcts)
+    const maxPct = Math.max(...domPcts)
+    const bandStr = `${minPct.toFixed(1).replace('.', ',')}% – ${maxPct.toFixed(1).replace('.', ',')}%`
+
+    return {
+      scenarios: updatedScenarios,
+      dominantScenario: dominant,
+      sensitivityBand,
+      bandStr,
+      activeCount: activePremises.length,
+      totalCount: scenarioPremises.length,
+      scores,
+    }
+  }, [forecast, scenarioPremises, scenarioBeta])
 
   const verifiedEvidence: Evidence[] = (
     evidenceList ||
@@ -264,9 +340,9 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
         </div>
 
         {/* ── G4: Specialized View Switch (SCENARIO vs DESIGN vs CHOICE) ── */}
-        {isScenario && forecast ? (
+        {isScenario && forecast && liveForecast ? (
           /* ══════════════════════════════════════════════════════════
-             SCENARIO & PROBABILISTIC RISK VIEW (Quantum Born Distribution)
+             SCENARIO & PROBABILISTIC RISK VIEW (Honest Softmax & Sensitivity Band)
              ══════════════════════════════════════════════════════════ */
           <div style={{
             background: 'oklch(10% 0.02 250)',
@@ -296,10 +372,10 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                     borderRadius: '6px',
                     border: '1px solid oklch(75% 0.12 80 / 0.3)',
                   }}>
-                    ✦ PROGNOZA SCENARIUSZOWA · KWANTOWA KOMBINATORYKA STANÓW (BORN PROBABILITY)
+                    ✦ PROGNOZA SCENARIUSZOWA · WAŻONA AGREGACJA PRZESŁANEK
                   </span>
                   <span style={{ fontSize: '0.75rem', color: 'oklch(65% 0.02 250)' }}>
-                    Symulacja Qiskit Aer · Rozkład prawdopodobieństw na podstawie twardych przesłanek
+                    Model ważonego rozkładu softmax · Badanie wrażliwości i analiza punktów zwrotnych
                   </span>
                 </div>
 
@@ -311,7 +387,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                   color: 'oklch(97% 0.008 250)',
                   lineHeight: 1.15,
                 }}>
-                  {forecast.briefing?.headline || `Ocena prawdopodobieństwa: ${forecast.query}`}
+                  {forecast.briefing?.headline || `Ocena scenariuszy: ${forecast.query}`}
                 </h1>
 
                 {/* Honesty banner */}
@@ -329,11 +405,11 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                 }}>
                   <span>⚖️</span>
                   <span>
-                    <strong>Zastrzeżenie metodologiczne:</strong> Model nie zgaduje przyszłości w sposób losowy (jak czatbot LLM), lecz oblicza rozkład prawdopodobieństw stanów z amplitud kwantowych (reguła Borna: P(s) = |⟨s|ψ⟩|²) na podstawie ważonego wektora przesłanek empirycznych z sieci.
+                    <strong>Zastrzeżenie metodologiczne:</strong> To nie jest obiektywny pomiar przyszłości ani wyrocznia, lecz analityczny rozkład prawdopodobieństw wynikający z przyjętych wag założeń decydenta i ważenia przesłanek empirycznych. Zmiana wag lub zatwierdzenie nowych faktów natychmiast modyfikuje rozkład. Źródła, pochodzenie oraz pasmo wrażliwości każdej przesłanki są w pełni audytowalne poniżej.
                   </span>
                 </div>
 
-                {/* Executive Summary Card */}
+                {/* Executive Summary Card with Sensitivity Band */}
                 <div style={{
                   background: 'linear-gradient(135deg, oklch(14% 0.03 250) 0%, oklch(12% 0.02 250) 100%)',
                   border: '1px solid oklch(75% 0.12 80 / 0.35)',
@@ -342,52 +418,120 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                   boxShadow: '0 8px 32px oklch(0% 0 0 / 0.4)',
                   marginBottom: '2rem',
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                    <span style={{ fontSize: '1.25rem' }}>📋</span>
-                    <h3 style={{ margin: 0, fontSize: '1.0625rem', fontWeight: 800, color: 'oklch(96% 0.01 250)', letterSpacing: '-0.01em' }}>
-                      Wnioski w pigułce (Diagnoza Strategiczna)
-                    </h3>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '0.75rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontSize: '1.25rem' }}>📋</span>
+                      <h3 style={{ margin: 0, fontSize: '1.0625rem', fontWeight: 800, color: 'oklch(96% 0.01 250)', letterSpacing: '-0.01em' }}>
+                        Wnioski w pigułce (Diagnoza Strategiczna)
+                      </h3>
+                    </div>
+
+                    {/* Dominant scenario sensitivity range badge */}
+                    <div style={{
+                      background: 'oklch(18% 0.04 80)',
+                      border: '1px solid oklch(75% 0.12 80 / 0.5)',
+                      borderRadius: '8px',
+                      padding: '0.4rem 0.75rem',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'flex-end',
+                    }}>
+                      <span style={{ fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', color: 'oklch(75% 0.12 80)' }}>
+                        Przedział wrażliwości wariantu wiodącego:
+                      </span>
+                      <span style={{ fontSize: '1rem', fontWeight: 900, color: 'oklch(96% 0.12 80)' }}>
+                        {liveForecast.bandStr}
+                      </span>
+                      <span style={{ fontSize: '0.6875rem', color: 'oklch(70% 0.02 250)' }}>
+                        wartość bazowa: {(liveForecast.dominantScenario.probability * 100).toFixed(1).replace('.', ',')}% przy β={scenarioBeta.toFixed(1)}
+                      </span>
+                    </div>
                   </div>
+
                   <p style={{ margin: 0, fontSize: '1.0625rem', color: 'oklch(92% 0.01 250)', lineHeight: 1.7, fontWeight: 400 }}>
                     {forecast.briefing?.executive_summary}
                   </p>
                 </div>
               </div>
 
-              {/* ── 2. QUANTUM SCENARIO PROBABILITY DISTRIBUTION ── */}
+              {/* ── 2. SCENARIO PROBABILITY DISTRIBUTION & SENSITIVITY CONTROLS ── */}
               <div style={{ marginBottom: '2.5rem' }}>
-                <h3 style={{
-                  margin: '0 0 1.25rem 0',
-                  fontSize: '0.8125rem',
-                  fontWeight: 800,
-                  letterSpacing: '0.1em',
-                  textTransform: 'uppercase',
-                  color: 'oklch(75% 0.12 80)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                }}>
-                  <span>🎲</span>
-                  <span>Kwantowy Rozkład Prawdopodobieństwa Scenariuszy (Born Rule)</span>
-                </h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1.25rem' }}>
+                  <h3 style={{
+                    margin: 0,
+                    fontSize: '0.8125rem',
+                    fontWeight: 800,
+                    letterSpacing: '0.1em',
+                    textTransform: 'uppercase',
+                    color: 'oklch(75% 0.12 80)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                  }}>
+                    <span>🎲</span>
+                    <span>Rozkład Prawdopodobieństwa Scenariuszy (Ważony Softmax)</span>
+                  </h3>
+
+                  {/* Beta sensitivity selector */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'oklch(70% 0.02 250)', fontWeight: 600 }}>
+                      Parametr ostrości (β):
+                    </span>
+                    {[
+                      { val: 0.5, label: '0.5 (Zbalansowany)' },
+                      { val: 1.0, label: '1.0 (Bazowy)' },
+                      { val: 2.0, label: '2.0 (Wyrazisty)' },
+                      { val: 3.0, label: '3.0 (Skrajny)' },
+                    ].map((bOpt) => {
+                      const isSelected = scenarioBeta === bOpt.val
+                      return (
+                        <button
+                          key={bOpt.val}
+                          type="button"
+                          onClick={() => setScenarioBeta(bOpt.val)}
+                          style={{
+                            padding: '0.25rem 0.55rem',
+                            borderRadius: '6px',
+                            fontSize: '0.6875rem',
+                            fontWeight: isSelected ? 800 : 600,
+                            background: isSelected ? 'oklch(75% 0.12 80 / 0.25)' : 'oklch(14% 0.02 250)',
+                            color: isSelected ? 'oklch(95% 0.12 80)' : 'oklch(75% 0.02 250)',
+                            border: isSelected ? '1px solid oklch(75% 0.12 80 / 0.8)' : '1px solid oklch(22% 0.02 250)',
+                            cursor: 'pointer',
+                            transition: 'all 150ms ease',
+                          }}
+                        >
+                          {bOpt.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  {forecast.scenarios.map((sc, idx) => {
-                    const isDominant = sc.id === forecast.dominant_scenario_id
+                  {liveForecast.scenarios.map((sc, idx) => {
+                    const isDominant = sc.id === liveForecast.dominantScenario.id
                     const pctNum = sc.probability * 100
                     const pctPl = pctNum < 0.1 && pctNum > 0 ? '< 0,1%' : `${pctNum.toFixed(1).replace('.', ',')}%`
 
+                    // Scenario sensitivity range across beta
+                    const scPcts = ['beta_0_5', 'beta_1_0', 'beta_2_0', 'beta_3_0'].map(
+                      (bk) => (liveForecast.sensitivityBand[bk]?.[sc.id] ?? 0) * 100
+                    )
+                    const scMin = Math.min(...scPcts).toFixed(1).replace('.', ',')
+                    const scMax = Math.max(...scPcts).toFixed(1).replace('.', ',')
+
                     let verbalChance = ''
-                    if (pctNum >= 90) {
-                      verbalChance = 'Wariant niemal pewny (ponad 90 na 100 szans)'
+                    if (pctNum >= 95) {
+                      verbalChance = 'Wariant niemal pewny (ponad 95 na 100 szans)'
+                    } else if (pctNum >= 80) {
+                      verbalChance = 'Wysokie prawdopodobieństwo (ok. 80–94 na 100 szans)'
                     } else if (pctNum >= 50) {
-                      verbalChance = 'Wysokie prawdopodobieństwo (większość szans)'
-                    } else if (pctNum >= 15) {
-                      verbalChance = 'Umiarkowane prawdopodobieństwo (realny wariant)'
-                    } else if (pctNum >= 1) {
-                      verbalChance = 'Niskie prawdopodobieństwo (kilka szans na 100)'
+                      verbalChance = 'Umiarkowanie wysokie prawdopodobieństwo (ponad połowa szans)'
+                    } else if (pctNum >= 20) {
+                      verbalChance = 'Umiarkowane prawdopodobieństwo (ok. 20–49 na 100 szans)'
                     } else {
-                      verbalChance = 'Znikome prawdopodobieństwo (poniżej 1 na 100 szans)'
+                      verbalChance = 'Niskie prawdopodobieństwo (poniżej 20 na 100 szans)'
                     }
 
                     const riskLabelMap: Record<string, string> = {
@@ -475,7 +619,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                               </span>
                             </div>
                             <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: isDominant ? 'oklch(75% 0.08 80)' : 'oklch(60% 0.02 250)' }}>
-                              {verbalChance}
+                              {verbalChance} · Pasmo wrażliwości: {scMin}%–{scMax}%
                             </span>
                           </div>
                         </div>
@@ -494,7 +638,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                               ? 'linear-gradient(to right, oklch(75% 0.12 80), oklch(88% 0.15 80))'
                               : 'linear-gradient(to right, oklch(50% 0.12 240), oklch(60% 0.14 240))',
                             borderRadius: '4px',
-                            transition: 'width 600ms cubic-bezier(0.16, 1, 0.3, 1)',
+                            transition: 'width 300ms ease',
                           }} />
                         </div>
 
@@ -510,79 +654,161 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                 </div>
               </div>
 
-              {/* ── 3. EVIDENCE PILLARS (Przesłanki z Sieci) ── */}
+              {/* ── 3. INTERACTIVE EVIDENCE PREMISE EDITOR & PROVENANCE (Prompt V5 §5.3) ── */}
               <div style={{ marginBottom: '2.5rem' }}>
-                <h3 style={{
-                  margin: '0 0 1.25rem 0',
-                  fontSize: '0.8125rem',
-                  fontWeight: 800,
-                  letterSpacing: '0.1em',
-                  textTransform: 'uppercase',
-                  color: 'oklch(75% 0.12 80)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                }}>
-                  <span>🏛️</span>
-                  <span>Kluczowe Przesłanki i Wektory Dowodowe (Dlaczego Ten Rozkład)</span>
-                </h3>
+                <div style={{ marginBottom: '1.25rem' }}>
+                  <h3 style={{
+                    margin: '0 0 0.35rem 0',
+                    fontSize: '0.8125rem',
+                    fontWeight: 800,
+                    letterSpacing: '0.1em',
+                    textTransform: 'uppercase',
+                    color: 'oklch(75% 0.12 80)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                  }}>
+                    <span>🏛️</span>
+                    <span>Edytor Przesłanek i Pochodzenie Danych (Weryfikacja Założeń)</span>
+                  </h3>
+                  <p style={{ margin: 0, fontSize: '0.8125rem', color: 'oklch(70% 0.02 250)' }}>
+                    Dostosuj suwaki wag, aby zbadać jak Twoje założenia wpływają na rozkład. Propozycje modelu (🤖) nie wchodzą do obliczeń, dopóki ich nie zatwierdzisz.
+                  </p>
+                </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
-                  {forecast.briefing?.key_pillars.map((pillar, idx) => (
-                    <div
-                      key={pillar.title || idx}
-                      style={{
-                        background: 'oklch(12% 0.02 250)',
-                        border: '1px solid oklch(22% 0.025 250)',
-                        borderRadius: '10px',
-                        padding: '1.25rem',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'space-between',
-                      }}
-                    >
-                      <div>
-                        <div style={{ fontSize: '0.6875rem', fontWeight: 800, color: 'oklch(75% 0.12 80)', marginBottom: '0.35rem', textTransform: 'uppercase' }}>
-                          PRZESŁANKA #{idx + 1}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {scenarioPremises.map((premise, pIdx) => {
+                    const prov = premise.provenance || 'assumed'
+                    const isLlm = prov === 'llm_suggested'
+                    const isAccepted = !isLlm || Boolean(premise.is_accepted)
+
+                    const provMeta: Record<string, { icon: string; label: string; bg: string; color: string }> = {
+                      user_supplied: { icon: '👤', label: 'Decydent (Twoje dane)', bg: 'oklch(18% 0.06 140)', color: 'oklch(85% 0.14 140)' },
+                      web_sourced: { icon: '🌐', label: 'Zweryfikowane źródło sieciowe', bg: 'oklch(18% 0.06 220)', color: 'oklch(85% 0.14 220)' },
+                      llm_suggested: { icon: '🤖', label: 'Propozycja modelu LLM', bg: 'oklch(18% 0.06 280)', color: 'oklch(85% 0.14 280)' },
+                      assumed: { icon: '⚠️', label: 'Założenie analityczne', bg: 'oklch(18% 0.06 60)', color: 'oklch(85% 0.14 60)' },
+                    }
+                    const pMeta = provMeta[prov] || provMeta.assumed
+
+                    return (
+                      <div
+                        key={premise.id || pIdx}
+                        style={{
+                          background: isAccepted ? 'oklch(12% 0.02 250)' : 'oklch(10% 0.015 250)',
+                          border: isAccepted ? '1px solid oklch(24% 0.03 250)' : '1px dashed oklch(28% 0.04 40)',
+                          borderRadius: '10px',
+                          padding: '1.25rem',
+                          opacity: isAccepted ? 1 : 0.85,
+                          transition: 'all 200ms ease',
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem', flexWrap: 'wrap' }}>
+                              <span style={{
+                                fontSize: '0.6875rem',
+                                fontWeight: 700,
+                                padding: '0.2rem 0.5rem',
+                                borderRadius: '4px',
+                                background: pMeta.bg,
+                                color: pMeta.color,
+                                border: '1px solid oklch(30% 0.05 250)',
+                              }}>
+                                {pMeta.icon} {pMeta.label}
+                              </span>
+                              {!isAccepted && (
+                                <span style={{
+                                  fontSize: '0.6875rem',
+                                  fontWeight: 700,
+                                  padding: '0.2rem 0.5rem',
+                                  borderRadius: '4px',
+                                  background: 'oklch(20% 0.08 40)',
+                                  color: 'oklch(85% 0.14 40)',
+                                  border: '1px solid oklch(35% 0.1 40)',
+                                }}>
+                                  ⚠️ Wstrzymana — nie wpływa na rozkład
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'oklch(95% 0.01 250)' }}>
+                              {premise.name}
+                            </div>
+                          </div>
+
+                          {/* Toggle accept button for LLM suggestions */}
+                          {isLlm && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setScenarioPremises((prev) =>
+                                  prev.map((p, idx) => (idx === pIdx ? { ...p, is_accepted: !p.is_accepted } : p))
+                                )
+                              }}
+                              style={{
+                                padding: '0.35rem 0.75rem',
+                                borderRadius: '6px',
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
+                                background: isAccepted ? 'oklch(20% 0.06 25)' : 'oklch(75% 0.12 80 / 0.2)',
+                                color: isAccepted ? 'oklch(85% 0.12 25)' : 'oklch(95% 0.12 80)',
+                                border: isAccepted ? '1px solid oklch(35% 0.1 25)' : '1px solid oklch(75% 0.12 80 / 0.6)',
+                                cursor: 'pointer',
+                                transition: 'all 150ms ease',
+                              }}
+                            >
+                              {isAccepted ? '✕ Wyłącz z obliczeń' : '✓ Zatwierdź przesłankę'}
+                            </button>
+                          )}
                         </div>
-                        <div style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'oklch(95% 0.01 250)', marginBottom: '0.5rem' }}>
-                          {pillar.title}
-                        </div>
-                        <div style={{
-                          fontSize: '0.75rem',
-                          fontWeight: 700,
-                          padding: '0.25rem 0.6rem',
-                          borderRadius: '5px',
-                          background: pillar.chosen_option?.includes('oddala') || pillar.chosen_option?.includes('stabilność')
-                            ? 'oklch(18% 0.05 160)'
-                            : pillar.chosen_option?.includes('Podwyższa') || pillar.chosen_option?.includes('zagrożenia')
-                            ? 'oklch(20% 0.08 40)'
-                            : 'oklch(16% 0.03 240)',
-                          color: pillar.chosen_option?.includes('oddala') || pillar.chosen_option?.includes('stabilność')
-                            ? 'oklch(82% 0.14 160)'
-                            : pillar.chosen_option?.includes('Podwyższa') || pillar.chosen_option?.includes('zagrożenia')
-                            ? 'oklch(82% 0.14 40)'
-                            : 'oklch(80% 0.12 240)',
-                          border: pillar.chosen_option?.includes('oddala') || pillar.chosen_option?.includes('stabilność')
-                            ? '1px solid oklch(30% 0.08 160)'
-                            : pillar.chosen_option?.includes('Podwyższa') || pillar.chosen_option?.includes('zagrożenia')
-                            ? '1px solid oklch(35% 0.12 40)'
-                            : '1px solid oklch(25% 0.04 240)',
-                          marginBottom: '0.6rem',
-                          display: 'inline-block',
-                        }}>
-                          {pillar.chosen_option}
-                        </div>
-                        <p style={{ margin: 0, fontSize: '0.8125rem', color: 'oklch(78% 0.02 250)', lineHeight: 1.5 }}>
-                          {pillar.rationale}
+
+                        <p style={{ margin: '0 0 0.75rem 0', fontSize: '0.8125rem', color: 'oklch(78% 0.02 250)', lineHeight: 1.5 }}>
+                          {premise.description} {premise.source ? `(Źródło: ${premise.source})` : ''}
                         </p>
+
+                        {/* Weight slider & impact summary */}
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '1rem',
+                          background: 'oklch(14% 0.02 250)',
+                          padding: '0.625rem 0.875rem',
+                          borderRadius: '8px',
+                          flexWrap: 'wrap',
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, minWidth: '220px' }}>
+                            <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'oklch(70% 0.02 250)' }}>
+                              Waga decydenta:
+                            </label>
+                            <input
+                              type="range"
+                              min="0"
+                              max="3"
+                              step="0.1"
+                              value={premise.weight}
+                              onChange={(e) => {
+                                const newW = parseFloat(e.target.value)
+                                setScenarioPremises((prev) =>
+                                  prev.map((p, idx) => (idx === pIdx ? { ...p, weight: newW } : p))
+                                )
+                              }}
+                              style={{ flex: 1, accentColor: 'oklch(75% 0.12 80)', cursor: 'pointer' }}
+                            />
+                            <span style={{ fontSize: '0.8125rem', fontWeight: 800, color: 'oklch(95% 0.01 250)', minWidth: '2.5rem' }}>
+                              {premise.weight.toFixed(1)}
+                            </span>
+                          </div>
+
+                          <div style={{ fontSize: '0.75rem', color: 'oklch(65% 0.02 250)' }}>
+                            Wiarygodność źródła: {(premise.confidence * 100).toFixed(0)}%
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
 
-              {/* ── 4. TRADEOFF & TIPPING POINTS ── */}
+              {/* ── 4. TRADEOFF & ANALYTICAL TIPPING POINTS ── */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.25rem', marginBottom: '2.5rem' }}>
                 <div style={{
                   background: 'oklch(11% 0.02 250)',
@@ -597,7 +823,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                     </h4>
                   </div>
                   <p style={{ margin: 0, fontSize: '0.875rem', color: 'oklch(85% 0.02 250)', lineHeight: 1.6 }}>
-                    {forecast.briefing?.primary_tradeoff}
+                    {forecast.briefing?.primary_tradeoff || 'Rozkład jest wrażliwy na przyjętą stałą beta oraz wagę przesłanek empirycznych.'}
                   </p>
                 </div>
 
@@ -614,14 +840,14 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                     </h4>
                   </div>
                   <ul style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.875rem', color: 'oklch(85% 0.02 250)', lineHeight: 1.6 }}>
-                    {forecast.briefing?.tipping_points?.map((tp, i) => (
+                    {(forecast.tipping_points && forecast.tipping_points.length > 0 ? forecast.tipping_points : forecast.briefing?.tipping_points || []).map((tp, i) => (
                       <li key={i} style={{ marginBottom: '0.35rem' }}>{tp}</li>
                     ))}
                   </ul>
                 </div>
               </div>
 
-              {/* ── 5. EXPANDABLE TECHNICAL DRAWER ── */}
+              {/* ── 5. EXPANDABLE TECHNICAL DRAWER (HONEST SOFTMAX AUDIT) ── */}
               <div style={{ borderTop: '1px solid oklch(20% 0.02 250)', paddingTop: '1.75rem' }}>
                 <button
                   type="button"
@@ -648,8 +874,8 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                     <span style={{ fontSize: '1.25rem' }}>🔬</span>
                     <span>
                       {showTechnicalDetails
-                        ? 'Ukryj model kwantowy, wektor stanu Qiskit i telemetrię'
-                        : 'Pokaż pełny model kwantowy, wektor stanu Qiskit i telemetrię (dla analityka)'}
+                        ? 'Ukryj model matematyczny softmax, macierz wpływów i telemetrię'
+                        : 'Pokaż pełny model matematyczny softmax, macierz wpływów i telemetrię (dla analityka)'}
                     </span>
                   </div>
                   <span style={{
@@ -670,38 +896,58 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                     borderRadius: '12px',
                     padding: '1.75rem',
                   }}>
-                    {/* Quantum state table */}
+                    {/* Mathematical Formula */}
+                    <div style={{ marginBottom: '1.5rem', background: 'oklch(12% 0.02 250)', padding: '1rem', borderRadius: '8px' }}>
+                      <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.8125rem', fontWeight: 800, color: 'oklch(75% 0.12 80)', textTransform: 'uppercase' }}>
+                        Wzór matematyczny ważonej agregacji (Softmax / Gibbs):
+                      </h4>
+                      <p style={{ margin: '0 0 0.5rem 0', fontFamily: 'monospace', fontSize: '0.8125rem', color: 'oklch(90% 0.01 250)' }}>
+                        S(s_i) = ∑ [w_p · c_p · I(s_i, p)]  dla p ∈ Przesłanki_Aktywne
+                      </p>
+                      <p style={{ margin: 0, fontFamily: 'monospace', fontSize: '0.8125rem', color: 'oklch(90% 0.01 250)' }}>
+                        P(s_i) = exp(β · (S(s_i) - max S)) / ∑ exp(β · (S(s_k) - max S))
+                      </p>
+                    </div>
+
+                    {/* Scenarios score table */}
                     <div style={{ marginBottom: '1.5rem' }}>
                       <h4 style={{ margin: '0 0 0.75rem 0', fontSize: '0.875rem', fontWeight: 800, color: 'oklch(75% 0.12 80)', textTransform: 'uppercase' }}>
-                        Wektor Stanu Kwantowego & Amplitudy Zespolone (Born Rule Audit)
+                        Tabela Wskaźników Poparcia Scenariuszy (Evidence Score & Prawdopodobieństwo)
                       </h4>
                       <div style={{ overflowX: 'auto' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
                           <thead>
                             <tr style={{ borderBottom: '1px solid oklch(25% 0.02 250)', textAlign: 'left', color: 'oklch(70% 0.02 250)' }}>
-                              <th style={{ padding: '0.5rem' }}>Stan |s⟩</th>
-                              <th style={{ padding: '0.5rem' }}>Tytuł Scenariusza</th>
-                              <th style={{ padding: '0.5rem' }}>Energia H(s)</th>
-                              <th style={{ padding: '0.5rem' }}>Amplituda α</th>
-                              <th style={{ padding: '0.5rem' }}>Prawdopodobieństwo |α|²</th>
+                              <th style={{ padding: '0.5rem' }}>Scenariusz</th>
+                              <th style={{ padding: '0.5rem' }}>Tytuł</th>
+                              <th style={{ padding: '0.5rem' }}>Wskaźnik poparcia S(s)</th>
+                              <th style={{ padding: '0.5rem' }}>P(s) przy β={scenarioBeta.toFixed(1)}</th>
+                              <th style={{ padding: '0.5rem' }}>Pasmo wrażliwości (β: 0.5–3.0)</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {forecast.scenarios.map((s, i) => (
-                              <tr key={s.id} style={{ borderBottom: '1px solid oklch(16% 0.02 250)' }}>
-                                <td style={{ padding: '0.5rem', fontFamily: 'monospace', color: 'oklch(75% 0.12 80)' }}>|s_{i+1}⟩</td>
-                                <td style={{ padding: '0.5rem', fontWeight: 600 }}>{s.title}</td>
-                                <td style={{ padding: '0.5rem', fontFamily: 'monospace' }}>{(s.energy_level || 0).toFixed(3)}</td>
-                                <td style={{ padding: '0.5rem', fontFamily: 'monospace' }}>({(s.amplitude_real || 0).toFixed(4)}, {(s.amplitude_imag || 0).toFixed(4)}i)</td>
-                                <td style={{ padding: '0.5rem', fontWeight: 800, color: 'oklch(85% 0.14 80)' }}>{(s.probability * 100).toFixed(2).replace('.', ',')}%</td>
-                              </tr>
-                            ))}
+                            {liveForecast.scenarios.map((s) => {
+                              const sPcts = ['beta_0_5', 'beta_1_0', 'beta_2_0', 'beta_3_0'].map(
+                                (bk) => (liveForecast.sensitivityBand[bk]?.[s.id] ?? 0) * 100
+                              )
+                              const sMin = Math.min(...sPcts).toFixed(1).replace('.', ',')
+                              const sMax = Math.max(...sPcts).toFixed(1).replace('.', ',')
+                              return (
+                                <tr key={s.id} style={{ borderBottom: '1px solid oklch(16% 0.02 250)' }}>
+                                  <td style={{ padding: '0.5rem', fontFamily: 'monospace', color: 'oklch(75% 0.12 80)' }}>{s.id}</td>
+                                  <td style={{ padding: '0.5rem', fontWeight: 600 }}>{s.title}</td>
+                                  <td style={{ padding: '0.5rem', fontFamily: 'monospace' }}>{(s.evidence_score || 0).toFixed(3)}</td>
+                                  <td style={{ padding: '0.5rem', fontWeight: 800, color: 'oklch(85% 0.14 80)' }}>{(s.probability * 100).toFixed(2).replace('.', ',')}%</td>
+                                  <td style={{ padding: '0.5rem', fontFamily: 'monospace', color: 'oklch(75% 0.02 250)' }}>{sMin}% – {sMax}%</td>
+                                </tr>
+                              )
+                            })}
                           </tbody>
                         </table>
                       </div>
                     </div>
 
-                    {/* Quantum telemetry */}
+                    {/* Telemetry info */}
                     <div style={{
                       background: 'oklch(12% 0.02 250)',
                       borderRadius: '8px',
@@ -711,10 +957,24 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                       color: 'oklch(70% 0.02 250)',
                     }}>
                       <div style={{ fontWeight: 800, color: 'oklch(90% 0.01 250)', marginBottom: '0.5rem' }}>
-                        TELEMETRIA PROCESORA KWANTOWEGO / SYMULATORA AER:
+                        TELEMETRIA OBLICZEŃ (SOFTMAX EVIDENCE AGGREGATION):
                       </div>
                       <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
-                        {JSON.stringify(forecast.quantum_telemetry, null, 2)}
+                        {JSON.stringify(
+                          {
+                            method: 'weighted_softmax_aggregation',
+                            beta: scenarioBeta,
+                            n_scenarios: liveForecast.scenarios.length,
+                            n_premises_total: liveForecast.totalCount,
+                            n_premises_active: liveForecast.activeCount,
+                            dominant_scenario: liveForecast.dominantScenario.title,
+                            dominant_probability: liveForecast.dominantScenario.probability,
+                            sensitivity_band: liveForecast.bandStr,
+                            solve_time_seconds: forecast.telemetry?.solve_time_seconds ?? 0.001,
+                          },
+                          null,
+                          2
+                        )}
                       </pre>
                     </div>
                   </div>

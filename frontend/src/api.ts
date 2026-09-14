@@ -286,9 +286,9 @@ export interface ScenarioOutcome {
   title: string
   description: string
   probability: number
+  evidence_score?: number
   amplitude_real?: number
   amplitude_imag?: number
-  energy_level?: number
   risk_level: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
 }
 
@@ -300,6 +300,9 @@ export interface EvidencePremise {
   confidence: number
   weight: number
   impact_on_scenarios: Record<string, number>
+  provenance?: 'user_supplied' | 'web_sourced' | 'llm_suggested' | 'assumed'
+  source_ref?: string | null
+  is_accepted?: boolean
 }
 
 export interface ScenarioForecast {
@@ -309,7 +312,16 @@ export interface ScenarioForecast {
   dominant_scenario_id: string
   evidence_premises: EvidencePremise[]
   tipping_points: string[]
-  quantum_telemetry: Record<string, any>
+  tipping_point_details?: Array<{
+    premise_id: string
+    premise_name: string
+    delta_weight_needed: number
+    direction: string
+    explanation: string
+  }>
+  sensitivity_band?: Record<string, Record<string, number>>
+  telemetry?: Record<string, any>
+  quantum_telemetry?: Record<string, any>
   briefing: ExecutiveBriefing
 }
 

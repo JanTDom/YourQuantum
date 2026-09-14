@@ -1,7 +1,7 @@
 """
-YourQuantum — Scenario Decomposer & Quantum Risk Synthesizer
-Transforms predictive, forecasting, and geopolitical risk queries into discrete scenario spaces
-with factual evidence premises from web research, computed via quantum combinatorics.
+YourQuantum — Scenario Decomposer & Evidence Synthesizer
+Transforms predictive, forecasting, and scenario risk queries into discrete scenario spaces
+with auditable evidence premises, computed via weighted softmax evidence aggregation.
 """
 from __future__ import annotations
 
@@ -12,11 +12,12 @@ from typing import Any
 from backend.domain.decision_case import (
     DecisionCase, Option, Criterion, ScoredValue, InputQuality,
 )
-from backend.domain.quantum_scenarios import (
-    ScenarioOutcome, EvidencePremise, QuantumScenarioForecast,
-    compute_quantum_scenario_probabilities,
+from backend.domain.scenario_weighting import (
+    ScenarioOutcome, EvidencePremise, ScenarioForecast,
+    compute_scenario_distribution,
     normalize_polish_geopolitical_text,
 )
+from backend.domain.problem_classes import ExecutiveBriefing
 from backend.infrastructure.llm_gateway import LLMGateway
 
 logger = logging.getLogger(__name__)
@@ -24,16 +25,19 @@ logger = logging.getLogger(__name__)
 
 def is_scenario_forecast_query(query: str) -> bool:
     """
-    Identifies whether a natural language query is a future forecasting,
-    probabilistic risk, or geopolitical prediction dilemma.
+    Identifies whether a natural language query specifically requests
+    future scenario forecasting or geopolitical event prediction.
+    Does NOT match standard decision dilemmas (e.g. changing jobs, renting offices,
+    choosing courses, selecting pricing plans, or assessing general project risks).
     """
     q = query.strip().lower()
     patterns = [
-        r"\b(czy\s+rosja|czy\s+zaatakuje|czy\s+napadnie|wojn\w*|inwazj\w*|konflikt\w*)\b",
-        r"\b(prawdopodobie[nń]stw\w*|prognoz\w*|ryzyk\w*|scenariusz\w*)\b",
-        r"\b(czy\s+wybuchnie|czy\s+nast[aą]pi|czy\s+dojdzie|czy\s+b[eę]dzie)\b",
-        r"\b(szansa\s+na|zagro[zż]eni\w*|bezpiecze[nń]stw\w*)\b",
-        r"\b(kurs\w*|krach\w*|recesj\w*|kryzys\w*|upadnie|zbankrutuje)\b",
+        # Explicit geopolitical invasion / military aggression queries
+        r"\b(czy\s+rosja\s+(zaatakuje|napadnie)|wojn\w*\s+w\s+europ|wybuch\w*\s+wojn\w*|inwazj\w*\s+militarn|atak\s+militarn)\b",
+        # Explicit scenario analysis requests
+        r"\b(analiz\w*\s+scenariusz\w*|scenariusz\w*\s+rozwoju|warianty\s+rozwoju\s+sytuacji|prognoz\w*\s+scenariusz)\b",
+        # Macro crisis / collapse forecasts (not everyday personal choices)
+        r"\b(krach\s+rynk\w*|krach\s+finansow\w*|wybuch\s+kryzysu\s+globaln)\b",
     ]
     return any(bool(re.search(p, q)) for p in patterns)
 
@@ -83,38 +87,38 @@ async def decompose_scenario_query_async(
     query: str,
     web_snippets: list[str] | None = None,
     gateway: LLMGateway | None = None,
-) -> tuple[DecisionCase, QuantumScenarioForecast]:
+) -> tuple[DecisionCase, ScenarioForecast]:
     """
-    Decomposes an open-ended predictive dilemma into scenarios and evidence indicators,
-    then executes quantum state combinatorics to determine Born-rule probabilities.
+    Decomposes a scenario forecasting dilemma into distinct scenarios and evidence indicators,
+    then executes weighted softmax aggregation with sensitivity analysis.
+    All model-proposed premises are flagged with provenance='llm_suggested' and require
+    user confirmation before entering calculation.
     """
     gw = gateway or LLMGateway()
     snippets_text = "\n".join(web_snippets) if web_snippets else "Brak bezpośrednich wyników wyszukiwania."
 
     scenarios: list[ScenarioOutcome] = []
     premises: list[EvidencePremise] = []
-    domain = "Bezpieczeństwo geopolityczne i analiza ryzyka"
+    domain = "Analiza scenariuszowa i badanie ryzyka"
 
     if gw.is_available:
         sys_inst = (
-            "Jesteś czołowym analitykiem wywiadowczym, teorii gier i probabilistyki kwantowej YourQuantum. "
-            "Użytkownik zadaje pytanie o prawdopodobieństwo przyszłych zdarzeń lub ryzyko geopolityczne/rynkowe. "
-            "Twoim zadaniem jest sformalizować ten problem jako przestrzeń 3 wzajemnie wykluczających się scenariuszy "
-            "oraz 3-5 kluczowych, mierzalnych przesłanek (wskaźników) empirycznych i geostrategicznych. "
+            "Jesteś precyzyjnym analitykiem metodologii scenariuszowej i probabilistyki w YourQuantum. "
+            "Użytkownik zadaje pytanie o scenariusze rozwoju sytuacji lub ryzyko zdarzeń w przyszłości. "
+            "Twoim zadaniem jest sformalizować ten dylemat jako przestrzeń 2-4 wzajemnie wykluczających się scenariuszy "
+            "oraz 3-5 kluczowych przesłanek (wskaźników) empirycznych powiązanych ze sprawą. "
             "Dla każdej przesłanki określ wpływ (impact_on_scenarios od -1.0 do +1.0) na poszczególne scenariusze. "
-            "Wartości dodatnie oznaczają, że dana przesłanka zwiększa prawdopodobieństwo scenariusza; "
+            "Wartości dodatnie oznaczają, że dana przesłanka zwiększa szansę scenariusza; "
             "wartości ujemne oznaczają, że mu przeciwdziała lub go wyklucza.\n\n"
             "BEZWZGLĘDNA ZASADA ORTOGRAFII I JĘZYKA POLSKIEGO:\n"
-            "- Wszystkie nazwy własne państw, sojuszy i instytucji pisz Z DUŻEJ LITERY: Ukraina, Ukrainy, Ukrainie, "
-            "Polska, Polski, Polsce, Rosja, Rosji, NATO, USA, UE, PKB, MON, ISW, OSW.\n"
-            "- Opisy formułuj w nienagannym, naturalnym, zrozumiałym języku decyzyjnym.\n"
-            "- Całkowity zakaz żargonu typu 'wektor energetyczny' czy 'wariant kinetyczny'."
+            "- Wszystkie nazwy własne państw, sojuszy i instytucji pisz Z DUŻEJ LITERY (np. Polska, Ukraina, NATO, USA, UE).\n"
+            "- Opisy formułuj w nienagannym, obiektywnym języku analitycznym.\n"
+            "- Zakaz jakiegokolwiek żargonu pseudokwantowego (amplitudy, wektory stanów, fale)."
         )
         user_content = (
             f"Pytanie użytkownika:\n\"{query}\"\n\n"
-            f"Fakty i kontekst z sieci:\n{snippets_text}\n\n"
-            "Zbuduj 3 scenariusze (np. 1. Status quo i odstraszanie sojusznicze NATO, 2. Działania hybrydowe i prowokacje podprogowe, 3. Bezpośredni atak militarny) "
-            "oraz 3-4 mierzalne przesłanki z twardych źródeł (np. ISW, OSW, raporty NATO, wydatki PKB)."
+            f"Kontekst i fakty z sieci:\n{snippets_text}\n\n"
+            "Zbuduj 2-3 konkretne, wykluczające się scenariusze oraz 3-4 mierzalne przesłanki z ich wpływem na scenariusze."
         )
         try:
             res = await gw.generate(
@@ -141,41 +145,80 @@ async def decompose_scenario_query_async(
                         id=str(pr_data["id"]),
                         name=normalize_polish_geopolitical_text(str(pr_data["name"])),
                         description=normalize_polish_geopolitical_text(str(pr_data.get("description", ""))),
-                        source=normalize_polish_geopolitical_text(str(pr_data.get("source", "analiza wywiadowcza / dane publiczne"))),
-                        confidence=float(pr_data.get("confidence", 0.9)),
+                        source=normalize_polish_geopolitical_text(str(pr_data.get("source", "propozycja modelu LLM"))),
+                        confidence=float(pr_data.get("confidence", 0.85)),
                         weight=float(pr_data.get("weight", 1.0)),
                         impact_on_scenarios=impacts,
+                        provenance="llm_suggested",
+                        source_ref=str(pr_data.get("source", "propozycja modelu")),
+                        is_accepted=False,
                     ))
         except Exception as exc:
-            logger.warning("LLM scenario decomposition failed, falling back to analytical defaults: %s", exc)
+            logger.warning("LLM scenario decomposition failed: %s", exc)
 
-    # Analytical fallback if LLM returned insufficient items
-    if len(scenarios) < 2 or len(premises) < 2:
-        scenarios = _get_default_scenarios_for_query(query)
-        premises = _get_default_premises_for_query(query)
+    # If insufficient items, do NOT inject invented geopolitical numbers.
+    # Return empty case requiring user definition.
+    if len(scenarios) < 2 or not premises:
+        case = DecisionCase(
+            title=f"Analiza scenariuszowa: {query}",
+            context=query,
+            options=[],
+            criteria=[],
+            score_matrix={},
+            input_quality=InputQuality(
+                level="too_vague",
+                reason="Brak zdefiniowanych scenariuszy lub przesłanek do przeprowadzenia analizy.",
+                suggestions=[
+                    "Zdefiniuj co najmniej dwa wykluczające się scenariusze rozwoju sytuacji.",
+                    "Wprowadź kluczowe przesłanki (fakty, wskaźniki) i określ ich wpływ na poszczególne scenariusze.",
+                ],
+            ),
+            unknowns=[],
+            facts=[],
+        )
+        empty_briefing = ExecutiveBriefing(
+            headline="Wymagane zdefiniowanie scenariuszy i przesłanek",
+            executive_summary="System wymaga podania scenariuszy i przesłanek decydenta przed obliczeniem rozkładu prawdopodobieństwa.",
+            key_pillars=[],
+            primary_tradeoff="Brak przesłanek uniemożliwia wyznaczenie kompromisu.",
+            tipping_points=["Brak przesłanek do wyznaczenia punktów zwrotnych."],
+        )
+        forecast = ScenarioForecast(
+            query=query,
+            domain=domain,
+            scenarios=[],
+            dominant_scenario_id="",
+            evidence_premises=[],
+            tipping_points=["Brak przesłanek do wyznaczenia punktów zwrotnych."],
+            tipping_point_details=[],
+            sensitivity_band={},
+            telemetry={"method": "weighted_softmax_aggregation", "beta": 1.0, "n_scenarios": 0, "n_premises": 0},
+            briefing=empty_briefing,
+        )
+        return case, forecast
 
-    # Execute Quantum Combinatorics (Qiskit Aer / Born rule)
-    forecast = compute_quantum_scenario_probabilities(
+    # Compute scenario distribution using honest weighted softmax
+    forecast = compute_scenario_distribution(
         query=query,
         scenarios=scenarios,
         premises=premises,
         domain=domain,
-        shots=2048,
+        beta=1.0,
     )
 
-    # Build DecisionCase representation with clear Polish copy
+    # Build DecisionCase representation
     case_options: list[Option] = []
     for sc in forecast.scenarios:
         pct_formatted = f"{sc.probability * 100:.1f}%".replace(".", ",")
         if sc.risk_level == "LOW":
-            pros = ["Wspierany przez twarde czynniki odstraszania i sojuszniczą obecność NATO."]
-            cons = ["Wymaga utrzymania wysokich nakładów obronnych i jedności sojuszniczej."]
+            pros = ["Wariant o niskim poziomie ryzyka, wspierany przez stabilizujące wskaźniki."]
+            cons = ["Wymaga utrzymania warunków brzegowych i założeń decydenta."]
         elif sc.risk_level in ("HIGH", "CRITICAL"):
-            pros = ["Obecnie skrajnie mało prawdopodobny ze względu na uwiązanie sił agresora w Ukrainie."]
-            cons = ["W razie zaistnienia wiąże się z bezpośrednim zagrożeniem militarnym i stratami."]
+            pros = ["Scenariusz skrajny; pozwala przygotować plany awaryjne."]
+            cons = ["Wiąże się z wysokim ryzykiem niepowodzenia lub strat."]
         else:
-            pros = ["Pozwala skupić środki na obronie infrastruktury krytycznej i cyberprzestrzeni."]
-            cons = ["Powoduje stałą presję informacyjną oraz koszty ochrony granic."]
+            pros = ["Scenariusz pośredni / umiarkowany."]
+            cons = ["Generuje niepewność co do ostatecznego kierunku rozwoju sytuacji."]
 
         case_options.append(Option(
             id=sc.id,
@@ -183,7 +226,7 @@ async def decompose_scenario_query_async(
             description=sc.description,
             pros=pros,
             cons=cons,
-            attributes={"probability": sc.probability, "risk_level": sc.risk_level, "energy": sc.energy_level},
+            attributes={"probability": sc.probability, "risk_level": sc.risk_level, "evidence_score": sc.evidence_score},
         ))
 
     case_criteria: list[Criterion] = []
@@ -201,13 +244,12 @@ async def decompose_scenario_query_async(
         case_score_matrix[sc.id] = {}
         for pr in forecast.evidence_premises:
             raw_impact = pr.impact_on_scenarios.get(sc.id, 0.0)
-            # Map [-1.0, 1.0] to [1.0, 10.0] scale
             scaled_val = round(5.5 + 4.5 * max(-1.0, min(1.0, raw_impact)), 1)
             case_score_matrix[sc.id][pr.id] = ScoredValue(
                 value=scaled_val,
                 unit="skala 1-10",
-                provenance="web_sourced" if pr.source else "assumed",
-                source_ref=pr.source or "Model przesłanek geostrategicznych",
+                provenance=pr.provenance,
+                source_ref=pr.source or "Propozycja modelu decyzyjnego",
                 confidence=pr.confidence,
             )
 
@@ -223,69 +265,3 @@ async def decompose_scenario_query_async(
     )
 
     return case, forecast
-
-
-def _get_default_scenarios_for_query(query: str) -> list[ScenarioOutcome]:
-    """Provides high-rigour default scenarios for security and geopolitical inquiries."""
-    return [
-        ScenarioOutcome(
-            id="scen_status_quo",
-            title="Status quo i skuteczne odstraszanie sojusznicze NATO",
-            description="Brak bezpośredniego ataku; gwarancje art. 5 Traktatu Waszyngtońskiego oraz obecność wojsk sojuszniczych USA i NATO w Polsce skutecznie powstrzymują agresję militarną.",
-            risk_level="LOW",
-        ),
-        ScenarioOutcome(
-            id="scen_hybrid_grey",
-            title="Wrogie działania hybrydowe i prowokacje podprogowe",
-            description="Wzrost presji w domenie cybernetycznej, zakłócenia sygnału GPS, prowokacje graniczne oraz próby dezinformacji poniżej progu otwartego konfliktu zbrojnego.",
-            risk_level="MEDIUM",
-        ),
-        ScenarioOutcome(
-            id="scen_kinetic_aggression",
-            title="Bezpośredni atak militarny na terytorium Polski",
-            description="Otwarta agresja konwencjonalna na terytorium Rzeczypospolitej Polskiej prowadząca do natychmiastowej odpowiedzi całego sojuszu NATO w ramach art. 5.",
-            risk_level="CRITICAL",
-        ),
-    ]
-
-
-def _get_default_premises_for_query(query: str) -> list[EvidencePremise]:
-    """Provides institutional evidence premises for security and geopolitical inquiries."""
-    return [
-        EvidencePremise(
-            id="prem_ua_binding",
-            name="Uwiązanie i straty armii rosyjskiej w walkach w Ukrainie",
-            description="Zdecydowana większość jednostek lądowych Rosji ponosi ciężkie straty w Ukrainie, co uniemożliwia otwarcie nowego frontu przeciwko państwom NATO.",
-            source="Instytut Badań nad Wojną (ISW) / Ośrodek Studiów Wschodnich (OSW)",
-            weight=1.0,
-            confidence=0.95,
-            impact_on_scenarios={"scen_status_quo": 0.85, "scen_hybrid_grey": 0.25, "scen_kinetic_aggression": -0.95},
-        ),
-        EvidencePremise(
-            id="prem_nato_article_5",
-            name="Gwarancje art. 5 NATO i obecność wojsk sojuszniczych w Polsce",
-            description="Stałe stacjonowanie wojsk USA w Polsce (V Korpus w Poznaniu), siły sojusznicze NATO na wschodniej flance oraz parasol nuklearny sojuszu.",
-            source="Deklaracja Szczytu NATO / Pentagon / MON",
-            weight=1.0,
-            confidence=0.98,
-            impact_on_scenarios={"scen_status_quo": 0.90, "scen_hybrid_grey": -0.20, "scen_kinetic_aggression": -0.95},
-        ),
-        EvidencePremise(
-            id="prem_pl_defense_spending",
-            name="Rekordowe wydatki obronne Polski (4,7% PKB) i modernizacja armii",
-            description="Polska przeznacza najwyższy odsetek PKB w NATO na obronność, rozbudowując obronę powietrzną (Patriot/Wisła), artylerię rakietową (HIMARS) i wojska pancerne.",
-            source="Raport Wydatków Obronnych NATO 2024 / Ministerstwo Obrony Narodowej (MON)",
-            weight=0.9,
-            confidence=0.92,
-            impact_on_scenarios={"scen_status_quo": 0.75, "scen_hybrid_grey": -0.10, "scen_kinetic_aggression": -0.80},
-        ),
-        EvidencePremise(
-            id="prem_ru_war_economy",
-            name="Przestawienie gospodarki Rosji na tryb wojenny",
-            description="Rosja zwiększyła nakłady na zbrojenia powyżej 6% PKB, co stwarza długofalowe ryzyko w sferze prowokacji i presji hybrydowej, lecz nie daje przewagi nad NATO.",
-            source="Międzynarodowy Instytut Studiów Strategicznych (IISS) / SIPRI",
-            weight=0.8,
-            confidence=0.88,
-            impact_on_scenarios={"scen_status_quo": -0.30, "scen_hybrid_grey": 0.70, "scen_kinetic_aggression": 0.30},
-        ),
-    ]

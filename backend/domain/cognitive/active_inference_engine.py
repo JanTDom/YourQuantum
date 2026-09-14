@@ -123,7 +123,7 @@ def heuristic_classify_problem(query: str, options_count: int = 0) -> ProblemCla
         )
 
     # 4. Allocation (knapsack, portfolio, scheduling)
-    if re.search(r"\b(portfel|alokac|budżet|budzet|plecak|koszyk|projekty|inwestycj|udźwig)\b", lower):
+    if re.search(r"\b(portfolio|portfel|alokac|budżet|budzet|plecak|koszyk|projekty|inwestyc|udźwig)", lower):
         return ProblemClassification(
             problem_class=ProblemClass.ALLOCATION.value,
             confidence=0.5,
@@ -340,7 +340,7 @@ class ActiveInferenceOrchestrator:
             classification = ProblemClassification(
                 problem_class=ProblemClass.CHOICE.value,
                 confidence=0.98,
-                reason="Analiza prawdopodobieństwa scenariuszy przyszłości i ryzyka geopolitycznego (Quantum Scenario Combinatorics).",
+                reason="Analiza prawdopodobieństwa scenariuszy i ryzyka metodą ważonej agregacji softmax.",
                 computable=True,
             )
         else:
@@ -485,9 +485,9 @@ class ActiveInferenceOrchestrator:
             ws.update_hypothesis(None, {"status": "ready_for_review", "class": "DESIGN"})
             return formalization, ws
 
-        # 2c. Quantum Scenario Risk & Future Forecasting Pathway
+        # 2c. Scenario Risk & Evidence Weighting Pathway
         # Decomposes predictive, geopolitical, and future forecasting inquiries into mutually exclusive scenarios
-        # with web-grounded evidence and calculates Born-rule probabilities via Qiskit Aer statevector combinatorics.
+        # with auditable evidence premises, evaluated via weighted softmax aggregation and sensitivity analysis across beta.
         if is_scenario_forecast:
             from backend.domain.cognitive.scenario_decomposer import decompose_scenario_query_async
             from backend.infrastructure.web_research.search_adapter import WebResearchAdapter
@@ -520,8 +520,8 @@ class ActiveInferenceOrchestrator:
                 session_id=ws.session_id,
                 metadata={
                     "classification_reason": classification.reason,
-                    "quantum_dominant_scenario": forecast.dominant_scenario_id,
-                    "quantum_telemetry": forecast.quantum_telemetry,
+                    "dominant_scenario_id": forecast.dominant_scenario_id,
+                    "telemetry": forecast.telemetry,
                     "web_sources_count": len(web_context_snippets),
                 },
             )

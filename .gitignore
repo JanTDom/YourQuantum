@@ -21,4 +21,5 @@ data/*.sqlite*
 *.tsbuildinfo
 test-results/
 playwright-report/
+Claude outputs/
 

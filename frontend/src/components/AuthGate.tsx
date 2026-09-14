@@ -5,9 +5,13 @@ interface AuthGateProps {
   onLogoutRegistered?: (logoutFn: () => void) => void
 }
 
-// SHA-256 hashes of the authorized passcodes (zero plaintext secrets in repository, OWASP compliant)
-// Hash 1: SHA-256 of first authorized password
-// Hash 2: SHA-256 of second authorized password
+// SHA-256 hashes of the authorized passcodes.
+// UWAGA DOTYCZĄCA BEZPIECZEŃSTWA:
+// Jest to bariera wyłącznie po stronie przeglądarki (client-side), zniechęcająca przypadkowych odwiedzających.
+// Nie stanowi ona kryptograficznego zabezpieczenia danych przed zdeterminowanym użytkownikiem —
+// skróty SHA-256 znajdują się w publicznym kodzie klienta, a stan autoryzacji w localStorage można
+// ustawić z poziomu konsoli deweloperskiej.
+// Pełna ochrona wrażliwych zasobów wymaga weryfikacji tokenu/hasła po stronie serwera (backend API).
 const AUTHORIZED_HASHES = [
   'aff0d626d1dd85ed88ab023b216429ab75cb3324f47dc393aba2e92294c53cfd',
   'fa3ec33c54cd4f08c3a1a193e959ed636d9d5f934264698366f20ae961081ee6',

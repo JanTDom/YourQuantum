@@ -56,15 +56,22 @@ class NotComputableReport(BaseModel):
 
 def evaluate_problem_computability(query: str) -> tuple[bool, NotComputableReport | None]:
     """
-    Examines if the user prompt is inherently non-computable (purely moral/existential questions).
-    NOTE: In YourQuantum, all questions about future scenario probabilities, geopolitical risks,
-    and event forecasts ARE strictly computable via quantum scenario state combinatorics!
+    Examines if the user prompt is inherently non-computable (purely moral/existential questions
+    or pure point market speculations).
+    YourQuantum does not predict the future like a crystal ball, but models explicit decision cases
+    and scenario distributions resulting from structured user assumptions.
     """
     q_clean = query.strip().lower()
 
     uncomputable_triggers = [
         ("jaki jest sens życia", "Pytanie o charakterze egzystencjalnym/filozoficznym, niebędące problemem optymalizacji pod warunkami brzegowymi."),
         ("czy bóg istnieje", "Kwestia metafizyczna/światopoglądowa nieposiadająca mierzalnej funkcji celu ani ograniczeń matematycznych."),
+        ("kurs bitcoina", "Czysta prognoza spekulacyjna punktowej wartości aktywa bez przyjętych założeń scenariuszowych."),
+        ("kurs btc", "Czysta prognoza spekulacyjna punktowej ceny aktywa w przyszłości jest matematycznie nierozstrzygalna na rynku efektywnym."),
+        ("kurs dolara", "Punktowe prognozowanie przyszłego kursu walutowego bez założeń makroekonomicznych stanowi czystą spekulację rynkową."),
+        ("kurs euro", "Punktowe prognozowanie przyszłego kursu walutowego bez założeń makroekonomicznych stanowi czystą spekulację rynkową."),
+        ("kurs walut", "Punktowe prognozowanie kursów walutowych bez założeń makroekonomicznych stanowi czystą spekulację rynkową."),
+        ("kurs akcji", "Punktowe prognozowanie kursów akcji bez modelu wyceny fundamentalnej stanowi czystą spekulację rynkową."),
     ]
 
     for trigger, explanation in uncomputable_triggers:
@@ -73,9 +80,9 @@ def evaluate_problem_computability(query: str) -> tuple[bool, NotComputableRepor
                 is_computable=False,
                 reason=explanation,
                 reframe_suggestions=[
-                    "Zdefiniuj konkretne opcje działania (np. scenariusz A vs scenariusz B).",
-                    "Określ mierzalne kryteria (np. budżet, maksymalna tolerancja straty, czas).",
-                    "Przekształć pytanie w problem wyboru (CHOICE) lub alokacji portfela (ALLOCATION).",
+                    "Przekształć pytanie w analizę scenariuszową konkretnych wariantów (np. scenariusz recesji vs scenariusz wzrostu).",
+                    "Zdefiniuj mierzalne przesłanki makroekonomiczne i przypisz im wagi w modelu scenariuszowym.",
+                    "Określ decyzję portfelową lub zabezpieczającą (hedging), którą chcesz podjąć w oparciu o te scenariusze.",
                 ],
                 suggested_computable_class=ProblemClass.CHOICE,
             )
