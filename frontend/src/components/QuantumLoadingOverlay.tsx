@@ -1,26 +1,10 @@
-import React, { useState, useEffect } from 'react'
+import React from 'react'
 
 interface QuantumLoadingOverlayProps {
   statusMessage?: string | null
 }
 
-const PHASES = [
-  'Inicjalizacja pętli Active Inference i ekstrakcja przesłanek...',
-  'Budowa przestrzeni stanów i hamiltonianu sprzężeń...',
-  'Symulacja ewolucji unitarnej w symulatorze Qiskit Aer...',
-  'Kwantowa kombinatoryka stanów i próbkowanie Borna P(s) = |⟨s|ψ⟩|²...',
-  'Niezależna weryfikacja ograniczeń brzegowych (0 naruszeń)...',
-]
-
 export const QuantumLoadingOverlay: React.FC<QuantumLoadingOverlayProps> = ({ statusMessage }) => {
-  const [phaseIndex, setPhaseIndex] = useState(0)
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setPhaseIndex((prev) => (prev + 1) % PHASES.length)
-    }, 2200)
-    return () => clearInterval(interval)
-  }, [])
 
   return (
     <div
@@ -233,18 +217,19 @@ export const QuantumLoadingOverlay: React.FC<QuantumLoadingOverlayProps> = ({ st
           {statusMessage || 'Przetwarzanie problemu decyzyjnego...'}
         </h2>
 
-        {/* Dynamic cycling phase */}
-        <p style={{
-          margin: 0,
-          fontSize: '0.9rem',
-          color: 'oklch(80% 0.05 80)',
-          lineHeight: 1.6,
-          fontWeight: 500,
-          minHeight: '2.8rem',
-          transition: 'opacity 200ms ease',
-        }}>
-          {PHASES[phaseIndex]}
-        </p>
+        {/* Subtitle based on reality (Prompt V6 §2) */}
+        {statusMessage && (
+          <p style={{
+            margin: 0,
+            fontSize: '0.9rem',
+            color: 'oklch(80% 0.05 80)',
+            lineHeight: 1.6,
+            fontWeight: 500,
+            transition: 'opacity 200ms ease',
+          }}>
+            Obliczenia w toku. Wynik pojawi się po zakończeniu pracy solvera i niezależnej weryfikacji.
+          </p>
+        )}
 
         {/* Quantum Shimmer Progress Bar */}
         <div style={{
