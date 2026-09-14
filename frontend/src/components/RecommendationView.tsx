@@ -4,6 +4,7 @@ import {
   DesignSynthesisResult,
   Evidence,
   JobResult,
+  ScenarioForecast,
 } from '../api'
 import { EvidenceDrawer } from './EvidenceDrawer'
 
@@ -16,6 +17,7 @@ interface RecommendationViewProps {
   sessionId?: string | null
   problemClass?: string | null
   designSynthesis?: DesignSynthesisResult | null
+  scenarioForecast?: ScenarioForecast | null
   evidenceList?: Evidence[]
 }
 
@@ -28,10 +30,17 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
   sessionId,
   problemClass = 'CHOICE',
   designSynthesis,
+  scenarioForecast,
   evidenceList,
 }) => {
   const isVerified = result.publication_status === 'PUBLISHED_VERIFIED'
   const assignment = result.solver_result?.assignment ?? {}
+
+  const forecast: ScenarioForecast | null =
+    scenarioForecast ||
+    (result.metadata?.scenario_forecast as ScenarioForecast | undefined) ||
+    null
+  const isScenario = Boolean(forecast)
 
   // G4: Determine if this problem represents the multi-lever DESIGN class
   const isDesign =
@@ -254,8 +263,409 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
           </span>
         </div>
 
-        {/* ── G4: Specialized View Switch (DESIGN vs CHOICE) ── */}
-        {isDesign ? (
+        {/* ── G4: Specialized View Switch (SCENARIO vs DESIGN vs CHOICE) ── */}
+        {isScenario && forecast ? (
+          /* ══════════════════════════════════════════════════════════
+             SCENARIO & PROBABILISTIC RISK VIEW (Quantum Born Distribution)
+             ══════════════════════════════════════════════════════════ */
+          <div style={{
+            background: 'oklch(10% 0.02 250)',
+            borderRadius: '14px',
+            border: '1px solid oklch(22% 0.025 250)',
+            boxShadow: '0 0 80px oklch(0% 0 0 / 0.5), 0 0 160px oklch(75% 0.12 80 / 0.05)',
+            overflow: 'hidden',
+            marginBottom: '2rem',
+          }}>
+            <div style={{
+              height: '3px',
+              background: 'linear-gradient(to right, transparent, oklch(75% 0.12 80) 20%, oklch(75% 0.12 80) 80%, transparent)',
+            }} />
+
+            <div style={{ padding: 'clamp(1.75rem, 4vw, 2.75rem)' }}>
+              {/* ── 1. EXECUTIVE BRIEFING HERO ── */}
+              <div style={{ marginBottom: '2.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+                  <span style={{
+                    fontSize: '0.6875rem',
+                    fontWeight: 800,
+                    letterSpacing: '0.12em',
+                    textTransform: 'uppercase',
+                    color: 'oklch(75% 0.12 80)',
+                    background: 'oklch(75% 0.12 80 / 0.12)',
+                    padding: '0.25rem 0.75rem',
+                    borderRadius: '6px',
+                    border: '1px solid oklch(75% 0.12 80 / 0.3)',
+                  }}>
+                    ✦ PROGNOZA SCENARIUSZOWA · KWANTOWA KOMBINATORYKA STANÓW (BORN PROBABILITY)
+                  </span>
+                  <span style={{ fontSize: '0.75rem', color: 'oklch(65% 0.02 250)' }}>
+                    Symulacja Qiskit Aer · Rozkład prawdopodobieństw na podstawie twardych przesłanek
+                  </span>
+                </div>
+
+                <h1 style={{
+                  margin: '0 0 1rem 0',
+                  fontSize: 'clamp(1.75rem, 3.5vw, 2.5rem)',
+                  fontWeight: 900,
+                  letterSpacing: '-0.03em',
+                  color: 'oklch(97% 0.008 250)',
+                  lineHeight: 1.15,
+                }}>
+                  {forecast.briefing?.headline || `Ocena prawdopodobieństwa: ${forecast.query}`}
+                </h1>
+
+                {/* Honesty banner */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.625rem',
+                  padding: '0.75rem 1rem',
+                  borderRadius: '8px',
+                  background: 'oklch(14% 0.03 80 / 0.4)',
+                  borderLeft: '4px solid oklch(75% 0.12 80)',
+                  fontSize: '0.8125rem',
+                  color: 'oklch(88% 0.05 80)',
+                  marginBottom: '1.5rem',
+                }}>
+                  <span>⚖️</span>
+                  <span>
+                    <strong>Zastrzeżenie metodologiczne:</strong> Model nie zgaduje przyszłości w sposób losowy (jak czatbot LLM), lecz oblicza rozkład prawdopodobieństw stanów z amplitud kwantowych (reguła Borna: P(s) = |⟨s|ψ⟩|²) na podstawie ważonego wektora przesłanek empirycznych z sieci.
+                  </span>
+                </div>
+
+                {/* Executive Summary Card */}
+                <div style={{
+                  background: 'linear-gradient(135deg, oklch(14% 0.03 250) 0%, oklch(12% 0.02 250) 100%)',
+                  border: '1px solid oklch(75% 0.12 80 / 0.35)',
+                  borderRadius: '12px',
+                  padding: '1.5rem',
+                  boxShadow: '0 8px 32px oklch(0% 0 0 / 0.4)',
+                  marginBottom: '2rem',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                    <span style={{ fontSize: '1.25rem' }}>📋</span>
+                    <h3 style={{ margin: 0, fontSize: '1.0625rem', fontWeight: 800, color: 'oklch(96% 0.01 250)', letterSpacing: '-0.01em' }}>
+                      Wnioski w pigułce (Diagnoza Strategiczna)
+                    </h3>
+                  </div>
+                  <p style={{ margin: 0, fontSize: '1.0625rem', color: 'oklch(92% 0.01 250)', lineHeight: 1.7, fontWeight: 400 }}>
+                    {forecast.briefing?.executive_summary}
+                  </p>
+                </div>
+              </div>
+
+              {/* ── 2. QUANTUM SCENARIO PROBABILITY DISTRIBUTION ── */}
+              <div style={{ marginBottom: '2.5rem' }}>
+                <h3 style={{
+                  margin: '0 0 1.25rem 0',
+                  fontSize: '0.8125rem',
+                  fontWeight: 800,
+                  letterSpacing: '0.1em',
+                  textTransform: 'uppercase',
+                  color: 'oklch(75% 0.12 80)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                }}>
+                  <span>🎲</span>
+                  <span>Kwantowy Rozkład Prawdopodobieństwa Scenariuszy (Born Rule)</span>
+                </h3>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {forecast.scenarios.map((sc, idx) => {
+                    const isDominant = sc.id === forecast.dominant_scenario_id
+                    const pct = (sc.probability * 100).toFixed(1)
+                    return (
+                      <div
+                        key={sc.id}
+                        style={{
+                          background: isDominant ? 'oklch(14% 0.035 80 / 0.3)' : 'oklch(12% 0.02 250)',
+                          border: isDominant ? '1.5px solid oklch(75% 0.12 80 / 0.8)' : '1px solid oklch(20% 0.025 250)',
+                          borderRadius: '12px',
+                          padding: '1.25rem 1.5rem',
+                          boxShadow: isDominant ? '0 4px 20px oklch(75% 0.12 80 / 0.12)' : 'none',
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <span style={{
+                              fontWeight: 900,
+                              fontSize: '0.8125rem',
+                              color: isDominant ? 'oklch(75% 0.12 80)' : 'oklch(60% 0.02 250)',
+                            }}>
+                              SCENARIUSZ #{idx + 1}
+                            </span>
+                            {isDominant && (
+                              <span style={{
+                                fontSize: '0.625rem',
+                                fontWeight: 800,
+                                textTransform: 'uppercase',
+                                padding: '0.15rem 0.5rem',
+                                borderRadius: '4px',
+                                background: 'oklch(75% 0.12 80 / 0.2)',
+                                color: 'oklch(85% 0.14 80)',
+                                border: '1px solid oklch(75% 0.12 80 / 0.5)',
+                              }}>
+                                ★ DOMINUJĄCY KIERUNEK
+                              </span>
+                            )}
+                            <span style={{
+                              fontSize: '0.625rem',
+                              fontWeight: 700,
+                              textTransform: 'uppercase',
+                              padding: '0.15rem 0.5rem',
+                              borderRadius: '4px',
+                              background: sc.risk_level === 'CRITICAL' || sc.risk_level === 'HIGH' ? 'oklch(20% 0.1 25)' : 'oklch(16% 0.03 160)',
+                              color: sc.risk_level === 'CRITICAL' || sc.risk_level === 'HIGH' ? 'oklch(75% 0.2 25)' : 'oklch(80% 0.15 160)',
+                            }}>
+                              RYZYKO: {sc.risk_level}
+                            </span>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
+                            <span style={{
+                              fontSize: '1.5rem',
+                              fontWeight: 900,
+                              color: isDominant ? 'oklch(95% 0.1 80)' : 'oklch(85% 0.02 250)',
+                            }}>
+                              {pct}%
+                            </span>
+                            <span style={{ fontSize: '0.6875rem', color: 'oklch(60% 0.02 250)' }}>
+                              Prawdopodobieństwo
+                            </span>
+                          </div>
+                        </div>
+
+                        <div style={{
+                          height: '8px',
+                          borderRadius: '4px',
+                          background: 'oklch(18% 0.02 250)',
+                          overflow: 'hidden',
+                          marginBottom: '0.75rem',
+                        }}>
+                          <div style={{
+                            width: `${Math.max(1, Math.min(100, sc.probability * 100))}%`,
+                            height: '100%',
+                            background: isDominant
+                              ? 'linear-gradient(to right, oklch(75% 0.12 80), oklch(88% 0.15 80))'
+                              : 'linear-gradient(to right, oklch(55% 0.15 240), oklch(65% 0.18 240))',
+                            borderRadius: '4px',
+                            transition: 'width 600ms cubic-bezier(0.16, 1, 0.3, 1)',
+                          }} />
+                        </div>
+
+                        <div style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'oklch(95% 0.01 250)', marginBottom: '0.35rem' }}>
+                          {sc.title}
+                        </div>
+                        <p style={{ margin: 0, fontSize: '0.8125rem', color: 'oklch(75% 0.02 250)', lineHeight: 1.5 }}>
+                          {sc.description}
+                        </p>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* ── 3. EVIDENCE PILLARS (Przesłanki z Sieci) ── */}
+              <div style={{ marginBottom: '2.5rem' }}>
+                <h3 style={{
+                  margin: '0 0 1.25rem 0',
+                  fontSize: '0.8125rem',
+                  fontWeight: 800,
+                  letterSpacing: '0.1em',
+                  textTransform: 'uppercase',
+                  color: 'oklch(75% 0.12 80)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                }}>
+                  <span>🏛️</span>
+                  <span>Kluczowe Przesłanki i Wektory Dowodowe (Dlaczego Ten Rozkład)</span>
+                </h3>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+                  {forecast.briefing?.key_pillars.map((pillar, idx) => (
+                    <div
+                      key={pillar.title || idx}
+                      style={{
+                        background: 'oklch(12% 0.02 250)',
+                        border: '1px solid oklch(22% 0.025 250)',
+                        borderRadius: '10px',
+                        padding: '1.25rem',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontSize: '0.6875rem', fontWeight: 800, color: 'oklch(75% 0.12 80)', marginBottom: '0.35rem', textTransform: 'uppercase' }}>
+                          PRZESŁANKA #{idx + 1}
+                        </div>
+                        <div style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'oklch(95% 0.01 250)', marginBottom: '0.5rem' }}>
+                          {pillar.title}
+                        </div>
+                        <div style={{
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          padding: '0.2rem 0.5rem',
+                          borderRadius: '4px',
+                          background: 'oklch(16% 0.03 240)',
+                          color: 'oklch(80% 0.12 240)',
+                          marginBottom: '0.6rem',
+                          display: 'inline-block',
+                        }}>
+                          {pillar.chosen_option}
+                        </div>
+                        <p style={{ margin: 0, fontSize: '0.8125rem', color: 'oklch(78% 0.02 250)', lineHeight: 1.5 }}>
+                          {pillar.rationale}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* ── 4. TRADEOFF & TIPPING POINTS ── */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.25rem', marginBottom: '2.5rem' }}>
+                <div style={{
+                  background: 'oklch(11% 0.02 250)',
+                  border: '1px solid oklch(22% 0.03 250)',
+                  borderRadius: '10px',
+                  padding: '1.25rem',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                    <span style={{ fontSize: '1rem' }}>⚖️</span>
+                    <h4 style={{ margin: 0, fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'oklch(75% 0.12 80)' }}>
+                      Główny kompromis (Cena Oceny)
+                    </h4>
+                  </div>
+                  <p style={{ margin: 0, fontSize: '0.875rem', color: 'oklch(85% 0.02 250)', lineHeight: 1.6 }}>
+                    {forecast.briefing?.primary_tradeoff}
+                  </p>
+                </div>
+
+                <div style={{
+                  background: 'oklch(11% 0.02 250)',
+                  border: '1px solid oklch(22% 0.03 250)',
+                  borderRadius: '10px',
+                  padding: '1.25rem',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                    <span style={{ fontSize: '1rem' }}>🎯</span>
+                    <h4 style={{ margin: 0, fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'oklch(75% 0.12 80)' }}>
+                      Kiedy wynik uległby zmianie (Punkty Krytyczne / Tripwires)
+                    </h4>
+                  </div>
+                  <ul style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.875rem', color: 'oklch(85% 0.02 250)', lineHeight: 1.6 }}>
+                    {forecast.briefing?.tipping_points?.map((tp, i) => (
+                      <li key={i} style={{ marginBottom: '0.35rem' }}>{tp}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              {/* ── 5. EXPANDABLE TECHNICAL DRAWER ── */}
+              <div style={{ borderTop: '1px solid oklch(20% 0.02 250)', paddingTop: '1.75rem' }}>
+                <button
+                  type="button"
+                  id="btn-toggle-scenario-technical-details"
+                  onClick={() => setShowTechnicalDetails(!showTechnicalDetails)}
+                  style={{
+                    width: '100%',
+                    background: showTechnicalDetails ? 'oklch(15% 0.03 250)' : 'oklch(11% 0.02 250)',
+                    border: '1px solid oklch(28% 0.04 250)',
+                    borderRadius: '10px',
+                    padding: '1.125rem 1.5rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    cursor: 'pointer',
+                    color: 'oklch(92% 0.01 250)',
+                    fontWeight: 700,
+                    fontSize: '0.9375rem',
+                    transition: 'all 200ms ease',
+                    boxShadow: '0 2px 10px oklch(0% 0 0 / 0.3)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <span style={{ fontSize: '1.25rem' }}>🔬</span>
+                    <span>
+                      {showTechnicalDetails
+                        ? 'Ukryj model kwantowy, wektor stanu Qiskit i telemetrię'
+                        : 'Pokaż pełny model kwantowy, wektor stanu Qiskit i telemetrię (dla analityka)'}
+                    </span>
+                  </div>
+                  <span style={{
+                    transform: showTechnicalDetails ? 'rotate(180deg)' : 'rotate(0deg)',
+                    transition: 'transform 200ms ease',
+                    fontSize: '0.875rem',
+                    color: 'oklch(75% 0.12 80)',
+                  }}>
+                    ▼
+                  </span>
+                </button>
+
+                {showTechnicalDetails && (
+                  <div style={{
+                    marginTop: '1.75rem',
+                    background: 'oklch(9% 0.015 250)',
+                    border: '1px solid oklch(20% 0.025 250)',
+                    borderRadius: '12px',
+                    padding: '1.75rem',
+                  }}>
+                    {/* Quantum state table */}
+                    <div style={{ marginBottom: '1.5rem' }}>
+                      <h4 style={{ margin: '0 0 0.75rem 0', fontSize: '0.875rem', fontWeight: 800, color: 'oklch(75% 0.12 80)', textTransform: 'uppercase' }}>
+                        Wektor Stanu Kwantowego & Amplitudy Zespolone (Born Rule Audit)
+                      </h4>
+                      <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
+                          <thead>
+                            <tr style={{ borderBottom: '1px solid oklch(25% 0.02 250)', textAlign: 'left', color: 'oklch(70% 0.02 250)' }}>
+                              <th style={{ padding: '0.5rem' }}>Stan |s⟩</th>
+                              <th style={{ padding: '0.5rem' }}>Tytuł Scenariusza</th>
+                              <th style={{ padding: '0.5rem' }}>Energia H(s)</th>
+                              <th style={{ padding: '0.5rem' }}>Amplituda α</th>
+                              <th style={{ padding: '0.5rem' }}>Prawdopodobieństwo |α|²</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {forecast.scenarios.map((s, i) => (
+                              <tr key={s.id} style={{ borderBottom: '1px solid oklch(16% 0.02 250)' }}>
+                                <td style={{ padding: '0.5rem', fontFamily: 'monospace', color: 'oklch(75% 0.12 80)' }}>|s_{i+1}⟩</td>
+                                <td style={{ padding: '0.5rem', fontWeight: 600 }}>{s.title}</td>
+                                <td style={{ padding: '0.5rem', fontFamily: 'monospace' }}>{(s.energy_level || 0).toFixed(3)}</td>
+                                <td style={{ padding: '0.5rem', fontFamily: 'monospace' }}>({(s.amplitude_real || 0).toFixed(4)}, {(s.amplitude_imag || 0).toFixed(4)}i)</td>
+                                <td style={{ padding: '0.5rem', fontWeight: 800, color: 'oklch(85% 0.14 80)' }}>{(s.probability * 100).toFixed(2)}%</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    {/* Quantum telemetry */}
+                    <div style={{
+                      background: 'oklch(12% 0.02 250)',
+                      borderRadius: '8px',
+                      padding: '1rem',
+                      fontFamily: 'monospace',
+                      fontSize: '0.75rem',
+                      color: 'oklch(70% 0.02 250)',
+                    }}>
+                      <div style={{ fontWeight: 800, color: 'oklch(90% 0.01 250)', marginBottom: '0.5rem' }}>
+                        TELEMETRIA PROCESORA KWANTOWEGO / SYMULATORA AER:
+                      </div>
+                      <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
+                        {JSON.stringify(forecast.quantum_telemetry, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : isDesign ? (
           /* ══════════════════════════════════════════════════════════
              G4: DESIGN CLASS VIEW (Multi-Lever Synthesis & Pareto)
              ══════════════════════════════════════════════════════════ */

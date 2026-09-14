@@ -37,6 +37,7 @@ class FormalizationResult(BaseModel):
     session_id: str | None = None
     formalized: dict[str, Any] | None = None
     design_problem: dict[str, Any] | None = None
+    scenario_forecast: dict[str, Any] | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 

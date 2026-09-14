@@ -1,28 +1,20 @@
 # YourQuantum — CURRENT STATE
-_Last updated: 2026-09-14 (Fix black screen on compute & add web-grounded systemic design synthesis)_
+_Last updated: 2026-09-14 (Quantum Scenario Forecasting & Born-Rule Probabilistic Risk Engine)_
 
-## Status: DUAL-LAYER HUMAN EXECUTIVE BRIEFING & EXPANDABLE TECHNICAL DRAWER WDROŻONE I ZWERYFIKOWANE NA ŻYWO (100% BRAMEK ZIELONYCH)
+## Status: QUANTUM SCENARIO RISK FORECASTING (BORN RULE COMBINATORICS) & DUAL-LAYER BRIEFING WDROŻONE
 
-- **Gałąź i stan repo**: `main` (commit `2db09f2`) — wypchnięty do `origin/main` i wdrożony na produkcję Vercel (`https://yourquantum.pl`, deployment `dpl_4rXprXXPoJzDxDCsHwJwq8KcqE3s`).
-- **Zweryfikowano na żywo w przeglądarce (Puppeteer E2E na produkcji)**:
-  * Przetestowano zapytanie systemowe *„Jaki system ochrony zdrowia byłby optymalny dla Polski: finansowanie, dostępność i profilaktyka”*.
-  * Silnik kognitywny zintegrował tło z sieci i wygenerował szkielet dźwigni w `DesignWorkspace`.
-  * Po kliknięciu obliczeń syntezy Pareto, aplikacja wyświetliła **Warstwę 1: Human Executive Briefing**:
-    - Nagłówek: `Diagnoza i rekomendacja: Projekt reformy systemu ochrony zdrowia`.
-    - Sekcja *Wnioski w pigułce* w przystępnym języku decyzyjnym (zamiast żargonu badań operacyjnych).
-    - Karty *Kluczowe Filary Rozwiązania* z jasnym uzasadnieniem: `💡 Dlaczego to rozwiązanie: Zapewnia najwyższą efektywność w kryteriach...`.
-    - Sekcje *Główny kompromis (Cena wyboru)* oraz *Kiedy wynik uległby zmianie (Punkty wrażliwości)*.
-  * Przetestowano **Warstwę 2: Rozwijaną Szufladę Techniczną**:
-    - Przycisk `#btn-toggle-technical-details` rozwinął pełny model matematyczny, 2D interaktywny wykres frontu Pareto, ranking ważności dźwigni, synergie i dowody weryfikatora.
-  * Zrzuty ekranu z produkcji zapisano w `screenshots/`:
-    - `1_design_workspace.png`
-    - `2_executive_briefing_top.png`
-    - `3_executive_briefing_tradeoffs.png`
-    - `4_technical_drawer_pareto.png`
+- **Gałąź i stan repo**: `main` — implementacja kwantowej kombinatoryki scenariuszy i prawdopodobieństw reguły Borna.
+- **Kluczowe moduły i pliki**:
+  * `backend/domain/quantum_scenarios.py`: Model energetyczny i obliczanie prawdopodobieństw reguły Borna $P(s) = |\alpha|^2$ na symulatorze `AerSimulator`.
+  * `backend/domain/cognitive/scenario_decomposer.py`: Klasyfikator predykcyjny i dekompozytor pytań na dyskretne scenariusze i mierzalne wektory przesłanek dowodowych.
+  * `backend/domain/problem_classes.py`: Usunięcie blokady `NOT_COMPUTABLE` dla prognoz i ryzyk geopolitycznych/rynkowych.
+  * `frontend/src/components/RecommendationView.tsx`: Dedykowany widok scenariuszowy z paskami prawdopodobieństwa Borna, dominantą scenariusza, wektorami przesłanek i rozwijaną szufladą techniczną amplitud stanów.
+  * `tests/unit/test_quantum_scenarios.py`: 4 testy jednostkowe pokrywające detekcję, normalizację $\sum P(s_i)=1.0$, zgodność amplitud i dekompozycję offline/mock.
 - **Wszystkie mechaniczne bramki weryfikacyjne w `scripts/check_v4.sh`**: 23/23 ZIELONE (PASS).
-- **Testy jednostkowe pytest oraz build TypeScript**: ZIELONE (100% PASS, zero błędów typowania).
+- **Testy jednostkowe pytest oraz build TypeScript**: ZIELONE (188/188 PASS, 0 błędów typowania).
 
 ### Stan przed V4 — Surowy wynik bramek mechanicznych (`scripts/check_v4.sh`):
+
 
 ```text
 === YOURQUANTUM V4 MECHANICAL GATES CHECK ===

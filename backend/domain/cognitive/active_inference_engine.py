@@ -200,11 +200,15 @@ async def classify_problem_class_async(query: str, options_count: int = 0) -> Pr
         }
         prompt = (
             "Dokonaj rygorystycznej klasyfikacji problemu decyzyjnego użytkownika do jednej z 5 klas:\n"
-            "- CHOICE: wybór jednej lub kilku konkretnych opcji (np. zmiana pracy, zakup mieszkania, system alarmowy czy kamery).\n"
+            "- CHOICE: wybór jednej lub kilku konkretnych opcji (np. zmiana pracy, zakup mieszkania). "
+            "UWAGA: Wszystkie pytania o prawdopodobieństwo zdarzeń przyszłych, ryzyko geopolityczne lub prognozy scenariuszowe "
+            "(np. 'czy Rosja zaatakuje...', 'czy wybuchnie wojna...', 'jakie jest ryzyko...', 'czy nastąpi kryzys...') "
+            "SĄ W PEŁNI OBLICZALNE i należą do klasy CHOICE jako probabilistyczny model wyboru/oceny scenariuszy przyszłości!\n"
             "- ALLOCATION: optymalny dobór podzbioru lub alokacja budżetu pod ograniczeniami (np. plecak, portfel inwestycyjny, harmonogramowanie).\n"
             "- DESIGN: synteza wielodźwigniowa złożonego systemu (np. całościowa reforma ochrony zdrowia, architektura instytucji z wieloma dźwigniami).\n"
             "- PARAMETER: kalibracja i optymalizacja zmiennych ciągłych (równania różniczkowe, optymalizacja numeryczna SciPy/HiGHS).\n"
-            "- NOT_COMPUTABLE: pytania czysto metafizyczne, moralne, prognozy losowej przyszłości bez struktury decyzyjnej (np. 'czy bóg istnieje', 'jaki będzie kurs bitcoina za rok').\n\n"
+            "- NOT_COMPUTABLE: WYŁĄCZNIE pytania czysto metafizyczne lub pytania o sens życia (np. 'czy bóg istnieje', 'jaki jest sens życia'). "
+            "Pytania o przyszłość, wojnę, politykę, gospodarkę i ryzyko NIE SĄ NOT_COMPUTABLE — są w 100% obliczalne w klasie CHOICE!\n\n"
             f"Zapytanie użytkownika:\n\"{query}\"\n"
         )
         try:
@@ -322,12 +326,22 @@ class ActiveInferenceOrchestrator:
         ws.energy_budget.consume_tokens(350)
 
         # 1. Classification & Computability assessment (D1 / N4)
+        from backend.domain.cognitive.scenario_decomposer import is_scenario_forecast_query
+        is_scenario_forecast = is_scenario_forecast_query(query)
+
         if problem_class_override:
             classification = ProblemClassification(
                 problem_class=problem_class_override,
                 confidence=1.0,
                 reason="Klasa problemu jawnie wybrana przez użytkownika.",
                 computable=problem_class_override != ProblemClass.NOT_COMPUTABLE.value,
+            )
+        elif is_scenario_forecast:
+            classification = ProblemClassification(
+                problem_class=ProblemClass.CHOICE.value,
+                confidence=0.98,
+                reason="Analiza prawdopodobieństwa scenariuszy przyszłości i ryzyka geopolitycznego (Quantum Scenario Combinatorics).",
+                computable=True,
             )
         else:
             classification = await classify_problem_class_async(query)
@@ -469,6 +483,49 @@ class ActiveInferenceOrchestrator:
                 },
             )
             ws.update_hypothesis(None, {"status": "ready_for_review", "class": "DESIGN"})
+            return formalization, ws
+
+        # 2c. Quantum Scenario Risk & Future Forecasting Pathway
+        # Decomposes predictive, geopolitical, and future forecasting inquiries into mutually exclusive scenarios
+        # with web-grounded evidence and calculates Born-rule probabilities via Qiskit Aer statevector combinatorics.
+        if is_scenario_forecast:
+            from backend.domain.cognitive.scenario_decomposer import decompose_scenario_query_async
+            from backend.infrastructure.web_research.search_adapter import WebResearchAdapter
+
+            search_adapter = WebResearchAdapter()
+            web_context_snippets: list[str] = []
+            if search_adapter.is_available():
+                ws.energy_budget.consume_search(2)
+                try:
+                    search_results = await search_adapter.search(f"{query} analiza prawdopodobieństwo raport", max_results=3)
+                    for sr in search_results:
+                        web_context_snippets.append(f"[{sr.title}]({sr.url}): {sr.snippet}")
+                except Exception as s_err:
+                    logger.warning("Web search in scenario intake failed: %s", s_err)
+
+            case, forecast = await decompose_scenario_query_async(
+                query=query,
+                web_snippets=web_context_snippets,
+            )
+
+            formalization = FormalizationResult(
+                status="ready_for_review",
+                raw_query=query,
+                fingerprint=fp,
+                problem_class="CHOICE",
+                confidence=classification.confidence,
+                decision_case=case,
+                scenario_forecast=forecast.model_dump(mode="json"),
+                explanation=forecast.briefing.executive_summary,
+                session_id=ws.session_id,
+                metadata={
+                    "classification_reason": classification.reason,
+                    "quantum_dominant_scenario": forecast.dominant_scenario_id,
+                    "quantum_telemetry": forecast.quantum_telemetry,
+                    "web_sources_count": len(web_context_snippets),
+                },
+            )
+            ws.update_hypothesis(None, {"status": "ready_for_review", "mode": "SCENARIO_FORECAST"})
             return formalization, ws
 
         # 3. Hippocampal recall of historical analogies with tenant isolation (A18)

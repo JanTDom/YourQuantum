@@ -481,7 +481,7 @@ Zgodnie z regułą dowodową i eliminacją halucynacji (BUILD_SPEC_V2.md §1 pkt
 **Status:** ACTIVE
 
 **Decision:**
-Ekran rekomendacji i syntezy decyzyjnej (`RecommendationView.tsx`, `DesignSynthesisResult`) zostaje podzielony na dwie rozłączne warstwy percepcyjne:
+Ekran rekomendacji i syntezy decyzyjnej (`frontend/src/components/RecommendationView.tsx`, `DesignSynthesisResult`) zostaje podzielony na dwie rozłączne warstwy percepcyjne:
 1. **Warstwa 1 (Główna, domyślnie widoczna): Human Executive Briefing**
    - Naturalny, strategiczny język (klasa ChatGPT/Claude na poziomie doradcy zarządu/decydenta).
    - Diagnoza sytuacji i *Wnioski w pigułce* wyjaśniające kierunek w sposób zrozumiały dla każdego decydenta.
@@ -494,4 +494,29 @@ Ekran rekomendacji i syntezy decyzyjnej (`RecommendationView.tsx`, `DesignSynthe
 
 **Rationale:**
 Użytkownicy i decydenci potrzebują natychmiastowego zrozumienia rekomendacji i jej ceny (kompromisu) w naturalnym języku. Zmuszanie użytkownika do dekodowania surowych wykresów Pareto i macierzy przed zrozumieniem wniosku budziło opór percepcyjny, mimo że silnik obliczeniowy pod spodem działał bezbłędnie. Architektura dwuwarstwowa łączy zrozumiałość interfejsu czatu z niezawodnością i dowodowością matematyczną.
+
+---
+
+## DEC-031 — Kwantowa kombinatoryka scenariuszy i prognozowanie ryzyka metodą reguły Borna
+
+**Date:** 2026-09-14
+**Status:** ACTIVE
+
+**Decision:**
+Pytania o przyszłość, prognozy ryzyka geopolitycznego, rynkowego i systemowego (np. *„Czy Rosja napadnie w najbliższym czasie na Polskę?”*) nie mogą być odrzucane z komunikatem o braku możliwości obliczeniowej (`NOT_COMPUTABLE`). Zostają sformalizowane jako dyskretna przestrzeń wzajemnie wykluczających się scenariuszy ($s \in S$) oraz empirycznych wektorów przesłanek dowodowych ($p \in P$) ugruntowanych w badaniach sieciowych (`SafeWebFetcher` i `WebResearchAdapter`).
+1. **Model energetyczny i kombinatoryka stanów kwantowych (`backend/domain/quantum_scenarios.py`)**:
+   - Każda przesłanka posiada wagę $w_k$, wskaźnik wiarygodności $c_k$ oraz wektor wpływu na scenariusze $I(s_i, p_k) \in [-1, 1]$.
+   - Energia konfiguracji scenariusza $H(s_i) = - \sum_k w_k \cdot c_k \cdot I(s_i, p_k)$.
+   - Stan kwantowy $|\psi\rangle = \sum_i \alpha_i |s_i\rangle$ jest ewaluowany z symulatorem `qiskit_aer.AerSimulator` (lub jądrem wektora stanu przy braku QPU).
+   - Zgodnie z regułą Borna, prawdopodobieństwo każdego scenariusza wynosi ściśle:
+     $$P(s_i) = |\langle s_i | \psi \rangle|^2 = |\alpha_i|^2, \quad \sum_{i} P(s_i) = 1.0$$
+2. **Dekompozycja i klasyfikacja kognitywna (`backend/domain/cognitive/scenario_decomposer.py`, `backend/domain/problem_classes.py`)**:
+   - `is_scenario_forecast_query` rozpoznaje zapytania predykcyjne i kieruje je do klasy decyzyjnej `CHOICE` ze statusem `ready_for_review` i kompletnym obiektem `scenario_forecast`.
+   - Klasyfikacja `NOT_COMPUTABLE` zostaje ograniczona wyłącznie do nierozstrzygalnych dylematów czysto etycznych lub zapytań z zerową możliwością modelowania.
+3. **Prezentacja Executive Briefing (`frontend/src/components/RecommendationView.tsx`)**:
+   - Dedykowany widok scenariuszowy: pasek dominanty scenariusza, wskaźniki prawdopodobieństwa reguły Borna, filary dowodowe, punkty zwrotne (*Tripwires*) oraz rozwijana szuflada techniczna z tabelą amplitud zespolonych $\alpha_i$ i telemetrią Qiskit Aer.
+
+**Rationale:**
+Zamiast generatywnych domysłów LLM („wydaje mi się, że wojna jest mało prawdopodobna”), YourQuantum wyznacza rozkład prawdopodobieństw w oparciu o kwantową kombinatorykę stanów energetycznych i regułę Borna, łącząc realne źródła wywiadowcze/ekonomiczne z fizyczno-matematycznym aparatem prawdopodobieństwa.
+
 

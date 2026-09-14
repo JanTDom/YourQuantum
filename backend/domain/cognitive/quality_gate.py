@@ -49,6 +49,19 @@ def assess_input_quality(text: str, options_count: int = 0, problem_class: str =
             )
         return InputQuality(level="sufficient", reason="", suggestions=[])
 
+    # Scenario forecasting & future risk handling (Quantum Scenario Combinatorics)
+    is_scenario_context = bool(
+        re.search(r"\b(czy\s+rosja|czy\s+zaatakuje|czy\s+napadnie|wojn\w*|inwazj\w*|konflikt\w*|prawdopodobie[nń]stw\w*|prognoz\w*|ryzyk\w*|scenariusz\w*|szansa\s+na|zagro[zż]eni\w*|krach\w*|kryzys\w*)\b", lower)
+    )
+    if is_scenario_context:
+        if len(words) < 3:
+            return InputQuality(
+                level="too_vague",
+                reason="Pytanie o prognozę przyszłości jest zbyt krótkie.",
+                suggestions=["Sformułuj pełniejsze pytanie o scenariusze rozwoju sytuacji."],
+            )
+        return InputQuality(level="sufficient", reason="", suggestions=[])
+
     # 1. Too short / vague (< 5 words)
     if len(words) < 5:
         return InputQuality(

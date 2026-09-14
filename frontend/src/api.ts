@@ -281,6 +281,38 @@ export interface FormalizeResponse {
   break_even_point?: string | null
 }
 
+export interface ScenarioOutcome {
+  id: string
+  title: string
+  description: string
+  probability: number
+  amplitude_real?: number
+  amplitude_imag?: number
+  energy_level?: number
+  risk_level: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
+}
+
+export interface EvidencePremise {
+  id: string
+  name: string
+  description: string
+  source: string
+  confidence: number
+  weight: number
+  impact_on_scenarios: Record<string, number>
+}
+
+export interface ScenarioForecast {
+  query: string
+  domain: string
+  scenarios: ScenarioOutcome[]
+  dominant_scenario_id: string
+  evidence_premises: EvidencePremise[]
+  tipping_points: string[]
+  quantum_telemetry: Record<string, any>
+  briefing: ExecutiveBriefing
+}
+
 export interface CognitiveIntakeResponse {
   status: 'ready_for_review' | 'needs_clarification' | 'not_computable'
   problem_ir?: Record<string, unknown> | null
@@ -308,6 +340,7 @@ export interface CognitiveIntakeResponse {
   session_id?: string | null
   formalized?: FormalizeResponse | null
   design_problem?: any | null
+  scenario_forecast?: ScenarioForecast | null
 }
 
 export interface CognitiveEnergyBudget {

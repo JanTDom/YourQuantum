@@ -6,6 +6,7 @@ import {
   JobResult,
   DesignSynthesisResult,
   synthesizeDesign,
+  ScenarioForecast,
 } from './api'
 import { AppHeader } from './components/AppHeader'
 import { LandingPage } from './components/LandingPage'
@@ -39,6 +40,7 @@ export const App: React.FC = () => {
   const [decisionCase, setDecisionCase] = useState<DecisionCase | null>(null)
   const [designProblem, setDesignProblem] = useState<DesignProblem | null>(null)
   const [designSynthesis, setDesignSynthesis] = useState<DesignSynthesisResult | null>(null)
+  const [scenarioForecast, setScenarioForecast] = useState<ScenarioForecast | null>(null)
   const [formalized, setFormalized] = useState<FormalizeResponse | null>(null)
   const [primaryResult, setPrimaryResult] = useState<JobResult | null>(null)
   const [comparisonResult, setComparisonResult] = useState<JobResult | null>(null)
@@ -52,6 +54,7 @@ export const App: React.FC = () => {
     setDecisionCase(null)
     setDesignProblem(null)
     setDesignSynthesis(null)
+    setScenarioForecast(null)
     setFormalized(null)
     setPrimaryResult(null)
     setComparisonResult(null)
@@ -110,6 +113,36 @@ export const App: React.FC = () => {
           setDecisionCase(intakeRes.decision_case)
         }
         setStage('DESIGN_WORKSPACE')
+        return
+      }
+
+      if (intakeRes.scenario_forecast) {
+        setScenarioForecast(intakeRes.scenario_forecast)
+        setProblemClass('CHOICE')
+        if (intakeRes.decision_case) {
+          setDecisionCase(intakeRes.decision_case)
+        }
+        const synthJobResult: JobResult = {
+          job_id: `scenario_${Date.now()}`,
+          problem_id: 'quantum_scenario_forecast',
+          execution_status: 'COMPLETED',
+          publication_status: 'PUBLISHED_VERIFIED',
+          math_status: 'OPTIMAL',
+          source: 'qiskit_aer_born_sampling',
+          objective_value: 1.0,
+          solve_time_seconds: Number(intakeRes.scenario_forecast.quantum_telemetry?.solve_time_seconds || 0.05),
+          solver_result: {
+            assignment: { [intakeRes.scenario_forecast.dominant_scenario_id]: 1 },
+          },
+          verification: null,
+          error_message: null,
+          metadata: {
+            problem_class: 'CHOICE',
+            scenario_forecast: intakeRes.scenario_forecast,
+          },
+        }
+        setPrimaryResult(synthJobResult)
+        setStage('RECOMMENDATION')
         return
       }
 
@@ -468,6 +501,7 @@ export const App: React.FC = () => {
                 sessionId={sessionId}
                 problemClass={problemClass}
                 designSynthesis={designSynthesis}
+                scenarioForecast={scenarioForecast}
               />
             ) : (
               <div style={{ textAlign: 'center', padding: '5rem 2rem' }}>

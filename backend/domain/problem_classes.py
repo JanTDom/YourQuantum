@@ -56,15 +56,15 @@ class NotComputableReport(BaseModel):
 
 def evaluate_problem_computability(query: str) -> tuple[bool, NotComputableReport | None]:
     """
-    Examines if the user prompt is inherently non-computable (e.g. purely moral/existential,
-    pure market prophecy, or without distinct decision options).
+    Examines if the user prompt is inherently non-computable (purely moral/existential questions).
+    NOTE: In YourQuantum, all questions about future scenario probabilities, geopolitical risks,
+    and event forecasts ARE strictly computable via quantum scenario state combinatorics!
     """
     q_clean = query.strip().lower()
 
     uncomputable_triggers = [
         ("jaki jest sens życia", "Pytanie o charakterze egzystencjalnym/filozoficznym, niebędące problemem optymalizacji pod warunkami brzegowymi."),
         ("czy bóg istnieje", "Kwestia metafizyczna/światopoglądowa nieposiadająca mierzalnej funkcji celu ani ograniczeń matematycznych."),
-        ("jaki będzie kurs bitcoina za rok", "Czysta prognoza spekulacyjna przyszłości o wysokiej losowości, a nie deterministyczny problem decyzyjny."),
     ]
 
     for trigger, explanation in uncomputable_triggers:
