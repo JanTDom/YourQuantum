@@ -186,7 +186,7 @@ async def decompose_scenario_query_async(
                         impact_on_scenarios=impacts,
                         provenance="llm_suggested",
                         source_ref=str(pr_data.get("source", "propozycja modelu")),
-                        is_accepted=True,
+                        is_accepted=False,
                     ))
         except Exception as exc:
             logger.warning("LLM scenario decomposition failed: %s", exc)

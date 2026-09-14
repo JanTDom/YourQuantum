@@ -80,6 +80,22 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
     )
   }
 
+  const handleAcceptAllLlm = () => {
+    setScenarioPremises((prev) =>
+      prev.map((p) =>
+        p.provenance === 'llm_suggested' ? { ...p, is_accepted: true } : p
+      )
+    )
+  }
+
+  const handleRejectAllLlm = () => {
+    setScenarioPremises((prev) =>
+      prev.map((p) =>
+        p.provenance === 'llm_suggested' ? { ...p, is_accepted: false } : p
+      )
+    )
+  }
+
   useEffect(() => {
     if (forecast?.evidence_premises) {
       setScenarioPremises(forecast.evidence_premises)
@@ -402,7 +418,9 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                   color: 'oklch(97% 0.008 250)',
                   lineHeight: 1.15,
                 }}>
-                  {forecast.briefing?.headline || `Ocena scenariuszy: ${forecast.query}`}
+                  {liveForecast.activeCount === 0
+                    ? 'Rozkład równomierny – nie zatwierdzono jeszcze żadnej przesłanki'
+                    : (forecast.briefing?.headline || `Ocena scenariuszy: ${forecast.query}`)}
                 </h1>
 
                 {/* Honesty banner */}
@@ -437,34 +455,40 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       <span style={{ fontSize: '1.25rem' }}>📋</span>
                       <h3 style={{ margin: 0, fontSize: '1.0625rem', fontWeight: 800, color: 'oklch(96% 0.01 250)', letterSpacing: '-0.01em' }}>
-                        Wnioski w pigułce (diagnoza strategiczna)
+                        {liveForecast.activeCount === 0
+                          ? 'Rozkład równomierny – nie zatwierdzono jeszcze żadnej przesłanki'
+                          : 'Wnioski w pigułce (diagnoza strategiczna)'}
                       </h3>
                     </div>
 
                     {/* Dominant scenario sensitivity range badge */}
-                    <div style={{
-                      background: 'oklch(18% 0.04 80)',
-                      border: '1px solid oklch(75% 0.12 80 / 0.5)',
-                      borderRadius: '8px',
-                      padding: '0.4rem 0.75rem',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'flex-end',
-                    }}>
-                      <span style={{ fontSize: '0.625rem', fontWeight: 700, color: 'oklch(75% 0.12 80)' }}>
-                        Przedział wrażliwości wariantu wiodącego:
-                      </span>
-                      <span style={{ fontSize: '1rem', fontWeight: 900, color: 'oklch(96% 0.12 80)' }}>
-                        {liveForecast.bandStr}
-                      </span>
-                      <span style={{ fontSize: '0.6875rem', color: 'oklch(70% 0.02 250)' }}>
-                        wartość bazowa: {(liveForecast.dominantScenario.probability * 100).toFixed(1).replace('.', ',')}% przy β={scenarioBeta.toFixed(1)}
-                      </span>
-                    </div>
+                    {liveForecast.activeCount > 0 && (
+                      <div style={{
+                        background: 'oklch(18% 0.04 80)',
+                        border: '1px solid oklch(75% 0.12 80 / 0.5)',
+                        borderRadius: '8px',
+                        padding: '0.4rem 0.75rem',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'flex-end',
+                      }}>
+                        <span style={{ fontSize: '0.625rem', fontWeight: 700, color: 'oklch(75% 0.12 80)' }}>
+                          Przedział wrażliwości wariantu wiodącego:
+                        </span>
+                        <span style={{ fontSize: '1rem', fontWeight: 900, color: 'oklch(96% 0.12 80)' }}>
+                          {liveForecast.bandStr}
+                        </span>
+                        <span style={{ fontSize: '0.6875rem', color: 'oklch(70% 0.02 250)' }}>
+                          wartość bazowa: {(liveForecast.dominantScenario.probability * 100).toFixed(1).replace('.', ',')}% przy β={scenarioBeta.toFixed(1)}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   <p style={{ margin: 0, fontSize: '1.0625rem', color: 'oklch(92% 0.01 250)', lineHeight: 1.7, fontWeight: 400 }}>
-                    {forecast.briefing?.executive_summary}
+                    {liveForecast.activeCount === 0
+                      ? 'Poniżej znajdziesz przesłanki zaproponowane przez model. Zatwierdź te, które uznajesz za trafne – rozkład przeliczy się natychmiast. Możesz też zmienić ich wagi.'
+                      : forecast.briefing?.executive_summary}
                   </p>
                 </div>
               </div>
@@ -556,15 +580,18 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                     }
                     const riskLabel = riskLabelMap[sc.risk_level] || sc.risk_level
 
+                    const hasActivePremises = liveForecast.activeCount > 0
+                    const showDominant = isDominant && hasActivePremises
+
                     return (
                       <div
                         key={sc.id}
                         style={{
-                          background: isDominant ? 'oklch(14% 0.035 80 / 0.3)' : 'oklch(12% 0.02 250)',
-                          border: isDominant ? '1.5px solid oklch(75% 0.12 80 / 0.8)' : '1px solid oklch(20% 0.025 250)',
+                          background: showDominant ? 'oklch(14% 0.035 80 / 0.3)' : 'oklch(12% 0.02 250)',
+                          border: showDominant ? '1.5px solid oklch(75% 0.12 80 / 0.8)' : '1px solid oklch(20% 0.025 250)',
                           borderRadius: '12px',
                           padding: '1.25rem 1.5rem',
-                          boxShadow: isDominant ? '0 4px 20px oklch(75% 0.12 80 / 0.12)' : 'none',
+                          boxShadow: showDominant ? '0 4px 20px oklch(75% 0.12 80 / 0.12)' : 'none',
                         }}
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
@@ -572,11 +599,11 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                             <span style={{
                               fontWeight: 900,
                               fontSize: '0.8125rem',
-                              color: isDominant ? 'oklch(75% 0.12 80)' : 'oklch(60% 0.02 250)',
+                              color: showDominant ? 'oklch(75% 0.12 80)' : 'oklch(60% 0.02 250)',
                             }}>
                               Scenariusz #{idx + 1}
                             </span>
-                            {isDominant && (
+                            {showDominant && (
                               <span style={{
                                 fontSize: '0.625rem',
                                 fontWeight: 800,
@@ -618,20 +645,22 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                                 fontSize: '1.625rem',
                                 fontWeight: 900,
                                 letterSpacing: '-0.02em',
-                                color: isDominant ? 'oklch(96% 0.12 80)' : 'oklch(86% 0.02 250)',
+                                color: showDominant ? 'oklch(96% 0.12 80)' : 'oklch(86% 0.02 250)',
                               }}>
                                 {pctPl}
                               </span>
                               <span style={{
                                 fontSize: '0.75rem',
                                 fontWeight: 700,
-                                color: isDominant ? 'oklch(85% 0.12 80)' : 'oklch(65% 0.02 250)',
+                                color: showDominant ? 'oklch(85% 0.12 80)' : 'oklch(65% 0.02 250)',
                               }}>
                                 szans
                               </span>
                             </div>
-                            <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: isDominant ? 'oklch(75% 0.08 80)' : 'oklch(60% 0.02 250)' }}>
-                              {verbalChance} · Pasmo wrażliwości: {scMin}%–{scMax}%
+                            <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: showDominant ? 'oklch(75% 0.08 80)' : 'oklch(60% 0.02 250)' }}>
+                              {hasActivePremises
+                                ? `${verbalChance} · Pasmo wrażliwości: ${scMin}%–${scMax}%`
+                                : 'Rozkład równomierny (równe prawdopodobieństwo bazowe)'}
                             </span>
                           </div>
                         </div>
@@ -685,6 +714,62 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                   <p style={{ margin: 0, fontSize: '0.8125rem', color: 'oklch(70% 0.02 250)' }}>
                     Dostosuj suwaki wag, aby zbadać jak Twoje założenia wpływają na rozkład. Propozycje modelu (🤖) nie wchodzą do obliczeń, dopóki ich nie zatwierdzisz.
                   </p>
+                </div>
+
+                {/* Single-click bulk confirmation toolbar (Prompt V6 §1) */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '0.75rem',
+                  marginBottom: '1rem',
+                  padding: '0.75rem 1rem',
+                  background: 'oklch(13% 0.02 250)',
+                  border: '1px solid oklch(22% 0.025 250)',
+                  borderRadius: '8px',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      id="btn-accept-all-llm-premises"
+                      onClick={handleAcceptAllLlm}
+                      style={{
+                        padding: '0.35rem 0.75rem',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        borderRadius: '6px',
+                        background: 'oklch(75% 0.12 80 / 0.2)',
+                        color: 'oklch(92% 0.12 80)',
+                        border: '1px solid oklch(75% 0.12 80 / 0.5)',
+                        cursor: 'pointer',
+                        transition: 'all 150ms ease',
+                      }}
+                    >
+                      Zatwierdź wszystkie propozycje modelu
+                    </button>
+                    <button
+                      type="button"
+                      id="btn-reject-all-llm-premises"
+                      onClick={handleRejectAllLlm}
+                      style={{
+                        padding: '0.35rem 0.75rem',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        borderRadius: '6px',
+                        background: 'oklch(18% 0.02 250)',
+                        color: 'oklch(75% 0.02 250)',
+                        border: '1px solid oklch(25% 0.025 250)',
+                        cursor: 'pointer',
+                        transition: 'all 150ms ease',
+                      }}
+                    >
+                      Odznacz wszystkie
+                    </button>
+                  </div>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'oklch(80% 0.05 80)' }}>
+                    Zatwierdzone: {liveForecast.activeCount} z {liveForecast.totalCount}
+                  </span>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -787,48 +872,50 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
               </div>
 
               {/* ── 4. ANALYTICAL TIPPING POINTS (TRIPWIRES) & TRADEOFF ── */}
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-                gap: '1.25rem',
-                marginBottom: '2.5rem',
-              }}>
+              {liveForecast.activeCount > 0 && (
                 <div style={{
-                  background: 'oklch(11% 0.02 250)',
-                  border: '1px solid oklch(22% 0.03 250)',
-                  borderRadius: '10px',
-                  padding: '1.25rem',
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+                  gap: '1.25rem',
+                  marginBottom: '2.5rem',
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                    <span style={{ fontSize: '1rem' }}>⚖️</span>
-                    <h4 style={{ margin: 0, fontSize: '0.8125rem', fontWeight: 800, letterSpacing: '0.04em', color: 'oklch(75% 0.12 80)' }}>
-                      Główny kompromis (cena wyboru)
-                    </h4>
+                  <div style={{
+                    background: 'oklch(11% 0.02 250)',
+                    border: '1px solid oklch(22% 0.03 250)',
+                    borderRadius: '10px',
+                    padding: '1.25rem',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                      <span style={{ fontSize: '1rem' }}>⚖️</span>
+                      <h4 style={{ margin: 0, fontSize: '0.8125rem', fontWeight: 800, letterSpacing: '0.04em', color: 'oklch(75% 0.12 80)' }}>
+                        Główny kompromis (cena wyboru)
+                      </h4>
+                    </div>
+                    <p style={{ margin: 0, fontSize: '0.875rem', color: 'oklch(85% 0.02 250)', lineHeight: 1.6 }}>
+                      {forecast.briefing?.primary_tradeoff || 'Rozkład jest wrażliwy na przyjętą stałą beta oraz wagę przesłanek empirycznych.'}
+                    </p>
                   </div>
-                  <p style={{ margin: 0, fontSize: '0.875rem', color: 'oklch(85% 0.02 250)', lineHeight: 1.6 }}>
-                    {forecast.briefing?.primary_tradeoff || 'Rozkład jest wrażliwy na przyjętą stałą beta oraz wagę przesłanek empirycznych.'}
-                  </p>
-                </div>
 
-                <div style={{
-                  background: 'oklch(11% 0.02 250)',
-                  border: '1px solid oklch(22% 0.03 250)',
-                  borderRadius: '10px',
-                  padding: '1.25rem',
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                    <span style={{ fontSize: '1rem' }}>🎯</span>
-                    <h4 style={{ margin: 0, fontSize: '0.8125rem', fontWeight: 800, letterSpacing: '0.04em', color: 'oklch(75% 0.12 80)' }}>
-                      Kiedy wynik uległby zmianie (punkty zwrotne)
-                    </h4>
+                  <div style={{
+                    background: 'oklch(11% 0.02 250)',
+                    border: '1px solid oklch(22% 0.03 250)',
+                    borderRadius: '10px',
+                    padding: '1.25rem',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                      <span style={{ fontSize: '1rem' }}>🎯</span>
+                      <h4 style={{ margin: 0, fontSize: '0.8125rem', fontWeight: 800, letterSpacing: '0.04em', color: 'oklch(75% 0.12 80)' }}>
+                        Kiedy wynik uległby zmianie (punkty zwrotne)
+                      </h4>
+                    </div>
+                    <ul style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.875rem', color: 'oklch(85% 0.02 250)', lineHeight: 1.6 }}>
+                      {(forecast.tipping_points && forecast.tipping_points.length > 0 ? forecast.tipping_points : forecast.briefing?.tipping_points || []).map((tp, i) => (
+                        <li key={i} style={{ marginBottom: '0.35rem' }}>{tp}</li>
+                      ))}
+                    </ul>
                   </div>
-                  <ul style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.875rem', color: 'oklch(85% 0.02 250)', lineHeight: 1.6 }}>
-                    {(forecast.tipping_points && forecast.tipping_points.length > 0 ? forecast.tipping_points : forecast.briefing?.tipping_points || []).map((tp, i) => (
-                      <li key={i} style={{ marginBottom: '0.35rem' }}>{tp}</li>
-                    ))}
-                  </ul>
                 </div>
-              </div>
+              )}
 
               {/* ── 5. EXPANDABLE TECHNICAL DRAWER (HONEST SOFTMAX AUDIT) ── */}
               <div style={{ borderTop: '1px solid oklch(20% 0.02 250)', paddingTop: '1.75rem' }}>

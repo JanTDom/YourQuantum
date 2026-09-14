@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pathlib
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, AsyncMock
 
 from backend.domain.scenario_weighting import (
     ScenarioOutcome,
@@ -281,4 +281,57 @@ def test_8_polish_sentence_case_enforcement():
     # Derived adjectives
     res4 = to_polish_sentence_case("Atak Rosyjskich Sił Zbrojnych")
     assert res4 == "Atak rosyjskich sił zbrojnych", f"Got: {res4}"
+
+
+@pytest.mark.asyncio
+async def test_9_scenario_decomposer_emits_unaccepted_llm_suggested_premises():
+    """
+    Case 9 (Prompt V6 §1): Verifies that decompose_scenario_query_async produces
+    premises with provenance='llm_suggested' having is_accepted=False by default,
+    requiring explicit human confirmation before entering distribution calculation.
+    """
+    mock_gateway = MagicMock(spec=LLMGateway)
+    mock_gateway.is_available = True
+    mock_res = MagicMock()
+    mock_res.parsed_json = {
+        "scenarios": [
+            {"id": "sc_1", "title": "Scenariusz A", "description": "Opis A", "risk_level": "LOW"},
+            {"id": "sc_2", "title": "Scenariusz B", "description": "Opis B", "risk_level": "HIGH"},
+        ],
+        "premises": [
+            {
+                "id": "prem_1",
+                "name": "Przesłanka testowa 1",
+                "description": "Opis przesłanki",
+                "source": "Raport analityczny",
+                "confidence": 0.9,
+                "weight": 1.2,
+                "impact_on_scenarios": {"sc_1": 1.5, "sc_2": -1.5},
+            },
+            {
+                "id": "prem_2",
+                "name": "Przesłanka testowa 2",
+                "description": "Opis przesłanki 2",
+                "source": "Ekspertyza",
+                "confidence": 0.8,
+                "weight": 1.0,
+                "impact_on_scenarios": {"sc_1": -0.8, "sc_2": 1.0},
+            },
+        ],
+        "executive_summary": "Podsumowanie wykonawcze",
+        "primary_tradeoff": "Główny kompromis",
+        "tipping_points": ["Punkt zwrotny 1"],
+    }
+    mock_gateway.generate = AsyncMock(return_value=mock_res)
+
+    case, forecast = await decompose_scenario_query_async(
+        query="Czy nastąpi eskalacja konfliktu w regionie?",
+        gateway=mock_gateway,
+    )
+
+    premises = forecast.evidence_premises
+    assert len(premises) == 2
+    assert all(p.provenance == "llm_suggested" for p in premises)
+    assert all(p.is_accepted is False for p in premises if p.provenance == "llm_suggested")
+
 
