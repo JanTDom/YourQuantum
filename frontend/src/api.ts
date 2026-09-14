@@ -287,8 +287,6 @@ export interface ScenarioOutcome {
   description: string
   probability: number
   evidence_score?: number
-  amplitude_real?: number
-  amplitude_imag?: number
   risk_level: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
 }
 
@@ -321,7 +319,6 @@ export interface ScenarioForecast {
   }>
   sensitivity_band?: Record<string, Record<string, number>>
   telemetry?: Record<string, any>
-  quantum_telemetry?: Record<string, any>
   briefing: ExecutiveBriefing
 }
 
