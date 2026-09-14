@@ -19,6 +19,7 @@ interface LandingPageProps {
   onOpenHelp?: () => void
   onOpenBrain?: () => void
   onOpenApiPortal?: () => void
+  onLock?: () => void
 }
 
 // ── 3D Tilt Card ──────────────────────────────────────────────
@@ -209,12 +210,6 @@ const USE_CASES = [
 
 // ── Main Component ─────────────────────────────────────────────
 
-const HERO_EXAMPLES = [
-  { label: '💼 Dylemat zawodowy', text: 'Nie wiem czy zmienić pracę na nową ofertę z wyższą pensją, czy zostać w obecnej firmie z dobrym zespołem.' },
-  { label: '📊 Wybór inwestycji', text: 'Chcę wybrać maksymalnie 2 projekty z 4 opcji przy ograniczonym budżecie.' },
-  { label: '🔀 Optymalizacja', text: 'Mam 5 zadań i 3 osoby w zespole — jak rozdzielić pracę żeby skończyć najszybciej?' },
-] as const
-
 export const LandingPage: React.FC<LandingPageProps> = ({
   onSubmit,
   isLoading,
@@ -224,6 +219,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onOpenHelp,
   onOpenBrain,
   onOpenApiPortal,
+  onLock,
 }) => {
   const inputSectionRef = useRef<HTMLDivElement>(null)
   const heroRef = useRef<HTMLElement>(null)
@@ -319,6 +315,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <span>Pomoc</span>
             </button>
           )}
+          {onLock && (
+            <button
+              onClick={onLock}
+              type="button"
+              className={s.navHelpBtn}
+              style={{ background: 'oklch(14% 0.025 250)', borderColor: 'oklch(28% 0.04 250)' }}
+              title="Zablokuj interfejs (wymaga hasła)"
+            >
+              <span>🔒</span>
+              <span>Zablokuj</span>
+            </button>
+          )}
           <button
             className={s.stickyNavCta}
             onClick={scrollToTop}
@@ -383,6 +391,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 justifyContent: 'center',
               }}>?</span>
               <span>Pomoc</span>
+            </button>
+          )}
+          {onLock && (
+            <button
+              onClick={onLock}
+              type="button"
+              className={s.navHelpBtn}
+              style={{ padding: '0.4rem 0.85rem', fontSize: '0.8125rem', background: 'oklch(14% 0.025 250)', borderColor: 'oklch(28% 0.04 250)' }}
+              title="Zablokuj interfejs (wymaga hasła)"
+            >
+              <span>🔒</span>
+              <span>Zablokuj</span>
             </button>
           )}
           <button
@@ -600,8 +620,22 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 </div>
               )}
 
-              <label className={s.heroInputLabel} htmlFor="hero-problem-input">
-                Wprowadź swój dylemat lub zadanie decyzyjne
+              <label
+                className={s.heroInputLabel}
+                htmlFor="hero-problem-input"
+                style={{
+                  fontSize: '0.875rem',
+                  fontWeight: 900,
+                  letterSpacing: '0.06em',
+                  color: 'oklch(90% 0.12 80)',
+                  marginBottom: '0.5rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                }}
+              >
+                <span>✍️</span>
+                <span>WPISZ SWÓJ DYLEMAT LUB PYTANIE DO PRZELICZENIA:</span>
               </label>
               <textarea
                 id="hero-problem-input"
@@ -613,24 +647,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     handleHeroSubmit()
                   }
                 }}
-                placeholder="Np. Stoję przed wyborem między dwiema ofertami pracy przy sprzecznych priorytetach, optymalny budżet 3 inwestycji z 7 opcji, alokacja zespołu..."
-                rows={3}
+                placeholder="Np. Czy Rosja napadnie w najbliższym czasie na Polskę? / Wybór najlepszego projektu z 5 opcji przy budżecie 100 tys. zł / Dylemat ofert pracy..."
+                rows={4}
                 className={s.heroTextarea}
                 disabled={isLoading}
               />
-              <div className={s.heroExamples} aria-label="Przykładowe dylematy">
-                {HERO_EXAMPLES.map((ex) => (
-                  <button
-                    key={ex.label}
-                    type="button"
-                    className={s.heroExampleChip}
-                    onClick={() => setHeroText(ex.text)}
-                    disabled={isLoading}
-                  >
-                    {ex.label}
-                  </button>
-                ))}
-              </div>
 
               {/* G1: Real Solver Telemetry & Honest Scientific Limits */}
               <div style={{

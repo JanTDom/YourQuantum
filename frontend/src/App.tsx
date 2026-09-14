@@ -18,12 +18,15 @@ import { HelpCenterModal } from './components/HelpCenterModal'
 import { BrainModal } from './components/BrainModal'
 import { ApiPortalModal } from './components/ApiPortalModal'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { AuthGate } from './components/AuthGate'
+import { QuantumLoadingOverlay } from './components/QuantumLoadingOverlay'
 
 type AppStage = 'INTAKE' | 'CASE_WORKSPACE' | 'DESIGN_WORKSPACE' | 'MODEL_APPROVAL' | 'RECOMMENDATION'
 
 export const App: React.FC = () => {
   const [stage, setStage] = useState<AppStage>('INTAKE')
   const [isLoading, setIsLoading] = useState(false)
+  const [logoutHandler, setLogoutHandler] = useState<(() => void) | null>(null)
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
@@ -314,23 +317,27 @@ export const App: React.FC = () => {
   }
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      flexDirection: 'column',
-      background: stage === 'INTAKE' ? 'oklch(6% 0.01 250)' : 'var(--bg-canvas)',
-      color: stage === 'INTAKE' ? 'oklch(96% 0.01 250)' : 'var(--text-primary)',
-    }}>
-      {/* AppHeader only shown after INTAKE — LandingPage manages its own nav */}
-      {stage !== 'INTAKE' && (
-        <AppHeader
-          onReset={handleReset}
-          isBusy={isLoading}
-          onOpenHelp={() => setIsHelpOpen(true)}
-          onOpenBrain={() => setIsBrainOpen(true)}
-          onOpenApiPortal={() => setIsApiPortalOpen(true)}
-        />
-      )}
+    <AuthGate onLogoutRegistered={(fn) => setLogoutHandler(() => fn)}>
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        background: stage === 'INTAKE' ? 'oklch(6% 0.01 250)' : 'var(--bg-canvas)',
+        color: stage === 'INTAKE' ? 'oklch(96% 0.01 250)' : 'var(--text-primary)',
+      }}>
+        {isLoading && <QuantumLoadingOverlay statusMessage={statusMessage} />}
+
+        {/* AppHeader only shown after INTAKE — LandingPage manages its own nav */}
+        {stage !== 'INTAKE' && (
+          <AppHeader
+            onReset={handleReset}
+            isBusy={isLoading}
+            onOpenHelp={() => setIsHelpOpen(true)}
+            onOpenBrain={() => setIsBrainOpen(true)}
+            onOpenApiPortal={() => setIsApiPortalOpen(true)}
+            onLock={logoutHandler || undefined}
+          />
+        )}
 
       {/* Global notifications */}
       {statusMessage && (
@@ -400,6 +407,7 @@ export const App: React.FC = () => {
               onOpenHelp={() => setIsHelpOpen(true)}
               onOpenBrain={() => setIsBrainOpen(true)}
               onOpenApiPortal={() => setIsApiPortalOpen(true)}
+              onLock={logoutHandler || undefined}
             />
           )}
 
@@ -560,6 +568,7 @@ export const App: React.FC = () => {
         </footer>
       )}
     </div>
+  </AuthGate>
   )
 }
 

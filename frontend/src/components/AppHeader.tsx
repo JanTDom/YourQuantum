@@ -6,6 +6,7 @@ interface AppHeaderProps {
   onOpenHelp?: () => void
   onOpenBrain?: () => void
   onOpenApiPortal?: () => void
+  onLock?: () => void
 }
 
 export const AppHeader: React.FC<AppHeaderProps> = ({
@@ -14,6 +15,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   onOpenHelp,
   onOpenBrain,
   onOpenApiPortal,
+  onLock,
 }) => {
   return (
     <header
@@ -288,6 +290,41 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         >
           Nowy dylemat
         </button>
+
+        {/* Lock session button */}
+        {onLock && (
+          <button
+            onClick={onLock}
+            style={{
+              background: 'oklch(14% 0.025 250)',
+              border: '1px solid oklch(28% 0.04 250)',
+              borderRadius: 'var(--radius-sm)',
+              padding: '0.45rem 0.75rem',
+              fontSize: '0.8125rem',
+              color: 'oklch(75% 0.02 250)',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+              transition: 'all 200ms ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'oklch(18% 0.035 250)'
+              e.currentTarget.style.color = 'oklch(95% 0.01 250)'
+              e.currentTarget.style.borderColor = 'oklch(40% 0.08 80)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'oklch(14% 0.025 250)'
+              e.currentTarget.style.color = 'oklch(75% 0.02 250)'
+              e.currentTarget.style.borderColor = 'oklch(28% 0.04 250)'
+            }}
+            title="Zablokuj interfejs (wymaga hasła)"
+          >
+            <span>🔒</span>
+            <span>Zablokuj</span>
+          </button>
+        )}
       </div>
 
 

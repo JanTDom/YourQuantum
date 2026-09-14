@@ -811,33 +811,38 @@
 
 .heroTextarea {
   width: 100%;
-  padding: 1.0625rem 1.125rem;
-  font-size: 1.0625rem;
+  padding: 1.25rem 1.35rem;
+  font-size: 1.1875rem;
+  font-weight: 500;
   line-height: 1.6;
-  background: oklch(11% 0.02 250);
-  border: 1.5px solid oklch(28% 0.035 250);
-  border-radius: 8px;
-  color: oklch(98% 0.01 250);
+  background: #ffffff;
+  border: 2.5px solid oklch(75% 0.14 80);
+  border-radius: 12px;
+  color: #0b0f19;
   resize: vertical;
   box-sizing: border-box;
   font-family: inherit;
-  transition: border-color 220ms ease, box-shadow 220ms ease, background 220ms ease;
-  min-height: 100px;
+  transition: border-color 220ms ease, box-shadow 220ms ease, transform 180ms ease;
+  min-height: 110px;
+  box-shadow: 0 4px 25px oklch(0% 0 0 / 0.4), 0 0 30px oklch(75% 0.14 80 / 0.3);
+  caret-color: #d97706;
 }
 
 .heroTextarea:focus {
   outline: none;
-  background: oklch(13% 0.025 250);
-  border-color: oklch(75% 0.12 80 / 0.9);
-  box-shadow: 0 0 0 3px oklch(75% 0.12 80 / 0.22);
+  background: #ffffff;
+  border-color: oklch(80% 0.16 80);
+  box-shadow: 0 0 0 4px oklch(75% 0.14 80 / 0.45), 0 0 50px oklch(75% 0.14 80 / 0.4), 0 8px 30px oklch(0% 0 0 / 0.5);
 }
 
 .heroTextarea::placeholder {
-  color: oklch(52% 0.025 250);
+  color: #64748b;
+  font-weight: 400;
 }
 
 .heroTextarea:disabled {
-  opacity: 0.5;
+  opacity: 0.6;
+  background: #f1f5f9;
   cursor: not-allowed;
 }
 
