@@ -1,17 +1,17 @@
 # YourQuantum — CURRENT STATE
-_Last updated: 2026-09-14 (Quantum Scenario Forecasting & Born-Rule Probabilistic Risk Engine)_
+_Last updated: 2026-09-14 (Polish Orthography, Percentage Comma & Executive Copy Polish)_
 
-## Status: QUANTUM SCENARIO RISK FORECASTING (BORN RULE COMBINATORICS) & DUAL-LAYER BRIEFING WDROŻONE
+## Status: POLISH ORTHOGRAPHY & EXECUTIVE SCENARIO COPY DOMKNIĘTE (PROD LIVE)
 
-- **Gałąź i stan repo**: `main` — implementacja kwantowej kombinatoryki scenariuszy i prawdopodobieństw reguły Borna.
+- **Gałąź i stan repo**: `main` — pełna normalizacja nazw własnych (Ukraina, NATO, Polska, Rosja itp.), prezentacja procentów z polskim przecinkiem (`95,1% szans`) i opisem słownym, naturalna składnia kart alternatywnych wariantów.
 - **Kluczowe moduły i pliki**:
-  * `backend/domain/quantum_scenarios.py`: Model energetyczny i obliczanie prawdopodobieństw reguły Borna $P(s) = |\alpha|^2$ na symulatorze `AerSimulator`.
-  * `backend/domain/cognitive/scenario_decomposer.py`: Klasyfikator predykcyjny i dekompozytor pytań na dyskretne scenariusze i mierzalne wektory przesłanek dowodowych.
-  * `backend/domain/problem_classes.py`: Usunięcie blokady `NOT_COMPUTABLE` dla prognoz i ryzyk geopolitycznych/rynkowych.
-  * `frontend/src/components/RecommendationView.tsx`: Dedykowany widok scenariuszowy z paskami prawdopodobieństwa Borna, dominantą scenariusza, wektorami przesłanek i rozwijaną szufladą techniczną amplitud stanów.
+  * `backend/domain/quantum_scenarios.py`: Normalizator `normalize_polish_geopolitical_text` dla wszystkich polskich przypadków i deklinacji, polski przecinek w podsumowaniu i czytelne etykiety kierunkowe.
+  * `backend/domain/cognitive/scenario_decomposer.py`: Wyczyszczone szablony scenariuszy i przesłanek, wzmocniony prompt LLM z bezwzględną zasadą ortografii, wyeliminowany mechaniczny żargon z `case_options`.
+  * `frontend/src/components/RecommendationView.tsx`: Wyrazista prezentacja `95,1% szans` wraz ze słownym wskaźnikiem prawdopodobieństwa (`Wariant niemal pewny (ponad 90 na 100 szans)`), spolszczone plakietki zagrożenia oraz kolorystyczne wektory dowodowe.
   * `tests/unit/test_quantum_scenarios.py`: 4 testy jednostkowe pokrywające detekcję, normalizację $\sum P(s_i)=1.0$, zgodność amplitud i dekompozycję offline/mock.
 - **Wszystkie mechaniczne bramki weryfikacyjne w `scripts/check_v4.sh`**: 23/23 ZIELONE (PASS).
-- **Testy jednostkowe pytest oraz build TypeScript**: ZIELONE (188/188 PASS, 0 błędów typowania).
+- **Testy jednostkowe pytest oraz build TypeScript**: ZIELONE (100% PASS, 0 błędów typowania).
+- **Wdrożenie produkcyjne**: `https://yourquantum.pl` (Vercel prod `dpl_7txdifyPBp5U73ew1JzuLySsj5yx`) zrealizowane i zweryfikowane w Puppeteerze.
 
 ### Stan przed V4 — Surowy wynik bramek mechanicznych (`scripts/check_v4.sh`):
 
