@@ -15,6 +15,7 @@ from backend.domain.decision_case import (
 from backend.domain.quantum_scenarios import (
     ScenarioOutcome, EvidencePremise, QuantumScenarioForecast,
     compute_quantum_scenario_probabilities,
+    normalize_polish_geopolitical_text,
 )
 from backend.infrastructure.llm_gateway import LLMGateway
 
@@ -96,19 +97,24 @@ async def decompose_scenario_query_async(
 
     if gw.is_available:
         sys_inst = (
-            "Jesteś analitykiem wywiadowczym, teorii gier i probabilistyki YourQuantum. "
+            "Jesteś czołowym analitykiem wywiadowczym, teorii gier i probabilistyki kwantowej YourQuantum. "
             "Użytkownik zadaje pytanie o prawdopodobieństwo przyszłych zdarzeń lub ryzyko geopolityczne/rynkowe. "
             "Twoim zadaniem jest sformalizować ten problem jako przestrzeń 3 wzajemnie wykluczających się scenariuszy "
             "oraz 3-5 kluczowych, mierzalnych przesłanek (wskaźników) empirycznych i geostrategicznych. "
             "Dla każdej przesłanki określ wpływ (impact_on_scenarios od -1.0 do +1.0) na poszczególne scenariusze. "
             "Wartości dodatnie oznaczają, że dana przesłanka zwiększa prawdopodobieństwo scenariusza; "
-            "wartości ujemne oznaczają, że mu przeciwdziała lub go wyklucza."
+            "wartości ujemne oznaczają, że mu przeciwdziała lub go wyklucza.\n\n"
+            "BEZWZGLĘDNA ZASADA ORTOGRAFII I JĘZYKA POLSKIEGO:\n"
+            "- Wszystkie nazwy własne państw, sojuszy i instytucji pisz Z DUŻEJ LITERY: Ukraina, Ukrainy, Ukrainie, "
+            "Polska, Polski, Polsce, Rosja, Rosji, NATO, USA, UE, PKB, MON, ISW, OSW.\n"
+            "- Opisy formułuj w nienagannym, naturalnym, zrozumiałym języku decyzyjnym.\n"
+            "- Całkowity zakaz żargonu typu 'wektor energetyczny' czy 'wariant kinetyczny'."
         )
         user_content = (
             f"Pytanie użytkownika:\n\"{query}\"\n\n"
             f"Fakty i kontekst z sieci:\n{snippets_text}\n\n"
-            "Zbuduj 3 scenariusze (np. 1. Status quo/odstraszanie, 2. Eskalacja podprogowa/hybrydowa, 3. Otwarty konflikt) "
-            "oraz mierzalne przesłanki."
+            "Zbuduj 3 scenariusze (np. 1. Status quo i odstraszanie sojusznicze NATO, 2. Działania hybrydowe i prowokacje podprogowe, 3. Bezpośredni atak militarny) "
+            "oraz 3-4 mierzalne przesłanki z twardych źródeł (np. ISW, OSW, raporty NATO, wydatki PKB)."
         )
         try:
             res = await gw.generate(
@@ -120,12 +126,12 @@ async def decompose_scenario_query_async(
             )
             if res.parsed_json and isinstance(res.parsed_json, dict):
                 p_json = res.parsed_json
-                domain = p_json.get("domain", domain)
+                domain = normalize_polish_geopolitical_text(p_json.get("domain", domain))
                 for sc_data in p_json.get("scenarios", []):
                     scenarios.append(ScenarioOutcome(
                         id=str(sc_data["id"]),
-                        title=str(sc_data["title"]),
-                        description=str(sc_data.get("description", "")),
+                        title=normalize_polish_geopolitical_text(str(sc_data["title"])),
+                        description=normalize_polish_geopolitical_text(str(sc_data.get("description", ""))),
                         risk_level=sc_data.get("risk_level", "MEDIUM"),
                     ))
                 for pr_data in p_json.get("premises", []):
@@ -133,9 +139,9 @@ async def decompose_scenario_query_async(
                     impacts = {str(k): float(v) for k, v in raw_impacts.items()}
                     premises.append(EvidencePremise(
                         id=str(pr_data["id"]),
-                        name=str(pr_data["name"]),
-                        description=str(pr_data.get("description", "")),
-                        source=str(pr_data.get("source", "analiza wywiadowcza / dane publiczne")),
+                        name=normalize_polish_geopolitical_text(str(pr_data["name"])),
+                        description=normalize_polish_geopolitical_text(str(pr_data.get("description", ""))),
+                        source=normalize_polish_geopolitical_text(str(pr_data.get("source", "analiza wywiadowcza / dane publiczne"))),
                         confidence=float(pr_data.get("confidence", 0.9)),
                         weight=float(pr_data.get("weight", 1.0)),
                         impact_on_scenarios=impacts,
@@ -157,15 +163,26 @@ async def decompose_scenario_query_async(
         shots=2048,
     )
 
-    # Build DecisionCase representation
+    # Build DecisionCase representation with clear Polish copy
     case_options: list[Option] = []
     for sc in forecast.scenarios:
+        pct_formatted = f"{sc.probability * 100:.1f}%".replace(".", ",")
+        if sc.risk_level == "LOW":
+            pros = ["Wspierany przez twarde czynniki odstraszania i sojuszniczą obecność NATO."]
+            cons = ["Wymaga utrzymania wysokich nakładów obronnych i jedności sojuszniczej."]
+        elif sc.risk_level in ("HIGH", "CRITICAL"):
+            pros = ["Obecnie skrajnie mało prawdopodobny ze względu na uwiązanie sił agresora w Ukrainie."]
+            cons = ["W razie zaistnienia wiąże się z bezpośrednim zagrożeniem militarnym i stratami."]
+        else:
+            pros = ["Pozwala skupić środki na obronie infrastruktury krytycznej i cyberprzestrzeni."]
+            cons = ["Powoduje stałą presję informacyjną oraz koszty ochrony granic."]
+
         case_options.append(Option(
             id=sc.id,
-            title=f"{sc.title} (Prawdopodobieństwo: {sc.probability * 100:.1f}%)",
+            title=f"{sc.title} (Szacunek szans: {pct_formatted})",
             description=sc.description,
-            pros=[f"Wspierane przez przesłanki o zgodnym wektorze energetycznym."],
-            cons=[f"Ryzyko wariantu: {sc.risk_level}."],
+            pros=pros,
+            cons=cons,
             attributes={"probability": sc.probability, "risk_level": sc.risk_level, "energy": sc.energy_level},
         ))
 
@@ -213,20 +230,20 @@ def _get_default_scenarios_for_query(query: str) -> list[ScenarioOutcome]:
     return [
         ScenarioOutcome(
             id="scen_status_quo",
-            title="Status Quo i skuteczne odstraszanie sojusznicze NATO",
-            description="Brak bezpośredniego ataku; gwarancje art. 5 Traktatu Waszyngtońskiego oraz obecność wojsk sojuszniczych w Polsce powstrzymują agresję militarną.",
+            title="Status quo i skuteczne odstraszanie sojusznicze NATO",
+            description="Brak bezpośredniego ataku; gwarancje art. 5 Traktatu Waszyngtońskiego oraz obecność wojsk sojuszniczych USA i NATO w Polsce skutecznie powstrzymują agresję militarną.",
             risk_level="LOW",
         ),
         ScenarioOutcome(
             id="scen_hybrid_grey",
-            title="Eskalacja hybrydowa i prowokacje podprogowe",
-            description="Intensyfikacja operacji w domenie cybernetycznej, presja graniczna, zakłócenia GPS oraz akty dywersji infrastruktury poniżej progu otwartej wojny konwencjonalnej.",
+            title="Wrogie działania hybrydowe i prowokacje podprogowe",
+            description="Wzrost presji w domenie cybernetycznej, zakłócenia sygnału GPS, prowokacje graniczne oraz próby dezinformacji poniżej progu otwartego konfliktu zbrojnego.",
             risk_level="MEDIUM",
         ),
         ScenarioOutcome(
             id="scen_kinetic_aggression",
-            title="Otwarta agresja konwencjonalna na terytorium RP",
-            description="Bezpośredni atak militarny na terytorium Rzeczypospolitej Polskiej prowadzący do uruchomienia art. 5 NATO.",
+            title="Bezpośredni atak militarny na terytorium Polski",
+            description="Otwarta agresja konwencjonalna na terytorium Rzeczypospolitej Polskiej prowadząca do natychmiastowej odpowiedzi całego sojuszu NATO w ramach art. 5.",
             risk_level="CRITICAL",
         ),
     ]
@@ -237,36 +254,36 @@ def _get_default_premises_for_query(query: str) -> list[EvidencePremise]:
     return [
         EvidencePremise(
             id="prem_ua_binding",
-            name="Uwiązanie i straty rosyjskich wojsk lądowych w Ukrainie",
-            description="Ponad 85% aktywnych jednostek wojsk lądowych Federacji Rosyjskiej jest trwale zaangażowanych w działania wojenne w Ukrainie z krytycznymi stratami sprzętowymi.",
-            source="Raporty ISW / Brytyjski Wywiad Obronny (MoD) / OSW",
+            name="Uwiązanie i straty armii rosyjskiej w walkach w Ukrainie",
+            description="Zdecydowana większość jednostek lądowych Rosji ponosi ciężkie straty w Ukrainie, co uniemożliwia otwarcie nowego frontu przeciwko państwom NATO.",
+            source="Instytut Badań nad Wojną (ISW) / Ośrodek Studiów Wschodnich (OSW)",
             weight=1.0,
             confidence=0.95,
             impact_on_scenarios={"scen_status_quo": 0.85, "scen_hybrid_grey": 0.25, "scen_kinetic_aggression": -0.95},
         ),
         EvidencePremise(
             id="prem_nato_article_5",
-            name="Wiarygodność art. 5 NATO i obecność wojsk sojuszniczych",
-            description="Stałe stacjonowanie wojsk USA w Polsce (V Korpus w Poznaniu), parasol nuklearny sojuszu i misja Enhanced Forward Presence.",
-            source="Deklaracja Szczytu NATO w Waszyngtonie 2024",
+            name="Gwarancje art. 5 NATO i obecność wojsk sojuszniczych w Polsce",
+            description="Stałe stacjonowanie wojsk USA w Polsce (V Korpus w Poznaniu), siły sojusznicze NATO na wschodniej flance oraz parasol nuklearny sojuszu.",
+            source="Deklaracja Szczytu NATO / Pentagon / MON",
             weight=1.0,
             confidence=0.98,
             impact_on_scenarios={"scen_status_quo": 0.90, "scen_hybrid_grey": -0.20, "scen_kinetic_aggression": -0.95},
         ),
         EvidencePremise(
             id="prem_pl_defense_spending",
-            name="Poziom wydatków obronnych Polski (4.7% PKB) i modernizacja armii",
-            description="Polska przeznacza najwyższy odsetek PKB w NATO na obronność, rozbudowując potencjał artylerii rakietowej, wojsk pancernych i obrony powietrznej (Wisła/Narew).",
-            source="NATO Defence Expenditures Report 2024 / MON",
+            name="Rekordowe wydatki obronne Polski (4,7% PKB) i modernizacja armii",
+            description="Polska przeznacza najwyższy odsetek PKB w NATO na obronność, rozbudowując obronę powietrzną (Patriot/Wisła), artylerię rakietową (HIMARS) i wojska pancerne.",
+            source="Raport Wydatków Obronnych NATO 2024 / Ministerstwo Obrony Narodowej (MON)",
             weight=0.9,
             confidence=0.92,
             impact_on_scenarios={"scen_status_quo": 0.75, "scen_hybrid_grey": -0.10, "scen_kinetic_aggression": -0.80},
         ),
         EvidencePremise(
             id="prem_ru_war_economy",
-            name="Przestawienie gospodarki FR na tryb wojenny i wskaźniki mobilizacyjne",
-            description="Wydatki na zbrojenia w Rosji przekraczają 6% PKB, a zapasy amunicji są uzupełniane dostawami z KRLD i Iranu, co zwiększa zdolność do presji hybrydowej.",
-            source="SIPRI / IISS Military Balance 2024",
+            name="Przestawienie gospodarki Rosji na tryb wojenny",
+            description="Rosja zwiększyła nakłady na zbrojenia powyżej 6% PKB, co stwarza długofalowe ryzyko w sferze prowokacji i presji hybrydowej, lecz nie daje przewagi nad NATO.",
+            source="Międzynarodowy Instytut Studiów Strategicznych (IISS) / SIPRI",
             weight=0.8,
             confidence=0.88,
             impact_on_scenarios={"scen_status_quo": -0.30, "scen_hybrid_grey": 0.70, "scen_kinetic_aggression": 0.30},

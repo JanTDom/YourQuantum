@@ -374,7 +374,30 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                   {forecast.scenarios.map((sc, idx) => {
                     const isDominant = sc.id === forecast.dominant_scenario_id
-                    const pct = (sc.probability * 100).toFixed(1)
+                    const pctNum = sc.probability * 100
+                    const pctPl = pctNum < 0.1 && pctNum > 0 ? '< 0,1%' : `${pctNum.toFixed(1).replace('.', ',')}%`
+
+                    let verbalChance = ''
+                    if (pctNum >= 90) {
+                      verbalChance = 'Wariant niemal pewny (ponad 90 na 100 szans)'
+                    } else if (pctNum >= 50) {
+                      verbalChance = 'Wysokie prawdopodobieństwo (większość szans)'
+                    } else if (pctNum >= 15) {
+                      verbalChance = 'Umiarkowane prawdopodobieństwo (realny wariant)'
+                    } else if (pctNum >= 1) {
+                      verbalChance = 'Niskie prawdopodobieństwo (kilka szans na 100)'
+                    } else {
+                      verbalChance = 'Znikome prawdopodobieństwo (poniżej 1 na 100 szans)'
+                    }
+
+                    const riskLabelMap: Record<string, string> = {
+                      LOW: 'Niskie zagrożenie (stabilność)',
+                      MEDIUM: 'Umiarkowane (presja hybrydowa)',
+                      HIGH: 'Wysokie zagrożenie',
+                      CRITICAL: 'Krytyczne (otwarty konflikt)',
+                    }
+                    const riskLabel = riskLabelMap[sc.risk_level] || sc.risk_level
+
                     return (
                       <div
                         key={sc.id}
@@ -387,7 +410,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                         }}
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
                             <span style={{
                               fontWeight: 900,
                               fontSize: '0.8125rem',
@@ -415,23 +438,44 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                               textTransform: 'uppercase',
                               padding: '0.15rem 0.5rem',
                               borderRadius: '4px',
-                              background: sc.risk_level === 'CRITICAL' || sc.risk_level === 'HIGH' ? 'oklch(20% 0.1 25)' : 'oklch(16% 0.03 160)',
-                              color: sc.risk_level === 'CRITICAL' || sc.risk_level === 'HIGH' ? 'oklch(75% 0.2 25)' : 'oklch(80% 0.15 160)',
+                              background: sc.risk_level === 'CRITICAL' || sc.risk_level === 'HIGH'
+                                ? 'oklch(20% 0.1 25)'
+                                : sc.risk_level === 'MEDIUM'
+                                ? 'oklch(20% 0.08 60)'
+                                : 'oklch(16% 0.03 160)',
+                              color: sc.risk_level === 'CRITICAL' || sc.risk_level === 'HIGH'
+                                ? 'oklch(80% 0.18 25)'
+                                : sc.risk_level === 'MEDIUM'
+                                ? 'oklch(82% 0.14 60)'
+                                : 'oklch(80% 0.15 160)',
+                              border: sc.risk_level === 'CRITICAL' || sc.risk_level === 'HIGH'
+                                ? '1px solid oklch(35% 0.15 25)'
+                                : 'none',
                             }}>
-                              RYZYKO: {sc.risk_level}
+                              Zagrożenie: {riskLabel}
                             </span>
                           </div>
 
-                          <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
-                            <span style={{
-                              fontSize: '1.5rem',
-                              fontWeight: 900,
-                              color: isDominant ? 'oklch(95% 0.1 80)' : 'oklch(85% 0.02 250)',
-                            }}>
-                              {pct}%
-                            </span>
-                            <span style={{ fontSize: '0.6875rem', color: 'oklch(60% 0.02 250)' }}>
-                              Prawdopodobieństwo
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.1rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.35rem' }}>
+                              <span style={{
+                                fontSize: '1.625rem',
+                                fontWeight: 900,
+                                letterSpacing: '-0.02em',
+                                color: isDominant ? 'oklch(96% 0.12 80)' : 'oklch(86% 0.02 250)',
+                              }}>
+                                {pctPl}
+                              </span>
+                              <span style={{
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
+                                color: isDominant ? 'oklch(85% 0.12 80)' : 'oklch(65% 0.02 250)',
+                              }}>
+                                szans
+                              </span>
+                            </div>
+                            <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: isDominant ? 'oklch(75% 0.08 80)' : 'oklch(60% 0.02 250)' }}>
+                              {verbalChance}
                             </span>
                           </div>
                         </div>
@@ -448,7 +492,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                             height: '100%',
                             background: isDominant
                               ? 'linear-gradient(to right, oklch(75% 0.12 80), oklch(88% 0.15 80))'
-                              : 'linear-gradient(to right, oklch(55% 0.15 240), oklch(65% 0.18 240))',
+                              : 'linear-gradient(to right, oklch(50% 0.12 240), oklch(60% 0.14 240))',
                             borderRadius: '4px',
                             transition: 'width 600ms cubic-bezier(0.16, 1, 0.3, 1)',
                           }} />
@@ -507,10 +551,23 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                         <div style={{
                           fontSize: '0.75rem',
                           fontWeight: 700,
-                          padding: '0.2rem 0.5rem',
-                          borderRadius: '4px',
-                          background: 'oklch(16% 0.03 240)',
-                          color: 'oklch(80% 0.12 240)',
+                          padding: '0.25rem 0.6rem',
+                          borderRadius: '5px',
+                          background: pillar.chosen_option?.includes('oddala') || pillar.chosen_option?.includes('stabilność')
+                            ? 'oklch(18% 0.05 160)'
+                            : pillar.chosen_option?.includes('Podwyższa') || pillar.chosen_option?.includes('zagrożenia')
+                            ? 'oklch(20% 0.08 40)'
+                            : 'oklch(16% 0.03 240)',
+                          color: pillar.chosen_option?.includes('oddala') || pillar.chosen_option?.includes('stabilność')
+                            ? 'oklch(82% 0.14 160)'
+                            : pillar.chosen_option?.includes('Podwyższa') || pillar.chosen_option?.includes('zagrożenia')
+                            ? 'oklch(82% 0.14 40)'
+                            : 'oklch(80% 0.12 240)',
+                          border: pillar.chosen_option?.includes('oddala') || pillar.chosen_option?.includes('stabilność')
+                            ? '1px solid oklch(30% 0.08 160)'
+                            : pillar.chosen_option?.includes('Podwyższa') || pillar.chosen_option?.includes('zagrożenia')
+                            ? '1px solid oklch(35% 0.12 40)'
+                            : '1px solid oklch(25% 0.04 240)',
                           marginBottom: '0.6rem',
                           display: 'inline-block',
                         }}>
@@ -636,7 +693,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                                 <td style={{ padding: '0.5rem', fontWeight: 600 }}>{s.title}</td>
                                 <td style={{ padding: '0.5rem', fontFamily: 'monospace' }}>{(s.energy_level || 0).toFixed(3)}</td>
                                 <td style={{ padding: '0.5rem', fontFamily: 'monospace' }}>({(s.amplitude_real || 0).toFixed(4)}, {(s.amplitude_imag || 0).toFixed(4)}i)</td>
-                                <td style={{ padding: '0.5rem', fontWeight: 800, color: 'oklch(85% 0.14 80)' }}>{(s.probability * 100).toFixed(2)}%</td>
+                                <td style={{ padding: '0.5rem', fontWeight: 800, color: 'oklch(85% 0.14 80)' }}>{(s.probability * 100).toFixed(2).replace('.', ',')}%</td>
                               </tr>
                             ))}
                           </tbody>
