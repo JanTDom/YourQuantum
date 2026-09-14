@@ -8,14 +8,19 @@ _Last updated: 2026-09-14 (V5: Uczciwe prognozy scenariuszowe, ważony softmax, 
   * Dodano `llm_suggested` do walidacji `ScoredValue.provenance` w `backend/domain/decision_case.py`.
   * Włączono `is_accepted: true` jako stan początkowy dla propozycji przesłanek generowanych przez dekompozytor (z zachowaniem oznaczenia `🤖 Sugestia AI` i pełnej edytowalności), dzięki czemu użytkownik natychmiast po zapytaniu otrzymuje policzony rozkład i briefing, zamiast pustego ekranu wyboru.
   * Zabezpieczono `frontend/src/App.tsx` oraz `backend/domain/cognitive/active_inference_engine.py` przed przejściem do widoku wyników, gdy scenariusze są puste (`len(scenarios) < 2`).
+- **Stan i typografia (Polska norma sentence case)**:
+  * Wprowadzono funkcję normalizującą `to_polish_sentence_case` w `backend/domain/scenario_weighting.py` z zachowaniem nazw własnych (np. Polska, Rosja, NATO, Ukraina, USA, UE) oraz małych liter dla przymiotników od nazw państw (np. rosyjski, polski).
+  * Zaktualizowano instrukcję dekompozytora w `backend/domain/cognitive/scenario_decomposer.py` z bezwzględnym zakazem angielskiego Title Case.
+  * Usunięto reguły CSS `textTransform: 'uppercase'` ze wszystkich nagłówków, pytań, etykiet, kart i przycisków w komponentach frontendu (`RecommendationView.tsx`, `CaseWorkspace.tsx`, `DesignWorkspace.tsx`, `ModelApprovalGate.tsx`, `EvidenceDrawer.tsx`, `HelpCenterModal.tsx`, `AuthGate.tsx`, `ConversationPanel.tsx`, `LandingPage.tsx`).
 - **Weryfikacja testowa**:
-  * `tests/unit/test_scenario_weighting.py`: 7/7 testów PASS.
+  * `tests/unit/test_scenario_weighting.py`: 8/8 testów PASS (w tym test reguły sentence case).
   * `tests/test_v4_regressions.py`: 26/26 testów PASS.
-  * Łącznie: 33/33 testy PASS (0 awarii, 0 regresji).
-  * `npm run build`: Kompilacja TypeScript/Vite czysta (0 błędów).
-- **Wdrożenie produkcyjne**: `https://yourquantum.pl` (Vercel prod deployment `dpl_EbEUG8WiEXwtauPprSz8y2vLmPzC`):
-  * Zweryfikowano empirycznie na żywo zapytaniem `"Czy Rosja napadnie w najbliższym czasie na Polskę?"`:
-  * Wynik: S2 ("Kontynuacja i intensyfikacja działań hybrydowych i cybernetycznych bez eskalacji militarnej") z prawdopodobieństwem bazowym 52,4% (pasmo wrażliwości: 44,1%–70,2%), S3 (39,2%), S1 (8,4%). Analityczne tipping points i briefing wygenerowane poprawnie, zero błędów w konsoli i brak pustego wyboru.
+  * Łącznie: 34/34 testy PASS (0 awarii, 0 regresji).
+  * `npm run build`: Kompilacja TypeScript/Vite czysta (0 błędów, kod 0).
+- **Wdrożenie produkcyjne**: `https://yourquantum.pl` (Vercel prod deployment `dpl_CbFgGLjcV6CXt5i1F8g252CpYKuw`):
+  * Zweryfikowano empirycznie na żywo zapytaniem `"Czy Rosja w najbliższym czasie napadnie na Polskę?"`:
+  * Odpowiedź na żywo zwraca tytuły w poprawnym sentence case: "Utrzymanie status quo z podwyższonymi napięciami", "Eskalacja działań hybrydowych Rosji wobec Polski", "Bezpośrednia inwazja konwencjonalna Rosji na Polskę".
+  * Wyeliminowano krzyczące ALL CAPS oraz kalki z angielskiego Title Case w całym systemie.
 
 ### Stan przed V4 — Surowy wynik bramek mechanicznych (`scripts/check_v4.sh`):
 
