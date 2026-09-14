@@ -82,6 +82,15 @@ export const App: React.FC = () => {
         return
       }
 
+      if (intakeRes.status === 'needs_clarification' && !intakeRes.decision_case) {
+        const reason = intakeRes.explanation || 'Opis wymaga zdefiniowania wariantów decyzyjnych.'
+        const suggestions = intakeRes.questions?.length
+          ? ` Sugestia: ${intakeRes.questions.join(' ')}`
+          : ' Zdefiniuj co najmniej dwie opcje do wyboru (np. "Wybierz między opcją A a B").'
+        setErrorMessage(`[Wymaga uściślenia] ${reason}${suggestions}`)
+        return
+      }
+
       if (intakeRes.problem_class) {
         setProblemClass(intakeRes.problem_class)
       }
@@ -93,7 +102,11 @@ export const App: React.FC = () => {
         setFormalized(intakeRes.formalized)
       }
 
-      setStage('CASE_WORKSPACE')
+      if (intakeRes.decision_case) {
+        setStage('CASE_WORKSPACE')
+      } else {
+        setErrorMessage(intakeRes.explanation || 'Nie udało się wyodrębnić wariantów decyzyjnych. Podaj co najmniej dwie opcje do porównania.')
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Wystąpił błąd podczas analizy kognitywnej'
       setErrorMessage(msg)
@@ -295,23 +308,39 @@ export const App: React.FC = () => {
           />
         )}
 
-        {stage === 'CASE_WORKSPACE' && decisionCase && (
-          <CaseWorkspace
-            decisionCase={decisionCase}
-            problemClass={problemClass}
-            problemClassReason={intakeExplanation || undefined}
-            onOverrideProblemClass={(newClass) => {
-              setProblemClass(newClass)
-              if (userQuery) {
-                handleIntakeSubmit(userQuery, newClass)
-              }
-            }}
-            onAnswerUnknown={handleAnswerUnknown}
-            onUpdateCase={setDecisionCase}
-            onProceedToModeling={handleProceedToModeling}
-            onBackToEdit={() => setStage('INTAKE')}
-            isLoading={isLoading}
-          />
+        {stage === 'CASE_WORKSPACE' && (
+          decisionCase ? (
+            <CaseWorkspace
+              decisionCase={decisionCase}
+              problemClass={problemClass}
+              problemClassReason={intakeExplanation || undefined}
+              onOverrideProblemClass={(newClass) => {
+                setProblemClass(newClass)
+                if (userQuery) {
+                  handleIntakeSubmit(userQuery, newClass)
+                }
+              }}
+              onAnswerUnknown={handleAnswerUnknown}
+              onUpdateCase={setDecisionCase}
+              onProceedToModeling={handleProceedToModeling}
+              onBackToEdit={() => setStage('INTAKE')}
+              isLoading={isLoading}
+            />
+          ) : (
+            <div style={{ textAlign: 'center', padding: '5rem 2rem' }}>
+              <p style={{ fontSize: '1.125rem', color: 'var(--text-muted)' }}>
+                Brak aktywnego przypadku decyzyjnego do wyświetlenia.
+              </p>
+              <button
+                type="button"
+                onClick={handleReset}
+                className="btn-primary"
+                style={{ marginTop: '1.5rem', padding: '0.75rem 1.5rem', cursor: 'pointer' }}
+              >
+                ← Wróć do strony głównej
+              </button>
+            </div>
+          )
         )}
 
         {stage === 'MODEL_APPROVAL' && formalized && (
