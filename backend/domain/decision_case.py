@@ -78,7 +78,7 @@ class ScoredValue(BaseModel):
     """
     value: float
     unit: str | None = None
-    provenance: Literal["user_supplied", "derived", "assumed", "web_sourced", "llm_extracted"] = "user_supplied"
+    provenance: Literal["user_supplied", "derived", "assumed", "web_sourced", "llm_extracted", "llm_suggested"] = "user_supplied"
     source_ref: str | None = None  # fact_id | evidence_id | "assumption" | "user_input"
     confidence: float = Field(default=1.0, ge=0.0, le=1.0)
 

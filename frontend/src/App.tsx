@@ -119,23 +119,24 @@ export const App: React.FC = () => {
         return
       }
 
-      if (intakeRes.scenario_forecast) {
+      if (intakeRes.scenario_forecast && intakeRes.scenario_forecast.scenarios && intakeRes.scenario_forecast.scenarios.length >= 2) {
         setScenarioForecast(intakeRes.scenario_forecast)
         setProblemClass('CHOICE')
         if (intakeRes.decision_case) {
           setDecisionCase(intakeRes.decision_case)
         }
+        const dominantId = intakeRes.scenario_forecast.dominant_scenario_id || intakeRes.scenario_forecast.scenarios[0].id
         const synthJobResult: JobResult = {
           job_id: `scenario_${Date.now()}`,
-          problem_id: 'quantum_scenario_forecast',
+          problem_id: 'scenario_risk_forecast',
           execution_status: 'COMPLETED',
           publication_status: 'PUBLISHED_VERIFIED',
           math_status: 'OPTIMAL',
-          source: 'qiskit_aer_born_sampling',
+          source: 'weighted_softmax_aggregation',
           objective_value: 1.0,
-          solve_time_seconds: Number(intakeRes.scenario_forecast.quantum_telemetry?.solve_time_seconds || 0.05),
+          solve_time_seconds: Number(intakeRes.scenario_forecast.telemetry?.solve_time_seconds || 0.05),
           solver_result: {
-            assignment: { [intakeRes.scenario_forecast.dominant_scenario_id]: 1 },
+            assignment: { [dominantId]: 1 },
           },
           verification: null,
           error_message: null,

@@ -70,12 +70,19 @@ SCENARIO_EXTRACTION_SCHEMA = {
                     "source": {"type": "string"},
                     "weight": {"type": "number"},
                     "confidence": {"type": "number"},
-                    "impact_on_scenarios": {
-                        "type": "object",
-                        "additionalProperties": {"type": "number"}
+                    "impacts": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "scenario_id": {"type": "string"},
+                                "impact": {"type": "number"}
+                            },
+                            "required": ["scenario_id", "impact"]
+                        }
                     }
                 },
-                "required": ["id", "name", "description", "weight", "impact_on_scenarios"],
+                "required": ["id", "name", "description", "weight", "impacts"],
             },
         },
     },
@@ -139,8 +146,23 @@ async def decompose_scenario_query_async(
                         risk_level=sc_data.get("risk_level", "MEDIUM"),
                     ))
                 for pr_data in p_json.get("premises", []):
-                    raw_impacts = pr_data.get("impact_on_scenarios", {})
-                    impacts = {str(k): float(v) for k, v in raw_impacts.items()}
+                    raw_impacts = pr_data.get("impacts") or pr_data.get("impact_on_scenarios", {})
+                    if isinstance(raw_impacts, list):
+                        impacts = {
+                            str(item["scenario_id"]): float(item["impact"])
+                            for item in raw_impacts
+                            if isinstance(item, dict) and "scenario_id" in item and "impact" in item
+                        }
+                    elif isinstance(raw_impacts, dict):
+                        impacts = {str(k): float(v) for k, v in raw_impacts.items()}
+                    else:
+                        impacts = {}
+
+                    # Ensure all known scenarios have an entry (default 0.0 if not specified)
+                    for sc in scenarios:
+                        if sc.id not in impacts:
+                            impacts[sc.id] = 0.0
+
                     premises.append(EvidencePremise(
                         id=str(pr_data["id"]),
                         name=normalize_polish_geopolitical_text(str(pr_data["name"])),
@@ -151,7 +173,7 @@ async def decompose_scenario_query_async(
                         impact_on_scenarios=impacts,
                         provenance="llm_suggested",
                         source_ref=str(pr_data.get("source", "propozycja modelu")),
-                        is_accepted=False,
+                        is_accepted=True,
                     ))
         except Exception as exc:
             logger.warning("LLM scenario decomposition failed: %s", exc)

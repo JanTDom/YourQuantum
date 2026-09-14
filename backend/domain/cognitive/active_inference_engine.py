@@ -508,25 +508,38 @@ class ActiveInferenceOrchestrator:
                 web_snippets=web_context_snippets,
             )
 
-            formalization = FormalizationResult(
-                status="ready_for_review",
-                raw_query=query,
-                fingerprint=fp,
-                problem_class="CHOICE",
-                confidence=classification.confidence,
-                decision_case=case,
-                scenario_forecast=forecast.model_dump(mode="json"),
-                explanation=forecast.briefing.executive_summary,
-                session_id=ws.session_id,
-                metadata={
-                    "classification_reason": classification.reason,
-                    "dominant_scenario_id": forecast.dominant_scenario_id,
-                    "telemetry": forecast.telemetry,
-                    "web_sources_count": len(web_context_snippets),
-                },
-            )
-            ws.update_hypothesis(None, {"status": "ready_for_review", "mode": "SCENARIO_FORECAST"})
-            return formalization, ws
+            if len(forecast.scenarios) >= 2 and len(forecast.evidence_premises) > 0:
+                formalization = FormalizationResult(
+                    status="ready_for_review",
+                    raw_query=query,
+                    fingerprint=fp,
+                    problem_class="CHOICE",
+                    confidence=classification.confidence,
+                    decision_case=case,
+                    scenario_forecast=forecast.model_dump(mode="json"),
+                    explanation=forecast.briefing.executive_summary,
+                    session_id=ws.session_id,
+                    metadata={
+                        "classification_reason": classification.reason,
+                        "dominant_scenario_id": forecast.dominant_scenario_id,
+                        "telemetry": forecast.telemetry,
+                        "web_sources_count": len(web_context_snippets),
+                    },
+                )
+                ws.update_hypothesis(None, {"status": "ready_for_review", "mode": "SCENARIO_FORECAST"})
+                return formalization, ws
+            else:
+                logger.warning("Scenario decomposition yielded fewer than 2 scenarios or no premises. Falling back to clarification.")
+                formalization = FormalizationResult(
+                    status="needs_clarification",
+                    raw_query=query,
+                    fingerprint=fp,
+                    problem_class="CHOICE",
+                    confidence=classification.confidence,
+                    clarification_prompt="Nie udało się wygenerować spójnych scenariuszy alternatywnych dla tego zapytania prognostycznego. Doprecyzuj horyzont czasowy lub kryteria oceny.",
+                    session_id=ws.session_id,
+                )
+                return formalization, ws
 
         # 3. Hippocampal recall of historical analogies with tenant isolation (A18)
         analogies = await self.episodic_repo.recall_analogies(
