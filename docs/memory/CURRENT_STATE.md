@@ -11,7 +11,7 @@ _Last updated: 2026-09-14 (V5: Uczciwe prognozy scenariuszowe, ważony softmax, 
 - **Stan i typografia (Polska norma sentence case)**:
   * Wprowadzono funkcję normalizującą `to_polish_sentence_case` w `backend/domain/scenario_weighting.py` z zachowaniem nazw własnych (np. Polska, Rosja, NATO, Ukraina, USA, UE) oraz małych liter dla przymiotników od nazw państw (np. rosyjski, polski).
   * Zaktualizowano instrukcję dekompozytora w `backend/domain/cognitive/scenario_decomposer.py` z bezwzględnym zakazem angielskiego Title Case.
-  * Usunięto reguły CSS `textTransform: 'uppercase'` ze wszystkich nagłówków, pytań, etykiet, kart i przycisków w komponentach frontendu (`RecommendationView.tsx`, `CaseWorkspace.tsx`, `DesignWorkspace.tsx`, `ModelApprovalGate.tsx`, `EvidenceDrawer.tsx`, `HelpCenterModal.tsx`, `AuthGate.tsx`, `ConversationPanel.tsx`, `LandingPage.tsx`).
+  * Usunięto reguły CSS `textTransform: 'uppercase'` ze wszystkich nagłówków, pytań, etykiet, kart i przycisków w komponentach frontendu (`frontend/src/components/RecommendationView.tsx`, `frontend/src/components/CaseWorkspace.tsx`, `frontend/src/components/DesignWorkspace.tsx`, `frontend/src/components/ModelApprovalGate.tsx`, `frontend/src/components/EvidenceDrawer.tsx`, `frontend/src/components/HelpCenterModal.tsx`, `frontend/src/components/AuthGate.tsx`, `frontend/src/components/ConversationPanel.tsx`, `frontend/src/components/LandingPage.tsx`).
 - **Weryfikacja testowa**:
   * `tests/unit/test_scenario_weighting.py`: 8/8 testów PASS (w tym test reguły sentence case).
   * `tests/test_v4_regressions.py`: 26/26 testów PASS.
