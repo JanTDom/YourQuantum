@@ -428,18 +428,59 @@ class LLMAdvisor:
         quality = self._assess_input_quality(text, options_count=len(options))
 
         status = "clarification" if (unknowns or quality.level != "sufficient") else "ready_for_modeling"
-        priority_tokens = [
-            "💰 Wyższe zarobki i finanse",
-            "🌿 Spokój i kultura pracy",
-            "🚀 Autonomia decyzyjna",
-            "🛡️ Stabilność zatrudnienia",
-        ]
-        criteria = [
-            Criterion(id="crit_zarobki", name="Wynagrodzenie i finanse", direction="maximize", weight=0.25, unit="PLN"),
-            Criterion(id="crit_kultura", name="Spokój i kultura pracy", direction="maximize", weight=0.25, unit="skala 1-10"),
-            Criterion(id="crit_autonomia", name="Autonomia decyzyjna", direction="maximize", weight=0.25, unit="skala 1-10"),
-            Criterion(id="crit_stabilnosc", name="Stabilność zatrudnienia", direction="maximize", weight=0.25, unit="skala 1-10"),
-        ]
+
+        if re.search(r"\b(prac\w*|zarobk\w*|etat\w*|karier\w*|pensj\w*|zatrudnieni\w*|b2b|pracodawc\w*|korporacj\w*|startup\w*)\b", lower):
+            priority_tokens = [
+                "💰 Wyższe zarobki i finanse",
+                "🌿 Spokój i kultura pracy",
+                "🚀 Autonomia decyzyjna",
+                "🛡️ Stabilność zatrudnienia",
+            ]
+            criteria = [
+                Criterion(id="crit_zarobki", name="Wynagrodzenie i finanse", direction="maximize", weight=0.25, unit="PLN"),
+                Criterion(id="crit_kultura", name="Spokój i kultura pracy", direction="maximize", weight=0.25, unit="skala 1-10"),
+                Criterion(id="crit_autonomia", name="Autonomia decyzyjna", direction="maximize", weight=0.25, unit="skala 1-10"),
+                Criterion(id="crit_stabilnosc", name="Stabilność zatrudnienia", direction="maximize", weight=0.25, unit="skala 1-10"),
+            ]
+        elif re.search(r"\b(mieszkan\w*|lokal\w*|biur\w*|samochód\w*|samochod\w*|nieruchomoś\w*|działk\w*|kupić|zakup)\b", lower):
+            priority_tokens = [
+                "💰 Niższa cena i koszty",
+                "📍 Dogodna lokalizacja",
+                "🌟 Wysoki standard i jakość",
+                "🛡️ Bezpieczeństwo i trwałość",
+            ]
+            criteria = [
+                Criterion(id="crit_cena", name="Cena i koszty zakupu", direction="minimize", weight=0.3, unit="PLN"),
+                Criterion(id="crit_jakosc", name="Jakość i standard wykonania", direction="maximize", weight=0.25, unit="skala 1-10"),
+                Criterion(id="crit_lokalizacja", name="Lokalizacja i dostępność", direction="maximize", weight=0.25, unit="skala 1-10"),
+                Criterion(id="crit_eksploatacja", name="Koszty eksploatacji", direction="minimize", weight=0.2, unit="PLN/mies."),
+            ]
+        elif re.search(r"\b(inwestycj\w*|projekt\w*|budżet\w*|portfel\w*|zysk\w*|stopa\s+zwrotu)\b", lower):
+            priority_tokens = [
+                "📈 Maksymalny zwrot z inwestycji",
+                "🛡️ Ograniczenie ryzyka",
+                "⏱️ Krótki czas realizacji",
+                "💵 Optymalizacja budżetu",
+            ]
+            criteria = [
+                Criterion(id="crit_zwrot", name="Oczekiwany zwrot / zysk", direction="maximize", weight=0.35, unit="PLN / %"),
+                Criterion(id="crit_ryzyko", name="Poziom ryzyka", direction="minimize", weight=0.25, unit="skala 1-10"),
+                Criterion(id="crit_budzet", name="Nakłady finansowe / budżet", direction="minimize", weight=0.25, unit="PLN"),
+                Criterion(id="crit_czas", name="Czas zwrotu / horyzont", direction="minimize", weight=0.15, unit="miesiące"),
+            ]
+        else:
+            priority_tokens = [
+                "🎯 Maksymalna skuteczność",
+                "💰 Ograniczenie kosztów",
+                "🛡️ Minimalizacja ryzyka",
+                "⏱️ Szybkość i wygoda",
+            ]
+            criteria = [
+                Criterion(id="crit_skutecznosc", name="Skuteczność i korzyści", direction="maximize", weight=0.35, unit="skala 1-10"),
+                Criterion(id="crit_koszt", name="Koszty i nakład zasobów", direction="minimize", weight=0.25, unit="PLN / pkt"),
+                Criterion(id="crit_ryzyko", name="Ryzyko niepowodzenia", direction="minimize", weight=0.25, unit="skala 1-10"),
+                Criterion(id="crit_wygoda", name="Wygoda i czas wdrożenia", direction="maximize", weight=0.15, unit="skala 1-10"),
+            ]
 
         return DecisionCase(
             title=title,

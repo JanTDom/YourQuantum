@@ -5,9 +5,9 @@ _Last updated: 2026-09-14 (V5: Uczciwe prognozy scenariuszowe, ważony softmax, 
 
 - **Gałąź i stan repo**: `main` — pomyślna realizacja audytu V5 i natychmiastowe usunięcie błędu schema 400 z Gemini API:
   * Naprawiono definicję `SCENARIO_EXTRACTION_SCHEMA` (zastąpienie nieobsługiwanego przez Google Gemini `additionalProperties` w JSON schema jawną listą obiektów `impacts: [{"scenario_id": "...", "impact": 0.5}]`).
-  * Dodano `llm_suggested` do walidacji `ScoredValue.provenance` w `decision_case.py`.
+  * Dodano `llm_suggested` do walidacji `ScoredValue.provenance` w `backend/domain/decision_case.py`.
   * Włączono `is_accepted: true` jako stan początkowy dla propozycji przesłanek generowanych przez dekompozytor (z zachowaniem oznaczenia `🤖 Sugestia AI` i pełnej edytowalności), dzięki czemu użytkownik natychmiast po zapytaniu otrzymuje policzony rozkład i briefing, zamiast pustego ekranu wyboru.
-  * Zabezpieczono `App.tsx` oraz `active_inference_engine.py` przed przejściem do widoku wyników, gdy scenariusze są puste (`len(scenarios) < 2`).
+  * Zabezpieczono `frontend/src/App.tsx` oraz `backend/domain/cognitive/active_inference_engine.py` przed przejściem do widoku wyników, gdy scenariusze są puste (`len(scenarios) < 2`).
 - **Weryfikacja testowa**:
   * `tests/unit/test_scenario_weighting.py`: 7/7 testów PASS.
   * `tests/test_v4_regressions.py`: 26/26 testów PASS.

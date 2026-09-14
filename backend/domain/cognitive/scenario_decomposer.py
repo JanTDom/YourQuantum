@@ -31,13 +31,24 @@ def is_scenario_forecast_query(query: str) -> bool:
     choosing courses, selecting pricing plans, or assessing general project risks).
     """
     q = query.strip().lower()
+
+    # Exclude everyday commercial/personal choice queries that happen to mention pricing, courses, jobs, or contracts
+    if re.search(r"\b(scenariusz\s+cenow|który\s+scenariusz\s+cenowy\s+wybrać|zmienić\s+pracę|wynająć\s+biuro|wybór\s+kursu|kontrahent|mieszkań\s+kupić|umowy|projekt\s+do\s+marca)\b", q):
+        return False
+
     patterns = [
-        # Explicit geopolitical invasion / military aggression queries
-        r"\b(czy\s+rosja\s+(zaatakuje|napadnie)|wojn\w*\s+w\s+europ|wybuch\w*\s+wojn\w*|inwazj\w*\s+militarn|atak\s+militarn)\b",
+        # Geopolitical / military attack & invasion queries with intervening timeframes or modifiers
+        # e.g. "Czy Rosja w najbliższym roku napadnie na Polskę?", "Czy Rosja zaatakuje kraje bałtyckie?", "Czy Putin uderzy na NATO?"
+        r"\b(czy|kiedy|jak)\b.*?\b(rosj\w*|rosyjsk\w*|putin\w*|chin\w*|białoruś\w*|nato|iran\w*)\b.*?\b(zaatakuj\w*|napadn\w*|napaś\w*|uderzy\w*|wkroczy\w*|dokona\w*\s+inwazji|rozpocznie\s+wojn\w*)\b",
+        # Reverse order: "Czy dojdzie do ataku Rosji...", "Czy grozi inwazja ze strony Rosji..."
+        r"\b(czy|kiedy|jak|grozi)\b.*?\b(zaatakuj\w*|napadn\w*|napaś\w*|inwazj\w*|uderzen\w*|agresj\w*|atak\w*|wojn\w*)\b.*?\b(rosj\w*|rosyjsk\w*|putin\w*|chin\w*|nato)\b",
+        # War outbreak queries
+        r"\b(wybuch\w*\s+wojn\w*|wojn\w*\s+w\s+europ\w*|wojn\w*\s+z\s+rosj\w*|inwazj\w*\s+militarn\w*|atak\s+militarn\w*|agresj\w*\s+zbrojn\w*|konflikt\s+zbrojn\w*)\b",
+        r"\b(czy\s+wybuchnie\s+wojna|czy\s+będzie\s+wojna|czy\s+grozi\s+nam\s+wojna)\b",
         # Explicit scenario analysis requests
-        r"\b(analiz\w*\s+scenariusz\w*|scenariusz\w*\s+rozwoju|warianty\s+rozwoju\s+sytuacji|prognoz\w*\s+scenariusz)\b",
-        # Macro crisis / collapse forecasts (not everyday personal choices)
-        r"\b(krach\s+rynk\w*|krach\s+finansow\w*|wybuch\s+kryzysu\s+globaln)\b",
+        r"\b(analiz\w*\s+scenariusz\w*|scenariusz\w*\s+rozwoju|warianty\s+rozwoju\s+sytuacji|prognoz\w*\s+scenariusz\w*)\b",
+        # Macro crisis / collapse forecasts
+        r"\b(krach\s+rynk\w*|krach\s+finansow\w*|wybuch\s+kryzysu\s+globaln\w*)\b",
     ]
     return any(bool(re.search(p, q)) for p in patterns)
 
