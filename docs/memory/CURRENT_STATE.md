@@ -16,6 +16,10 @@ _Last updated: 2026-09-14 (V5: Uczciwe prognozy scenariuszowe, ważony softmax, 
   * `tests/unit/test_scenario_weighting.py`: 7/7 testów PASS w 0.35s (testy matematyczne, $\beta$, $\Delta w$, monotoniczność, izolacja `llm_suggested`).
   * `tests/test_v4_regressions.py`: 26/26 testów PASS w 27.73s (w tym `test_r2_no_master_secret_literal_in_repo` i `test_r4_documentation_paths_exist`).
   * `npm run build`: Kompilacja TypeScript/Vite czysta (0 błędów).
+- **Wdrożenie produkcyjne V5**: `https://yourquantum.pl` (Vercel prod deployment `dpl_22CSysGevmm6WA7Sg1PH1mZdyNVo`) zrealizowane z sukcesem:
+  * Python runtime 3.12 (przypięty przez `api/.python-version` oraz `.python-version`), `greenlet==3.5.5` z prekompilowanymi wheelami dla Linuxa.
+  * Solvery: `GET /api/v1/health/solvers` potwierdza `available=true` dla `cp_sat` (9.15.6755), `qaoa_aer` (0.17.2), `hybrid_benders` (0.1.0), `scipy_continuous` (1.18.1).
+  * Frontend: serwowany najnowszy bundle produkcyjny (`assets/index-0Se7JoqF.js`, `assets/index-B21nrPL5.css`).
 
 ### Stan przed V4 — Surowy wynik bramek mechanicznych (`scripts/check_v4.sh`):
 
