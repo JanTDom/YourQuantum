@@ -18,6 +18,7 @@ from backend.domain.scenario_weighting import (
     normalize_polish_geopolitical_text,
 )
 from backend.domain.problem_classes import ExecutiveBriefing
+from backend.domain.cognitive.time_horizon import detect_time_horizon
 from backend.infrastructure.llm_gateway import LLMGateway
 
 logger = logging.getLogger(__name__)
@@ -119,6 +120,26 @@ async def decompose_scenario_query_async(
     premises: list[EvidencePremise] = []
     domain = "Analiza scenariuszowa i badanie ryzyka"
 
+    # Horyzont czasowy z pytania (DEC-034). Jeżeli użytkownik go podał, scenariusze
+    # muszą być nim ograniczone — inaczej model prognozuje "kiedykolwiek".
+    horizon = detect_time_horizon(query)
+    if horizon is not None:
+        if horizon.is_precise:
+            horizon_instruction = (
+                f"\n\nHORYZONT CZASOWY PODANY PRZEZ UŻYTKOWNIKA: {horizon.label} "
+                f"(data graniczna: {horizon.end_date.isoformat()}).\n"
+                "Wszystkie scenariusze MUSZĄ dotyczyć wyłącznie tego okresu i mieć go wpisanego w opis. "
+                "Nie buduj scenariuszy wykraczających poza tę datę. Przesłanki dobieraj pod kątem tego okresu."
+            )
+        else:
+            horizon_instruction = (
+                f"\n\nHORYZONT CZASOWY PODANY PRZEZ UŻYTKOWNIKA: {horizon.label} (wyrażenie nieprecyzyjne — "
+                "nie przypisuj mu konkretnej daty i nie zmyślaj jej).\n"
+                "Scenariusze opisz w tej perspektywie, nie podając wymyślonych dat granicznych."
+            )
+    else:
+        horizon_instruction = ""
+
     if gw.is_available:
         sys_inst = (
             "Jesteś precyzyjnym analitykiem metodologii scenariuszowej i probabilistyki w YourQuantum. "
@@ -137,7 +158,8 @@ async def decompose_scenario_query_async(
         )
         user_content = (
             f"Pytanie użytkownika:\n\"{query}\"\n\n"
-            f"Kontekst i fakty z sieci:\n{snippets_text}\n\n"
+            f"Kontekst i fakty z sieci:\n{snippets_text}"
+            f"{horizon_instruction}\n\n"
             "Zbuduj 2-3 konkretne, wykluczające się scenariusze oraz 3-4 mierzalne przesłanki z ich wpływem na scenariusze."
         )
         try:
@@ -240,6 +262,17 @@ async def decompose_scenario_query_async(
         domain=domain,
         beta=1.0,
     )
+
+    # Rozpoznany horyzont trafia do telemetrii jako fakt odczytany z pytania (DEC-034).
+    # Gdy wyrażenie jest nieprecyzyjne, data graniczna pozostaje pusta — nie jest zmyślana.
+    if horizon is not None:
+        forecast.telemetry["time_horizon"] = {
+            "raw": horizon.raw,
+            "label": horizon.label,
+            "end_date": horizon.end_date.isoformat() if horizon.end_date else None,
+            "basis": horizon.basis,
+            "is_precise": horizon.is_precise,
+        }
 
     # Build DecisionCase representation
     case_options: list[Option] = []

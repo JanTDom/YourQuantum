@@ -561,3 +561,23 @@ Wszystkie formalne przywołania plików i numerów linii kodu w dokumentacji aud
 
 **Rationale:**
 Lekcja z audytu V7/V8 wykazała, że nawet po gruntownym przepisaniu raportu w oparciu o kod źródłowy, błąd ludzki może doprowadzić do drobnego rozjazdu indeksów linii (wskazanie linii 90 schematu zamiast linii 189 domyślnej flagi w `backend/domain/cognitive/scenario_decomposer.py`). Zgodnie z zasadami L-021, L-022 oraz L-023 reguła dowodu wymaga, by spójność dokumentacji z kodem była egzekwowana mechanicznie w potoku CI/bramkach, a nie opierała się na deklaracjach.
+
+---
+
+## DEC-034 — Horyzont czasowy jest dekodowany deterministycznie, a nie zgadywany
+
+**Date:** 2026-09-15
+**Status:** ACTIVE
+
+**Kontekst:**
+Bramka jakości wykrywała perspektywę czasową pytania prognostycznego pojedynczym wyrażeniem regularnym (`202\d|lat\w*|miesi[aą]c\w*|perspektyw\w*|horyzont\w*|czas\w*|najbli[zż]sz\w*`). Wzorzec nie zawierał słowa „rok" w żadnej formie, przez co pytania takie jak „Czy Rosja do końca tego roku zaatakuje Polskę?", „w tym roku", „w przyszłym roku", „do końca dekady" czy „w ciągu 18 miesięcy" (odmiana „miesięcy" też nie była objęta) były odrzucane jako pozbawione horyzontu — mimo że horyzont był w nich wprost wyrażony. Dodatkowo próg długości (`len(words) < 7`) odrzucał poprawne, krótkie pytania w rodzaju „Czy Rosja zaatakuje Polskę do 2027?".
+
+**Decyzja:**
+1. Horyzont czasowy dekoduje dedykowany moduł `backend/domain/cognitive/time_horizon.py` (`detect_time_horizon`), deterministycznie i bez udziału modelu językowego.
+2. Moduł **normalizuje** wyrażenie do daty granicznej (`end_date`) i podaje podstawę wyznaczenia (`basis`), dzięki czemu horyzont jest nie tylko wykrywany, ale i używany dalej.
+3. Wyrażenia nieprecyzyjne („w najbliższych miesiącach") są rozpoznawane jako horyzont, ale otrzymują `end_date=None` oraz `is_precise=False`. **Daty nie wolno zmyślać** — to bezpośrednie zastosowanie zakazu fabrykowania liczb.
+4. Rozpoznany horyzont jest przekazywany do promptu dekompozytora scenariuszy, aby scenariusze były ograniczone do wskazanego okresu, oraz zapisywany w telemetrii prognozy jako fakt odczytany z pytania.
+5. Próg długości dla pytań scenariuszowych obniżono z 7 do 5 słów; o dopytaniu decyduje brak horyzontu, a nie długość zdania.
+
+**Konsekwencje:**
+Użytkownik nie jest pytany o perspektywę czasową, którą już podał. Rozszerzenie zakresu rozpoznawanych sformułowań wymaga dopisania reguły w `backend/domain/cognitive/time_horizon.py` wraz z testem w `tests/unit/test_time_horizon.py` — nie zaś rozbudowywania wyrażenia regularnego w bramce jakości.

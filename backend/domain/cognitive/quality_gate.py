@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import re
 from backend.domain.decision_case import InputQuality
+from backend.domain.cognitive.time_horizon import detect_time_horizon
 
 logger = logging.getLogger(__name__)
 
@@ -54,8 +55,12 @@ def assess_input_quality(text: str, options_count: int = 0, problem_class: str =
         re.search(r"\b(scenariusz\w*|prognoz\w*|czy\s+rosja\s+(zaatakuje|napadnie)|inwazj\w*|wojn\w*\s+w\s+europ)\b", lower)
     )
     if is_scenario_context:
-        has_time_horizon = bool(re.search(r"\b(202\d|lat\w*|miesi[aą]c\w*|perspektyw\w*|horyzont\w*|czas\w*|najbli[zż]sz\w*)\b", lower))
-        if len(words) < 7 or not has_time_horizon:
+        # Horyzont czasowy dekodujemy deterministycznie (DEC-034), a nie pojedynczym regexem.
+        # Parser rozpoznaje m.in. "do końca tego roku", "w przyszłym roku", "w ciągu trzech lat",
+        # "do marca 2027", "do końca dekady" — formy, których poprzedni wzorzec nie obejmował.
+        detected_horizon = detect_time_horizon(text)
+        has_time_horizon = detected_horizon is not None
+        if len(words) < 5 or not has_time_horizon:
             return InputQuality(
                 level="too_vague",
                 reason="Pytanie o analizę scenariuszową wymaga sprecyzowania horyzontu czasowego, przedmiotu prognozy oraz zarysu alternatyw.",
