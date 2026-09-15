@@ -1,20 +1,17 @@
 # YourQuantum — CURRENT STATE
-_Last updated: 2026-09-15 (V7: Weryfikacja produkcyjna V6 i domknięcie raportu; scalenie fix/v6-closeout do main)_
+_Last updated: 2026-09-15 (V8: Domknięcie cyklu audytowego, korekta przywołania w REPORT_V6, weryfikacja maszynowa przywołań kodu G-DOCS, DEC-033)_
 
-## Status: V6/V7 — WDROŻENIE PRODUKCYJNE ZWERYFIKOWANE EMPIRYCZNIE (100% PASS)
+## Status: V8 — DOMKNIĘCIE CYKLU AUDYTOWEGO, MASZYNOWA INTEGRALNOŚĆ DOKUMENTACJI (24/24 PASS)
 
-- **Gałąź i stan repo**: `main` — pomyślna realizacja audytu V6 (5 punktów naprawczych), korekta raportu V7 (zgodność ze stanem faktycznym kodu, usunięcie pojęć bayesowskich, odzwierciedlenie metody `weighted_softmax_aggregation`) oraz scalenie gałęzi `fix/v6-closeout` do `main` (commit merge `c2ed416`).
-  * Przywrócono bramkę akceptacji przesłanek decydenta: `backend/domain/cognitive/scenario_decomposer.py` emituje `is_accepted = False` dla wszystkich propozycji modelu (`llm_suggested`).
-  * Zaimplementowano stan zerowy w UI (`frontend/src/components/RecommendationView.tsx`): gdy żadna przesłanka nie jest zatwierdzona (`liveForecast.activeCount === 0`), nagłówki h1 i h3 wyświetlają „Rozkład równomierny – nie zatwierdzono jeszcze żadnej przesłanki”, a pod wykresem widnieje „Rozkład równomierny (równe prawdopodobieństwo bazowe)”. Ukryto plakietkę „★ Dominujący kierunek”, pasma wrażliwości oraz sekcję punktów zwrotnych. Dodano licznik `Zatwierdzone: {activeCount} z {totalCount}` oraz przyciski masowej akcji: „Zatwierdź wszystkie propozycje modelu” i „Odznacz wszystkie”.
-  * Usunięto zmyśloną telemetrię ładowania z `frontend/src/components/QuantumLoadingOverlay.tsx` — brak rotacji faz, brak sztucznych interwałów, zero wzmianek o Qiskicie, symulacji unitarnej i regule Borna.
-  * Usunięto martwe pola pseudokwantowe (`amplitude_real`, `amplitude_imag`, `quantum_telemetry`) z kontraktu frontendu `frontend/src/api.ts`.
-  * Naprawiono bramkę G-R2 w `scripts/check_v4.sh` (użycie `git grep -n` zamiast `grep -rn`).
-- **Stan i typografia (Polska norma sentence case)**:
-  * Zachowano funkcję normalizującą `to_polish_sentence_case` w `backend/domain/scenario_weighting.py` z uwzględnieniem nazw własnych.
-  * Zgodność ścieżek komponentów frontendu z pełnymi relatywnymi ścieżkami na dysku (`frontend/src/components/RecommendationView.tsx`, `frontend/src/components/CaseWorkspace.tsx`, `frontend/src/components/DesignWorkspace.tsx`, `frontend/src/components/ModelApprovalGate.tsx`, `frontend/src/components/EvidenceDrawer.tsx`, `frontend/src/components/HelpCenterModal.tsx`, `frontend/src/components/AuthGate.tsx`, `frontend/src/components/ConversationPanel.tsx`, `frontend/src/components/LandingPage.tsx`).
+- **Gałąź i stan repo**: `fix/v8-doc-integrity` (w trakcie scalania do `main`) — pełne wdrożenie audytu V8:
+  * Skorygowano pojedynczy błędny indeks linii w `docs/REPORT_V6.md` (linia 97: zmiana `linia 90` na `linia 189` w przywołaniu domyślnej flagi `is_accepted = False` w `backend/domain/cognitive/scenario_decomposer.py`).
+  * Wdrożono narzędzie deterministycznej weryfikacji maszynowej `scripts/check_doc_citations.py` sprawdzające reguły R1 (istnienie pliku), R2 (zakres linii) i R3 (spójność literału w oknie ±3 linii z tolerancją białych znaków i pomijaniem szablonów JSX/wielokropków).
+  * Pokryto weryfikator pełnym zestawem testów jednostkowych `tests/unit/test_doc_citations.py` (pozytywny, negatywne R1/R2/R3 z offsetem +50 linii, filtry JSX).
+  * Rozszerzono skrypt bramkowy `scripts/check_v4.sh` o bramkę `G-DOCS` (łącznie 24 bramki mechaniczne, wszystkie PASS).
+  * Zarejestrowano decyzję architektoniczną `DEC-033` w `docs/memory/DECISIONS.md`.
 - **Weryfikacja testowa**:
-  * `scripts/check_v4.sh`: Wszystkie bramki PASS (G-R1a do G-N11 oraz G-TESTS: PASS).
-  * `pytest -q tests/`: 193/193 PASS (kod wyjścia 0, 0 błędów, 0 regresji).
+  * `scripts/check_v4.sh`: Wszystkie 24 bramki PASS (G-R1a do G-N11, G-DOCS oraz G-TESTS).
+  * `pytest -q tests/`: 198/198 PASS (kod wyjścia 0, 0 błędów, 0 regresji).
   * `npm run build`: Kompilacja TypeScript/Vite czysta (kod 0, 0 błędów).
 - **Wdrożenie produkcyjne**: `https://yourquantum.pl` (Vercel prod deployment `dpl_AMjryi2a1Xc6HcwBvmmZojPBcXM6`, status `READY`):
   * Nowy bundle produkcyjny frontendu: `assets/index-DYAG9ngC.js`.
@@ -320,4 +317,4 @@ WYNIK KOŃCOWY: WSZYSTKIE BRAMKI ZIELONE (PASS)
 
 ## Następny krok (Next Step)
 
-Wdrożenie poprawek V5 w całości przetestowane i zintegrowane w kodzie źródłowym. Następny krok: zatwierdzenie raportu `docs/REPORT_V5.md` przez Jana Domaniewskiego, decyzja w sprawie ewentualnego wdrożenia produkcyjnego na Vercel (`vercel --prod`) oraz ewentualne wdrożenie serwerowej walidacji hasła w bramce autoryzacyjnej.
+Cykl audytowy V5–V8 został w pełni domknięty. Wszystkie 24 bramki mechaniczne w `scripts/check_v4.sh` są zielone (PASS). Zgodność przywołań kodu w dokumentacji jest egzekwowana automatycznie przez bramkę G-DOCS (`scripts/check_doc_citations.py`, DEC-033). System jest w 100% gotowy do dalszych prac rozwojowych.

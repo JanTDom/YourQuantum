@@ -544,4 +544,20 @@ Funkcja analizy scenariuszowej zostaje zachowana, lecz oczyszczona z wszelkich f
    - Usunięcie etykiet kwantowych, tabel amplitud i fałszywych zapewnień o "obliczaniu przyszłości".
    - Wdrożenie interaktywnego edytora wag przesłanek z natychmiastowym przeliczaniem rozkładu i pasma wrażliwości.
 
+---
 
+## DEC-033 — Przywołania kodu w dokumentacji są weryfikowane maszynowo
+
+**Date:** 2026-09-15
+**Status:** ACTIVE
+
+**Decision:**
+Wszystkie formalne przywołania plików i numerów linii kodu w dokumentacji audytowej, raportowej i technicznej podlegają automatycznej, deterministycznej weryfikacji maszynowej przez skrypt `scripts/check_doc_citations.py`:
+1. **Reguła R1 (Istnienie pliku):** Każdy przywołany plik (zarówno w postaci pełnej ścieżki, jak i jednoznacznej nazwy pliku) musi fizycznie istnieć w repozytorium.
+2. **Reguła R2 (Zakres linii):** Wskazany numer linii lub przedział linii (`linie X–Y`) musi mieścić się w granicach pliku źródłowego ($1 \le line \le total\_lines$).
+3. **Reguła R3 (Spójność cytatu/literału):** Literał w backtickach bezpośrednio poprzedzający przywołanie w nawiasie musi występować w oknie $\pm 3$ linii od wskazanej linii w pliku źródłowym (z normalizacją białych znaków, z wyłączeniem szablonów dynamicznych JSX `{...}` i wielokropków `...`).
+4. **Bramka mechaniczna `G-DOCS`:** Skrypt `scripts/check_doc_citations.py` został włączony do `scripts/check_v4.sh` jako bramka `G-DOCS` wykonywana przed testami jednostkowymi i buildem frontendu. Jakiekolwiek naruszenie skutkuje błędem bramki (FAIL) i zablokowaniem merge'a.
+5. **Dedykowany zestaw testów jednostkowych:** Skrypt posiada pełne pokrycie testami w `tests/unit/test_doc_citations.py`, weryfikującymi przypadek poprawny oraz testy negatywne (R1, R2, R3 z przesunięciem linii o +50, filtry JSX).
+
+**Rationale:**
+Lekcja z audytu V7/V8 wykazała, że nawet po gruntownym przepisaniu raportu w oparciu o kod źródłowy, błąd ludzki może doprowadzić do drobnego rozjazdu indeksów linii (wskazanie linii 90 schematu zamiast linii 189 domyślnej flagi w `backend/domain/cognitive/scenario_decomposer.py`). Zgodnie z zasadami L-021, L-022 oraz L-023 reguła dowodu wymaga, by spójność dokumentacji z kodem była egzekwowana mechanicznie w potoku CI/bramkach, a nie opierała się na deklaracjach.
