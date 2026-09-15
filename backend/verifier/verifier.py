@@ -22,6 +22,10 @@ from backend.domain.problem_ir import (
 )
 from backend.domain.evaluator import ExpressionEvaluator
 
+# Maksymalna liczba zmiennych binarnych dla niezależnej enumeracji małego n
+# Wyznaczona na podstawie benchmarku pomiarowego (scripts/bench_enumeration.py)
+MAX_ENUMERATION_VARS: int = 16
+
 
 def get_signing_key() -> str | None:
     return os.getenv("YQ_SIGNING_KEY")
@@ -467,7 +471,7 @@ class IndependentVerifier:
             from scipy.optimize import linprog
         except ImportError:
             # If scipy is not available, check if small-N exact enumeration can independently prove optimality
-            if all(v.domain == VariableDomain.BINARY for v in vars_list) and n <= 16:
+            if all(v.domain == VariableDomain.BINARY for v in vars_list) and n <= MAX_ENUMERATION_VARS:
                 return self._independent_small_n_enumeration(vars_list, primary, is_min, objective_value)
             return None, None, False, "Brak biblioteki scipy — niezależna relaksacja dualna HiGHS niedostępna."
 
@@ -537,19 +541,26 @@ class IndependentVerifier:
                     return dual_bound, round(gap, 2), True, None
 
                 # If LP relaxation had an integrality gap, check if independent small-N enumeration can certify it
-                if all(v.domain == VariableDomain.BINARY for v in vars_list) and n <= 16:
-                    enum_bound, enum_gap, enum_proven, enum_note = self._independent_small_n_enumeration(
-                        vars_list, primary, is_min, objective_value
-                    )
-                    if enum_proven:
-                        return enum_bound, enum_gap, True, None
-                    elif enum_note:
+                if all(v.domain == VariableDomain.BINARY for v in vars_list):
+                    if n <= MAX_ENUMERATION_VARS:
+                        enum_bound, enum_gap, enum_proven, enum_note = self._independent_small_n_enumeration(
+                            vars_list, primary, is_min, objective_value
+                        )
+                        if enum_proven:
+                            return enum_bound, enum_gap, True, None
+                        elif enum_note:
+                            return dual_bound, round(gap, 2), False, enum_note
+                    else:
+                        enum_note = (
+                            f"Liczba zmiennych binarnych (n={n}) przekracza próg niezależnej enumeracji "
+                            f"(MAX_ENUMERATION_VARS={MAX_ENUMERATION_VARS}); dowód optymalności niedostępny z powodu luki całkowitoliczbowej LP ({round(gap, 2)}%)."
+                        )
                         return dual_bound, round(gap, 2), False, enum_note
 
                 return dual_bound, round(gap, 2), False, None
         except Exception as exc:
             # Fallback to small-N enumeration if linear model extraction threw an error (e.g. non-linear problem)
-            if all(v.domain == VariableDomain.BINARY for v in vars_list) and n <= 16:
+            if all(v.domain == VariableDomain.BINARY for v in vars_list) and n <= MAX_ENUMERATION_VARS:
                 return self._independent_small_n_enumeration(vars_list, primary, is_min, objective_value)
             return None, None, False, f"Błąd relaksacji dualnej HiGHS: {exc}"
 
