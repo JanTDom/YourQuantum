@@ -264,6 +264,16 @@ else
     report_gate "G-N10" "FAIL" "Brak pliku docs/REPORT_V4.md"
 fi
 
+# G-DOCS: python3 scripts/check_doc_citations.py kończy się kodem 0
+DOCS_OUTPUT=$(python3 scripts/check_doc_citations.py 2>&1)
+DOCS_STATUS=$?
+if [ "$DOCS_STATUS" -eq 0 ]; then
+    report_gate "G-DOCS" "PASS" "Wszystkie przywołania linii w dokumentacji trafiają w kod"
+else
+    report_gate "G-DOCS" "FAIL" "Wykryto nieaktualne przywołania w dokumentacji"
+    echo "$DOCS_OUTPUT"
+fi
+
 # G-TESTS: pytest -q kończy się kodem 0; npm run build kończy się kodem 0
 echo "Sprawdzanie testów pytest i kompilacji frontendu..."
 PYTEST_STATUS=0
