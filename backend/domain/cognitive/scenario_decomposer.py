@@ -213,7 +213,7 @@ async def decompose_scenario_query_async(
                     ))
         except Exception as exc:
             logger.warning("LLM scenario decomposition failed: %s", exc)
-    premises, scenarios = _integrate_verified_evidences(premises, scenarios, verified_evidences, p_json if "p_json" in locals() else None, query)
+    premises, scenarios, unspec_count = _integrate_verified_evidences(premises, scenarios, verified_evidences, p_json if "p_json" in locals() else None, query)
 
     # If insufficient items, do NOT inject invented geopolitical numbers.
     # Return empty case requiring user definition.
@@ -254,6 +254,8 @@ async def decompose_scenario_query_async(
             telemetry={"method": "weighted_softmax_aggregation", "beta": 1.0, "n_scenarios": 0, "n_premises": 0},
             briefing=empty_briefing,
         )
+        forecast.telemetry["unspecified_impacts_count"] = unspec_count
+        forecast.telemetry["web_sourced_premises_without_model_impacts"] = unspec_count
         return case, forecast
 
     # Compute scenario distribution using honest weighted softmax
@@ -275,6 +277,9 @@ async def decompose_scenario_query_async(
             "basis": horizon.basis,
             "is_precise": horizon.is_precise,
         }
+
+    forecast.telemetry["unspecified_impacts_count"] = unspec_count
+    forecast.telemetry["web_sourced_premises_without_model_impacts"] = unspec_count
 
     # Build DecisionCase representation
     case_options: list[Option] = []
@@ -358,9 +363,9 @@ def _integrate_verified_evidences(
     verified_evidences: list[Evidence] | None,
     p_json: dict[str, Any] | None,
     query: str,
-) -> tuple[list[EvidencePremise], list[ScenarioOutcome]]:
+) -> tuple[list[EvidencePremise], list[ScenarioOutcome], int]:
     if not verified_evidences:
-        return premises, scenarios
+        return premises, scenarios, 0
 
     if len(scenarios) < 2:
         scenarios = [
@@ -380,12 +385,14 @@ def _integrate_verified_evidences(
 
     raw_premises_data = p_json.get("premises", []) if isinstance(p_json, dict) else []
     web_premises: list[EvidencePremise] = []
+    unspecified_impacts_count = 0
 
     for idx, ev in enumerate(verified_evidences):
         web_id = f"web_{idx+1}"
         pub = ev.publisher or ev.source_title or "Zweryfikowane źródło sieciowe"
         impacts: dict[str, float] = {}
         weight = 1.0
+        has_model_impacts = False
 
         for pr_data in raw_premises_data:
             pid = str(pr_data.get("id", ""))
@@ -400,28 +407,38 @@ def _integrate_verified_evidences(
                 elif isinstance(raw_impacts, dict):
                     impacts = {str(k): float(v) for k, v in raw_impacts.items()}
                 weight = float(pr_data.get("weight", 1.0))
+                if len(impacts) > 0:
+                    has_model_impacts = True
                 break
 
         for sc in scenarios:
             if sc.id not in impacts:
-                impacts[sc.id] = 0.5 if sc.id == "sc_1" else -0.5
+                impacts[sc.id] = 0.0
+
+        if not has_model_impacts:
+            unspecified_impacts_count += 1
+            desc_impact_text = "Wpływ na scenariusze nie został określony; przesłanka nie przeważa rozkładu, dopóki nie nadasz jej wag ręcznie."
+            source_ref_val = f"{ev.source_url} [wpływy: nieokreślone]" if ev.source_url else "[wpływy: nieokreślone]"
+        else:
+            desc_impact_text = "Liczbowy wpływ na scenariusze jest propozycją analityczną modelu i wymaga zatwierdzenia przez decydenta."
+            source_ref_val = str(ev.source_url) if ev.source_url else None
 
         web_premises.append(EvidencePremise(
             id=web_id,
             name=normalize_polish_geopolitical_text(str(ev.claim)[:80]),
             description=(
                 f"Cytat: „{ev.quote}” (źródło: {pub}). "
-                f"Liczbowy wpływ na scenariusze jest propozycją analityczną modelu i wymaga zatwierdzenia przez decydenta."
+                f"{desc_impact_text}"
             ),
             source=str(pub),
             confidence=float(ev.confidence),
             weight=weight,
             impact_on_scenarios=impacts,
             provenance="web_sourced",
-            source_ref=str(ev.source_url),
+            source_ref=source_ref_val,
             is_accepted=False,
         ))
 
     clean_llm = [p for p in premises if not p.id.startswith("web_")]
-    return web_premises + clean_llm, scenarios
+    return web_premises + clean_llm, scenarios, unspecified_impacts_count
 

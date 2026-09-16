@@ -28,12 +28,8 @@ from backend.infrastructure.web_research.extractor import EvidenceExtractor
 
 def test_web_sourced_premise_created_when_quote_present():
     """
-    Case 1: When a verified Evidence item (with quote confirmed in fetched document)
-    is passed to decompose_scenario_query_async, it must emit a premise with:
-    - provenance == 'web_sourced'
-    - is_accepted == False (DEC-032 / V9-C gate)
-    - Verbatim quote embedded in premise description
-    - It must NOT affect the scenario probability distribution until explicitly accepted.
+    Case 1a: Model response without web_N IDs -> web_sourced premises have all impacts equal to 0.0,
+    distribution after accepting remains uniform, and description states that impact was not specified (Prompt V11-1).
     """
     async def _run():
         raw_doc_text = "Oficjalny raport: wskaźnik inflacji bazowej spadł do poziomu 2.4% w ujęciu rocznym."
@@ -53,27 +49,112 @@ def test_web_sourced_premise_created_when_quote_present():
             confidence=0.98,
         )
 
-        case, forecast = await decompose_scenario_query_async(
-            query="Jaki będzie kierunek polityki monetarnej do końca 2026 roku?",
-            web_snippets=["[GUS](https://stat.gov.pl): Inflacja bazowa spada."],
-            verified_evidences=[verified_ev],
-        )
+        mock_llm_res = MagicMock()
+        mock_llm_res.parsed_json = {
+            "domain": "Polityka monetarna",
+            "scenarios": [
+                {"id": "sc_1", "title": "Obniżka stóp procentowych", "description": "Scenariusz łagodzenia", "risk_level": "LOW"},
+                {"id": "sc_2", "title": "Utrzymanie stóp procentowych", "description": "Scenariusz stabilizacji", "risk_level": "MEDIUM"},
+            ],
+            "premises": [
+                # Model returns pr_1, but NO web_1 impact!
+                {"id": "pr_1", "name": "Wzrost PKB", "description": "Dynamika PKB", "impacts": [{"scenario_id": "sc_1", "impact": 0.4}, {"scenario_id": "sc_2", "impact": -0.4}], "confidence": 0.9, "weight": 1.0}
+            ]
+        }
 
-        assert len(forecast.scenarios) >= 2
+        with patch("backend.domain.cognitive.scenario_decomposer.LLMGateway.is_available", return_value=True), \
+             patch("backend.domain.cognitive.scenario_decomposer.LLMGateway.generate", AsyncMock(return_value=mock_llm_res)):
+            case, forecast = await decompose_scenario_query_async(
+                query="Jaki będzie kierunek polityki monetarnej do końca 2026 roku?",
+                web_snippets=["[GUS](https://stat.gov.pl): Inflacja bazowa spada."],
+                verified_evidences=[verified_ev],
+            )
+
         web_premises = [p for p in forecast.evidence_premises if p.provenance == "web_sourced"]
         assert len(web_premises) == 1, "Must produce exactly one web_sourced premise"
 
         wp = web_premises[0]
         assert wp.id == "web_1"
         assert wp.is_accepted is False, "Premise MUST require human acceptance (DEC-032)"
-        assert "inflacji bazowej spadł do poziomu 2.4%" in wp.description.lower()
-        assert "główny urząd statystyczny" in wp.source.lower()
+        assert all(v == 0.0 for v in wp.impact_on_scenarios.values()), f"All impacts must be 0.0 when model gave none, got {wp.impact_on_scenarios}"
+        assert "wpływ na scenariusze nie został określony; przesłanka nie przeważa rozkładu, dopóki nie nadasz jej wag ręcznie." in wp.description.lower()
+        assert "[wpływy: nieokreślone]" in (wp.source_ref or "")
+        assert forecast.telemetry.get("unspecified_impacts_count") == 1
+
+        # When this web_sourced premise is accepted, the distribution across scenarios must remain strictly uniform
+        accepted_web_premises = [wp.model_copy(update={"is_accepted": True})]
+        dist_accepted = compute_scenario_distribution(
+            query=forecast.query,
+            scenarios=[sc.model_copy() for sc in forecast.scenarios],
+            premises=accepted_web_premises,
+        )
+        for sc in dist_accepted.scenarios:
+            assert pytest.approx(sc.probability, abs=1e-3) == 1.0 / len(dist_accepted.scenarios)
+
+    asyncio.run(_run())
+
+
+def test_web_sourced_premise_with_model_impacts_preserves_model_numbers():
+    """
+    Case 1b: Model response WITH web_1 ID -> web_sourced premises preserve exact impacts from model,
+    description indicates analytical proposal of the model, and acceptance shifts distribution (Prompt V11-1).
+    """
+    async def _run():
+        raw_doc_text = "Oficjalny raport: wskaźnik inflacji bazowej spadł do poziomu 2.4% w ujęciu rocznym."
+        doc_hash = hashlib.sha256(raw_doc_text.encode("utf-8")).hexdigest()
+
+        verified_ev = Evidence(
+            id="ev_test_123",
+            claim="Spadek inflacji bazowej do 2.4%",
+            value=2.4,
+            unit="%",
+            source_url="https://stat.gov.pl/makro/inflacja-2026.html",
+            source_title="GUS: Wskaźniki cen i inflacji",
+            publisher="Główny Urząd Statystyczny",
+            content_hash=doc_hash,
+            quote="wskaźnik inflacji bazowej spadł do poziomu 2.4% w ujęciu rocznym",
+            extraction_method=ExtractionMethod.LLM_EXTRACTED,
+            confidence=0.98,
+        )
+
+        mock_llm_res = MagicMock()
+        mock_llm_res.parsed_json = {
+            "domain": "Polityka monetarna",
+            "scenarios": [
+                {"id": "sc_1", "title": "Obniżka stóp procentowych", "description": "Scenariusz łagodzenia", "risk_level": "LOW"},
+                {"id": "sc_2", "title": "Utrzymanie stóp procentowych", "description": "Scenariusz stabilizacji", "risk_level": "MEDIUM"},
+            ],
+            "premises": [
+                {
+                    "id": "web_1",
+                    "name": "Spadek inflacji bazowej",
+                    "description": "Oficjalny odczyt GUS",
+                    "impacts": [{"scenario_id": "sc_1", "impact": 0.85}, {"scenario_id": "sc_2", "impact": -0.65}],
+                    "confidence": 0.98,
+                    "weight": 1.5,
+                }
+            ]
+        }
+
+        with patch("backend.domain.cognitive.scenario_decomposer.LLMGateway.is_available", return_value=True), \
+             patch("backend.domain.cognitive.scenario_decomposer.LLMGateway.generate", AsyncMock(return_value=mock_llm_res)):
+            case, forecast = await decompose_scenario_query_async(
+                query="Jaki będzie kierunek polityki monetarnej do końca 2026 roku?",
+                web_snippets=["[GUS](https://stat.gov.pl): Inflacja bazowa spada."],
+                verified_evidences=[verified_ev],
+            )
+
+        web_premises = [p for p in forecast.evidence_premises if p.provenance == "web_sourced"]
+        assert len(web_premises) == 1
+        wp = web_premises[0]
+        assert wp.impact_on_scenarios["sc_1"] == 0.85
+        assert wp.impact_on_scenarios["sc_2"] == -0.65
+        assert "liczbowy wpływ na scenariusze jest propozycją analityczną modelu i wymaga zatwierdzenia przez decydenta." in wp.description.lower()
         assert wp.source_ref == "https://stat.gov.pl/makro/inflacja-2026.html"
+        assert "[wpływy: nieokreślone]" not in (wp.source_ref or "")
+        assert forecast.telemetry.get("unspecified_impacts_count") == 0
 
-        # Prior to acceptance, the distribution across 2 default scenarios must be uniform (50% / 50%)
-        active_premises = [p for p in forecast.evidence_premises if p.is_accepted]
-        assert len(active_premises) == 0, "No premises are accepted yet"
-
+        # Prior to acceptance, distribution is uniform
         dist_unaccepted = compute_scenario_distribution(
             query=forecast.query,
             scenarios=[sc.model_copy() for sc in forecast.scenarios],
@@ -82,15 +163,14 @@ def test_web_sourced_premise_created_when_quote_present():
         for sc in dist_unaccepted.scenarios:
             assert pytest.approx(sc.probability, abs=1e-3) == 1.0 / len(dist_unaccepted.scenarios)
 
-        # After human acceptance, the premise impacts shift the scenario distribution away from uniform
+        # After acceptance, the model-provided impact shifts probability
         accepted_premises = [p.model_copy(update={"is_accepted": True}) for p in forecast.evidence_premises]
         dist_accepted = compute_scenario_distribution(
             query=forecast.query,
             scenarios=[sc.model_copy() for sc in forecast.scenarios],
             premises=accepted_premises,
         )
-        probs = [sc.probability for sc in dist_accepted.scenarios]
-        assert max(probs) > 1.0 / len(dist_accepted.scenarios), "Accepted web premise must shift scenario probability"
+        assert dist_accepted.scenarios[0].probability > dist_accepted.scenarios[1].probability
 
     asyncio.run(_run())
 
