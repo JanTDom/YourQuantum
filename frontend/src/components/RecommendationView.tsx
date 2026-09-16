@@ -83,7 +83,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
   const handleAcceptAllLlm = () => {
     setScenarioPremises((prev) =>
       prev.map((p) =>
-        p.provenance === 'llm_suggested' ? { ...p, is_accepted: true } : p
+        p.provenance === 'llm_suggested' || p.provenance === 'web_sourced' ? { ...p, is_accepted: true } : p
       )
     )
   }
@@ -91,7 +91,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
   const handleRejectAllLlm = () => {
     setScenarioPremises((prev) =>
       prev.map((p) =>
-        p.provenance === 'llm_suggested' ? { ...p, is_accepted: false } : p
+        p.provenance === 'llm_suggested' || p.provenance === 'web_sourced' ? { ...p, is_accepted: false } : p
       )
     )
   }
@@ -104,7 +104,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
 
   const liveForecast = useMemo(() => {
     if (!forecast || !forecast.scenarios || forecast.scenarios.length < 2) return null
-    const activePremises = scenarioPremises.filter((p) => p.provenance !== 'llm_suggested' || p.is_accepted)
+    const activePremises = scenarioPremises.filter((p) => (p.provenance === 'web_sourced' ? p.is_accepted : (p.provenance !== 'llm_suggested' || p.is_accepted)))
     const k = forecast.scenarios.length
 
     const scores: Record<string, number> = {}
@@ -776,7 +776,8 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                   {scenarioPremises.map((premise) => {
                     const prov = premise.provenance || 'assumed'
                     const isLlm = prov === 'llm_suggested'
-                    const isAccepted = !isLlm || Boolean(premise.is_accepted)
+                    const isWeb = prov === 'web_sourced'
+                    const isAccepted = (!isLlm && !isWeb) || Boolean(premise.is_accepted)
 
                     return (
                       <div
@@ -812,7 +813,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                           </div>
 
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            {isLlm && (
+                            {(isLlm || isWeb) && (
                               <button
                                 type="button"
                                 onClick={() => handleTogglePremiseAccepted(premise.id)}
@@ -841,6 +842,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                             {premise.description}
                           </p>
                         )}
+                        {isWeb && <WebEvidenceNotice sourceRef={premise.source_ref} />}
 
                         {/* Weight Slider */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
@@ -2273,3 +2275,28 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
     </div>
   )
 }
+
+function WebEvidenceNotice({ sourceRef }: { sourceRef?: string | null }) {
+  return (
+    <div style={{
+      marginTop: '0.5rem',
+      padding: '0.45rem 0.65rem',
+      borderRadius: '6px',
+      background: 'oklch(16% 0.03 240 / 0.6)',
+      border: '1px solid oklch(32% 0.06 240 / 0.4)',
+      fontSize: '0.75rem',
+      color: 'oklch(80% 0.08 240)',
+      lineHeight: 1.4,
+    }}>
+      <div>
+        <strong style={{ color: 'oklch(88% 0.12 240)' }}>Fakt i cytat zweryfikowane:</strong> Cytat pochodzi bezpośrednio z pobranego dokumentu sieciowego. Liczbowy wpływ na scenariusze jest analityczną propozycją modelu i wymaga zatwierdzenia przez decydenta przed uwzględnieniem w rozkładzie.
+      </div>
+      {sourceRef && (
+        <div style={{ marginTop: '0.25rem', fontSize: '0.6875rem', color: 'oklch(65% 0.04 240)', wordBreak: 'break-all' }}>
+          Źródło: {sourceRef}
+        </div>
+      )}
+    </div>
+  )
+}
+

@@ -225,7 +225,7 @@ def compute_tipping_points(
     if len(scenarios) < 2 or not premises:
         return (["Niewystarczająca liczba scenariuszy lub przesłanek do wyznaczenia punktów zwrotnych."], [])
 
-    active_premises = [p for p in premises if p.provenance != "llm_suggested" or p.is_accepted]
+    active_premises = [p for p in premises if p.provenance not in ("llm_suggested", "web_sourced") or p.is_accepted]
     if not active_premises:
         return (["Brak aktywnych przesłanek do wyznaczenia punktów zwrotnych."], [])
 
@@ -338,8 +338,8 @@ def compute_scenario_distribution(
     if not premises:
         raise ValueError("Brak przesłanek do obliczenia rozkładu. Zdefiniuj co najmniej jedną przesłankę.")
 
-    # Filter premises: only accepted premises or user/web/assumed enter calculation
-    active_premises = [p for p in premises if p.provenance != "llm_suggested" or p.is_accepted]
+    # Filter premises: only accepted premises or user/assumed enter calculation
+    active_premises = [p for p in premises if p.provenance not in ("llm_suggested", "web_sourced") or p.is_accepted]
 
     # 1. Compute support evidence score for each scenario
     # S(s_i) = sum_{p in active} (weight * confidence * impact)

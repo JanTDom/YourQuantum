@@ -9,9 +9,8 @@ import logging
 import re
 from typing import Any
 
-from backend.domain.decision_case import (
-    DecisionCase, Option, Criterion, ScoredValue, InputQuality,
-)
+from backend.domain.decision_case import DecisionCase, Option, Criterion, ScoredValue, InputQuality
+from backend.domain.evidence.models import Evidence
 from backend.domain.scenario_weighting import (
     ScenarioOutcome, EvidencePremise, ScenarioForecast,
     compute_scenario_distribution,
@@ -105,6 +104,7 @@ SCENARIO_EXTRACTION_SCHEMA = {
 async def decompose_scenario_query_async(
     query: str,
     web_snippets: list[str] | None = None,
+    verified_evidences: list[Evidence] | None = None,
     gateway: LLMGateway | None = None,
 ) -> tuple[DecisionCase, ScenarioForecast]:
     """
@@ -159,6 +159,7 @@ async def decompose_scenario_query_async(
         user_content = (
             f"Pytanie użytkownika:\n\"{query}\"\n\n"
             f"Kontekst i fakty z sieci:\n{snippets_text}"
+            f"{_format_verified_evidence_prompt(verified_evidences)}"
             f"{horizon_instruction}\n\n"
             "Zbuduj 2-3 konkretne, wykluczające się scenariusze oraz 3-4 mierzalne przesłanki z ich wpływem na scenariusze."
         )
@@ -212,6 +213,7 @@ async def decompose_scenario_query_async(
                     ))
         except Exception as exc:
             logger.warning("LLM scenario decomposition failed: %s", exc)
+    premises, scenarios = _integrate_verified_evidences(premises, scenarios, verified_evidences, p_json if "p_json" in locals() else None, query)
 
     # If insufficient items, do NOT inject invented geopolitical numbers.
     # Return empty case requiring user definition.
@@ -333,3 +335,93 @@ async def decompose_scenario_query_async(
     )
 
     return case, forecast
+
+
+def _format_verified_evidence_prompt(verified_evidences: list[Evidence] | None) -> str:
+    if not verified_evidences:
+        return ""
+    lines = ["\n\nZWERYFIKOWANE FAKTY Z POBRANYCH DOKUMENTÓW ŹRÓDŁOWYCH (potwierdzone cytatami ze stron www):"]
+    for idx, ev in enumerate(verified_evidences):
+        pub = ev.publisher or ev.source_title or ev.source_url
+        lines.append(f"- ID: web_{idx+1}\n  Fakt: {ev.claim}\n  Cytat dosłowny ze strony: „{ev.quote}”\n  Wydawca / Źródło: {pub}")
+    lines.append(
+        "UWAGA: Dla każdego z powyższych zweryfikowanych faktów (web_1, web_2...) określ wpływ "
+        "(impact_on_scenarios od -1.0 do +1.0) na poszczególne scenariusze. "
+        "Możesz też zaproponować dodatkowe przesłanki analityczne modelu (id: pr_1, pr_2...).\n"
+    )
+    return "\n".join(lines)
+
+
+def _integrate_verified_evidences(
+    premises: list[EvidencePremise],
+    scenarios: list[ScenarioOutcome],
+    verified_evidences: list[Evidence] | None,
+    p_json: dict[str, Any] | None,
+    query: str,
+) -> tuple[list[EvidencePremise], list[ScenarioOutcome]]:
+    if not verified_evidences:
+        return premises, scenarios
+
+    if len(scenarios) < 2:
+        scenarios = [
+            ScenarioOutcome(
+                id="sc_1",
+                title=normalize_polish_geopolitical_text(f"Scenariusz bazowy: {query[:50]}"),
+                description="Główny kierunek rozwoju sytuacji wynikający z analizy.",
+                risk_level="MEDIUM",
+            ),
+            ScenarioOutcome(
+                id="sc_2",
+                title=normalize_polish_geopolitical_text(f"Scenariusz alternatywny: {query[:50]}"),
+                description="Wariant alternatywny rozwoju sytuacji w przypadku zmiany uwarunkowań.",
+                risk_level="HIGH",
+            ),
+        ]
+
+    raw_premises_data = p_json.get("premises", []) if isinstance(p_json, dict) else []
+    web_premises: list[EvidencePremise] = []
+
+    for idx, ev in enumerate(verified_evidences):
+        web_id = f"web_{idx+1}"
+        pub = ev.publisher or ev.source_title or "Zweryfikowane źródło sieciowe"
+        impacts: dict[str, float] = {}
+        weight = 1.0
+
+        for pr_data in raw_premises_data:
+            pid = str(pr_data.get("id", ""))
+            if pid == web_id or f"web_{idx+1}" in pid:
+                raw_impacts = pr_data.get("impacts") or pr_data.get("impact_on_scenarios", {})
+                if isinstance(raw_impacts, list):
+                    impacts = {
+                        str(item["scenario_id"]): float(item["impact"])
+                        for item in raw_impacts
+                        if isinstance(item, dict) and "scenario_id" in item and "impact" in item
+                    }
+                elif isinstance(raw_impacts, dict):
+                    impacts = {str(k): float(v) for k, v in raw_impacts.items()}
+                weight = float(pr_data.get("weight", 1.0))
+                break
+
+        for sc in scenarios:
+            if sc.id not in impacts:
+                impacts[sc.id] = 0.5 if sc.id == "sc_1" else -0.5
+
+        web_premises.append(EvidencePremise(
+            id=web_id,
+            name=normalize_polish_geopolitical_text(str(ev.claim)[:80]),
+            description=(
+                f"Cytat: „{ev.quote}” (źródło: {pub}). "
+                f"Liczbowy wpływ na scenariusze jest propozycją analityczną modelu i wymaga zatwierdzenia przez decydenta."
+            ),
+            source=str(pub),
+            confidence=float(ev.confidence),
+            weight=weight,
+            impact_on_scenarios=impacts,
+            provenance="web_sourced",
+            source_ref=str(ev.source_url),
+            is_accepted=False,
+        ))
+
+    clean_llm = [p for p in premises if not p.id.startswith("web_")]
+    return web_premises + clean_llm, scenarios
+

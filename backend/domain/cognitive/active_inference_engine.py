@@ -491,22 +491,62 @@ class ActiveInferenceOrchestrator:
         if is_scenario_forecast:
             from backend.domain.cognitive.scenario_decomposer import decompose_scenario_query_async
             from backend.infrastructure.web_research.search_adapter import WebResearchAdapter
+            from backend.infrastructure.web_research.fetcher import SafeWebFetcher
+            from backend.infrastructure.web_research.extractor import EvidenceExtractor
+            from backend.domain.evidence.models import Evidence
+            import asyncio
 
             search_adapter = WebResearchAdapter()
             web_context_snippets: list[str] = []
+            verified_evidences: list[Evidence] = []
+            web_search_urls_returned = 0
+            web_pages_fetched = 0
+            web_quotes_verified = 0
+
             if search_adapter.is_available():
                 ws.energy_budget.consume_search(2)
                 try:
                     search_results = await search_adapter.search(f"{query} analiza prawdopodobieństwo raport", max_results=3)
+                    web_search_urls_returned = len(search_results)
                     for sr in search_results:
                         web_context_snippets.append(f"[{sr.title}]({sr.url}): {sr.snippet}")
+
+                    # Ground scenario premises in fetched web documents with verified verbatim quotes (V9-C / DEC-032)
+                    fetcher = SafeWebFetcher(timeout=5.0)
+                    extractor = EvidenceExtractor()
+
+                    for sr in search_results[:3]:
+                        if not sr.url:
+                            continue
+                        if ws.energy_budget.tokens_used >= ws.energy_budget.max_tokens:
+                            logger.info("Energy budget reached limit, skipping further web fetches.")
+                            break
+                        try:
+                            doc = await asyncio.wait_for(fetcher.fetch(sr.url), timeout=5.0)
+                            if doc and doc.page_text:
+                                web_pages_fetched += 1
+                                ev = await extractor.extract_parameter_evidence(
+                                    document=doc,
+                                    target_param=query[:80],
+                                    parameter_description=f"Kluczowy fakt lub wskaźnik dla analizy scenariuszowej: {query}",
+                                )
+                                if ev and ev.quote:
+                                    web_quotes_verified += 1
+                                    verified_evidences.append(ev)
+                        except Exception as fetch_err:
+                            logger.warning("Failed to fetch or extract evidence from %s: %s", sr.url, fetch_err)
                 except Exception as s_err:
                     logger.warning("Web search in scenario intake failed: %s", s_err)
 
             case, forecast = await decompose_scenario_query_async(
                 query=query,
                 web_snippets=web_context_snippets,
+                verified_evidences=verified_evidences,
             )
+
+            forecast.telemetry["web_search_urls_returned"] = web_search_urls_returned
+            forecast.telemetry["web_pages_fetched"] = web_pages_fetched
+            forecast.telemetry["web_quotes_verified"] = web_quotes_verified
 
             if len(forecast.scenarios) >= 2 and len(forecast.evidence_premises) > 0:
                 formalization = FormalizationResult(
@@ -524,6 +564,9 @@ class ActiveInferenceOrchestrator:
                         "dominant_scenario_id": forecast.dominant_scenario_id,
                         "telemetry": forecast.telemetry,
                         "web_sources_count": len(web_context_snippets),
+                        "web_search_urls_returned": web_search_urls_returned,
+                        "web_pages_fetched": web_pages_fetched,
+                        "web_quotes_verified": web_quotes_verified,
                     },
                 )
                 ws.update_hypothesis(None, {"status": "ready_for_review", "mode": "SCENARIO_FORECAST"})
