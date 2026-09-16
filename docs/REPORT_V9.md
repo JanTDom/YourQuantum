@@ -53,7 +53,7 @@ WYNIK KOŃCOWY: WSZYSTKIE BRAMKI ZIELONE (PASS)
 |---|---|---|---|---|---|
 | **Etap A** | Wyznaczenie empirycznego progu dowodu optymalności małego $N$ w `backend/verifier/verifier.py` | **Zrobione** | `scripts/bench_enumeration.py`, `backend/verifier/verifier.py`, `docs/MEASUREMENTS.md` | `tests/test_verifier_enumeration.py` | `b1a4fd7` |
 | **Etap B** | Przeniesienie weryfikacji bramki dostępu do aplikacji na serwer (`POST /api/v1/auth/verify-app-access`), rate-limiting, usunięcie `AUTHORIZED_HASHES` z frontendu | **Zrobione** (czeka na zmienną) | `backend/api/routes.py`, `backend/api/universal_engine.py`, `frontend/src/components/AuthGate.tsx`, `frontend/src/api.ts` | `tests/test_app_access_auth.py` | `43ca3c9` |
-| **Etap C** | Uziemienie przesłanek analizy scenariuszowej w pobranych stronach sieciowych ze zweryfikowanymi cytatami dosłownymi (`SafeWebFetcher`, `EvidenceExtractor`) | **Zrobione** | `backend/domain/cognitive/active_inference_engine.py`, `backend/domain/cognitive/scenario_decomposer.py`, `frontend/src/components/RecommendationView.tsx` | `tests/test_scenario_web_sourcing.py` | `17903b4` |
+| **Etap C** | Uziemienie przesłanek analizy scenariuszowej w pobranych stronach sieciowych ze zweryfikowanymi cytatami dosłownymi (`SafeWebFetcher`, `EvidenceExtractor`) | **Zrobione** | `backend/domain/cognitive/active_inference_engine.py`, `backend/domain/cognitive/scenario_decomposer.py`, `frontend/src/components/RecommendationView.tsx` | `tests/test_scenario_web_sourcing.py` | `234f3c1` |
 
 ---
 

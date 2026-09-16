@@ -18,6 +18,7 @@ from typing import List, Tuple, Optional, Dict
 
 CHECKED_DOCS: List[str] = [
     "docs/REPORT_V6.md",
+    "docs/REPORT_V9.md",
 ]
 
 # Ignorowane katalogi przy indeksowaniu plików
