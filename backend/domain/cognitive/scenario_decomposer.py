@@ -11,6 +11,7 @@ from typing import Any
 
 from backend.domain.decision_case import DecisionCase, Option, Criterion, ScoredValue, InputQuality
 from backend.domain.evidence.models import Evidence
+from backend.domain.evidence.evidence_weighting import compute_evidence_weight
 from backend.domain.scenario_weighting import (
     ScenarioOutcome, EvidencePremise, ScenarioForecast,
     compute_scenario_distribution,
@@ -202,10 +203,10 @@ async def decompose_scenario_query_async(
                     premises.append(EvidencePremise(
                         id=str(pr_data["id"]),
                         name=normalize_polish_geopolitical_text(str(pr_data["name"])),
-                        description=normalize_polish_geopolitical_text(str(pr_data.get("description", ""))),
-                        source=normalize_polish_geopolitical_text(str(pr_data.get("source", "propozycja modelu LLM"))),
-                        confidence=float(pr_data.get("confidence", 0.85)),
-                        weight=float(pr_data.get("weight", 1.0)),
+                        description=(f"{normalize_polish_geopolitical_text(str(pr_data.get('description', '')))} Waga nie została wyliczona z dokumentów; ustaw ją samodzielnie, jeżeli chcesz zróżnicować znaczenie przesłanek.".strip()),
+                        source=normalize_polish_geopolitical_text(str(pr_data.get("source", "propozycja modelu"))),
+                        confidence=1.0,
+                        weight=1.0,
                         impact_on_scenarios=impacts,
                         provenance="llm_suggested",
                         source_ref=str(pr_data.get("source", "propozycja modelu")),
@@ -255,7 +256,6 @@ async def decompose_scenario_query_async(
             briefing=empty_briefing,
         )
         forecast.telemetry["unspecified_impacts_count"] = unspec_count
-        forecast.telemetry["web_sourced_premises_without_model_impacts"] = unspec_count
         return case, forecast
 
     # Compute scenario distribution using honest weighted softmax
@@ -399,6 +399,9 @@ def _integrate_verified_evidences(
             if sc.id not in impacts:
                 impacts[sc.id] = 0.0
 
+        wb = compute_evidence_weight(ev, all_evidences=verified_evidences)
+        computed_weight = wb.final_weight
+
         if not has_model_impacts:
             unspecified_impacts_count += 1
             desc_impact_text = "Wpływ na scenariusze nie został określony; przesłanka nie przeważa rozkładu, dopóki nie nadasz jej wag ręcznie."
@@ -412,11 +415,12 @@ def _integrate_verified_evidences(
             name=normalize_polish_geopolitical_text(str(ev.claim)[:80]),
             description=(
                 f"Cytat: „{ev.quote}” (źródło: {pub}). "
+                f"{wb.justification_summary} "
                 f"{desc_impact_text}"
             ),
             source=str(pub),
             confidence=float(ev.confidence),
-            weight=weight,
+            weight=computed_weight,
             impact_on_scenarios=impacts,
             provenance="web_sourced",
             source_ref=source_ref_val,

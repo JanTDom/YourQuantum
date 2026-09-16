@@ -412,3 +412,99 @@ def test_search_adapter_v12_status_and_timeout():
     status_offline = adapter_offline.get_status()
     assert status_offline["mode"] == "offline_user_data_only"
     assert status_offline["can_fetch_content"] is False
+
+
+def test_evidence_weighting_properties():
+    """
+    Test V12-2: verify 5 key properties of evidence weighting:
+    1. tier_1 domain gets tier_1 score (1.0).
+    2. unknown domain gets tier_4 score (0.4).
+    3. multiple evidences from same domain do not double-count corroboration.
+    4. missing published_at gives neutral 0.50 score.
+    5. deterministic output (same inputs -> identical weight).
+    """
+    from backend.domain.evidence.evidence_weighting import compute_evidence_weight
+    from backend.domain.evidence.models import Evidence
+
+    ev_tier1 = Evidence(
+        id="ev_t1",
+        claim="Inflacja bazowa w Polsce w styczniu 2026 wyniosła 3.2%",
+        value=3.2,
+        quote="Według szybkiego szacunku GUS inflacja CPI wyniosła 3.2% r/r w 2026 r.",
+        source_url="https://stat.gov.pl/obszary-tematyczne/ceny-handel/wskazniki-cen/inflacja-2026",
+        source_title="GUS",
+        confidence=0.9,
+        content_hash="hash_1",
+        published_at="2026-02-15T10:00:00Z",
+    )
+
+    ev_tier4 = Evidence(
+        id="ev_t4",
+        claim="Sytuacja geopolityczna może ulec zmianie",
+        value=1.0,
+        quote="Eksperci z bloga twierdzą, że sytuacja może ulec nagłej zmianie w regionie.",
+        source_url="https://nieznany-blog-geopolityczny.xyz/post/123",
+        source_title="Blog",
+        confidence=0.8,
+        content_hash="hash_4",
+        published_at="2026-01-10T12:00:00Z",
+    )
+
+    # 1. Tier 1 domain check
+    wb1 = compute_evidence_weight(ev_tier1, all_evidences=[ev_tier1])
+    assert wb1.source_class_score == 1.0, "stat.gov.pl must be recognized as Tier 1 (score 1.0)"
+
+    # 2. Unknown domain check
+    wb4 = compute_evidence_weight(ev_tier4, all_evidences=[ev_tier4])
+    assert wb4.source_class_score == 0.4, "Unknown domain must default to Tier 4 (score 0.4)"
+
+    # 3. Corroboration: same domain should not double-count
+    ev_tier1_dupe_domain = Evidence(
+        id="ev_t1_dupe",
+        claim="Kolejny raport GUS o cenach żywności",
+        value=2.1,
+        quote="GUS informuje o cenach żywności w lutym 2026 roku wynoszących +2.1%.",
+        source_url="https://stat.gov.pl/obszary-tematyczne/ceny-handel/zywnosc",
+        source_title="GUS",
+        confidence=0.9,
+        content_hash="hash_1_dupe",
+    )
+    wb_corrob_same = compute_evidence_weight(ev_tier1, all_evidences=[ev_tier1, ev_tier1_dupe_domain])
+    # Distinct domains = 1, so corroboration score is baseline 0.5
+    assert wb_corrob_same.corroboration_score == 0.5, "Same domain should count as 1 domain (baseline 0.5)"
+
+    # Distinct domain should boost corroboration
+    ev_tier2_diff_domain = Evidence(
+        id="ev_t2_nbp",
+        claim="NBP potwierdza spadek dynamiki cen",
+        value=3.0,
+        quote="Raport o inflacji NBP potwierdza projekcję spadku inflacji bazowej do 3.0%.",
+        source_url="https://nbp.pl/publikacje/raport-o-inflacji-2026",
+        source_title="NBP",
+        confidence=0.95,
+        content_hash="hash_nbp",
+    )
+    wb_corrob_diff = compute_evidence_weight(ev_tier1, all_evidences=[ev_tier1, ev_tier2_diff_domain])
+    assert wb_corrob_diff.corroboration_score == 0.8, "Two distinct domains must yield 0.8 corroboration"
+
+    # 4. Missing published_at gives neutral 0.50 score
+    ev_no_date = Evidence(
+        id="ev_nodate",
+        claim="Raport archiwalny",
+        value=1.5,
+        quote="Wskaźnik aktywności przemysłowej PMI w marcu 2026 r. wzrósł o 1.5 pkt.",
+        source_url="https://stat.gov.pl/raport",
+        source_title="GUS",
+        confidence=0.9,
+        content_hash="hash_nodate",
+        published_at=None,
+    )
+    wb_no_date = compute_evidence_weight(ev_no_date)
+    assert wb_no_date.recency_score == 0.50, "Missing published_at must return neutral 0.50"
+
+    # 5. Deterministic output: running 100 times yields exact same float
+    res_first = compute_evidence_weight(ev_tier1, all_evidences=[ev_tier1, ev_tier2_diff_domain]).final_weight
+    for _ in range(100):
+        res_check = compute_evidence_weight(ev_tier1, all_evidences=[ev_tier1, ev_tier2_diff_domain]).final_weight
+        assert res_first == res_check
+

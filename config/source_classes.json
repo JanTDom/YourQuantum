@@ -1,0 +1,58 @@
+{
+  "version": "1.0.0",
+  "updated_at": "2026-09-16",
+  "description": "Wersjonowany rejestr klas wiarygodności domen źródłowych dla YourQuantum. Domena spoza listy otrzymuje klasę najniższą (tier_4).",
+  "tiers": {
+    "tier_1": {
+      "name": "Instytucje państwowe, międzynarodowe i wiodące ośrodki badawcze",
+      "score": 1.0,
+      "description": "GUS, NBP, Eurostat, NATO, ONZ, WHO, OSW, PISM, SIPRI, IISS"
+    },
+    "tier_2": {
+      "name": "Wiodące agencje informacyjne i prasa referencyjna",
+      "score": 0.8,
+      "description": "PAP, Reuters, Bloomberg, AP, AFP, Financial Times"
+    },
+    "tier_3": {
+      "name": "Renomowane portale informacyjne, prasa codzienna i branżowa",
+      "score": 0.6,
+      "description": "Rzeczpospolita, Dziennik Gazeta Prawna, Bankier, Forsal, RMF24, TVN24, Polsat News"
+    },
+    "tier_4": {
+      "name": "Pozostałe źródła sieciowe, blogi, fora, domeny niesklasyfikowane",
+      "score": 0.4,
+      "description": "Domyślna najniższa klasa dla wszystkich domen spoza rejestru"
+    }
+  },
+  "domains": {
+    "stat.gov.pl": "tier_1",
+    "nbp.pl": "tier_1",
+    "ec.europa.eu": "tier_1",
+    "eurostat.ec.europa.eu": "tier_1",
+    "nato.int": "tier_1",
+    "un.org": "tier_1",
+    "who.int": "tier_1",
+    "osw.waw.pl": "tier_1",
+    "pism.pl": "tier_1",
+    "sipri.org": "tier_1",
+    "iiss.org": "tier_1",
+    "bbn.gov.pl": "tier_1",
+    "mon.gov.pl": "tier_1",
+    "msz.gov.pl": "tier_1",
+    "pap.pl": "tier_1",
+    "reuters.com": "tier_2",
+    "bloomberg.com": "tier_2",
+    "apnews.com": "tier_2",
+    "afp.com": "tier_2",
+    "ft.com": "tier_2",
+    "rp.pl": "tier_3",
+    "gazetaprawna.pl": "tier_3",
+    "bankier.pl": "tier_3",
+    "forsal.pl": "tier_3",
+    "rmf24.pl": "tier_3",
+    "tvn24.pl": "tier_3",
+    "polsatnews.pl": "tier_3",
+    "wnp.pl": "tier_3",
+    "defence24.pl": "tier_3"
+  }
+}
