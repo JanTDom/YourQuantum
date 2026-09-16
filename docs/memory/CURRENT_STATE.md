@@ -1,18 +1,17 @@
 # YourQuantum — CURRENT STATE
-_Last updated: 2026-09-15 (V8: Domknięcie cyklu audytowego, korekta przywołania w REPORT_V6, weryfikacja maszynowa przywołań kodu G-DOCS, DEC-033)_
+_Last updated: 2026-09-16 (V9: Domknięcie trzech zaległych długów technicznych A, B, C; DEC-035, DEC-036)_
 
-## Status: V8 — DOMKNIĘCIE CYKLU AUDYTOWEGO, MASZYNOWA INTEGRALNOŚĆ DOKUMENTACJI (24/24 PASS)
+## Status: V9 — TRZY ZALEGŁE DŁUGI TECHNICZNE (24/24 PASS)
 
-- **Gałąź i stan repo**: `fix/v8-doc-integrity` (w trakcie scalania do `main`) — pełne wdrożenie audytu V8:
-  * Skorygowano pojedynczy błędny indeks linii w `docs/REPORT_V6.md` (linia 97: zmiana `linia 90` na `linia 189` w przywołaniu domyślnej flagi `is_accepted = False` w `backend/domain/cognitive/scenario_decomposer.py`).
-  * Wdrożono narzędzie deterministycznej weryfikacji maszynowej `scripts/check_doc_citations.py` sprawdzające reguły R1 (istnienie pliku), R2 (zakres linii) i R3 (spójność literału w oknie ±3 linii z tolerancją białych znaków i pomijaniem szablonów JSX/wielokropków).
-  * Pokryto weryfikator pełnym zestawem testów jednostkowych `tests/unit/test_doc_citations.py` (pozytywny, negatywne R1/R2/R3 z offsetem +50 linii, filtry JSX).
-  * Rozszerzono skrypt bramkowy `scripts/check_v4.sh` o bramkę `G-DOCS` (łącznie 24 bramki mechaniczne, wszystkie PASS).
-  * Zarejestrowano decyzję architektoniczną `DEC-033` w `docs/memory/DECISIONS.md`.
+- **Gałąź i stan repo**: `feat/v9-technical-debt` (odgałęziona od `main` `cdf2326`):
+  * **Etap A (Commit `b1a4fd7`)**: Wyznaczono empiryczny próg niezależnej enumeracji binarnej. Benchmark `scripts/bench_enumeration.py` wykazał medianę 3.65s dla $n=16$ oraz 15.91s dla $n=18$ (przy budżecie 2.0s). Zgodnie z zasadą dowodu próg pozostał na poziomie 16 zmiennych, skonsolidowany do nazwanej stałej `MAX_ENUMERATION_VARS = 16` w `backend/verifier/verifier.py`.
+  * **Usprawnienie Horyzontu Czasowego (Commit `c001bdf`)**: Deterministyczne dekodowanie perspektyw czasowych w języku polskim w `backend/domain/cognitive/time_horizon.py` (DEC-034).
+  * **Etap B (Commit `43ca3c9`)**: Przeniesienie weryfikacji bramki dostępu do aplikacji na serwer (`POST /api/v1/auth/verify-app-access`, stałoczasowe porównanie `hmac.compare_digest`, in-memory rate limiting 5 prób / 15 min, wygasający token HMAC-SHA256). Całkowita eliminacja `AUTHORIZED_HASHES` z frontendu (DEC-036).
+  * **Etap C (Commit `17903b4`)**: Uziemienie przesłanek prognoz scenariuszowych w pobranych dokumentach sieciowych z dosłownymi cytatami zweryfikowanymi przez `SafeWebFetcher` i `EvidenceExtractor` (DEC-035). Przesłanki `web_sourced` oznaczone `is_accepted=False` i podlegające aktywacji przez decydenta.
 - **Weryfikacja testowa**:
   * `scripts/check_v4.sh`: Wszystkie 24 bramki PASS (G-R1a do G-N11, G-DOCS oraz G-TESTS).
-  * `pytest -q tests/`: 198/198 PASS (kod wyjścia 0, 0 błędów, 0 regresji).
-  * `npm run build`: Kompilacja TypeScript/Vite czysta (kod 0, 0 błędów).
+  * `pytest -q tests/`: 217/217 PASS (kod wyjścia 0, 0 błędów, 0 regresji).
+  * `npm run build`: Kompilacja TypeScript/Vite czysta (kod 0, 0 błędów, czas 2.35s).
 - **Wdrożenie produkcyjne**: `https://yourquantum.pl` (Vercel prod deployment `dpl_AMjryi2a1Xc6HcwBvmmZojPBcXM6`, status `READY`):
   * Nowy bundle produkcyjny frontendu: `assets/index-DYAG9ngC.js`.
   * Potwierdzony region serwerowy Vercel: `fra1` nagłówkiem HTTP `x-vercel-id: arn1::fra1::mj9g4-1789425647787-752bc4d44759`.
@@ -315,6 +314,14 @@ WYNIK KOŃCOWY: WSZYSTKIE BRAMKI ZIELONE (PASS)
 
 ---
 
+### ✅ Faza V9: Trzy Zaległe Długi Techniczne (2026-09-16)
+- **Etap A (Dowód optymalności)**: Utworzono narzędzie pomiarowe `scripts/bench_enumeration.py` mierzące czas wykonania niezależnej enumeracji `_independent_small_n_enumeration` dla $n \in \{16, 18, 20, 22, 24\}$ (5 przebiegów per rozmiar, 3 instancje). Wyniki (mediana 3.65s dla $n=16$, 15.91s dla $n=18$) jednoznacznie potwierdziły przekroczenie budżetu 2.0s już przy $n=18$. Próg pozostawiono na poziomie 16 zmiennych, ujednolicając trzy rozproszone literały do nazwanej stałej `MAX_ENUMERATION_VARS = 16` w `backend/verifier/verifier.py`.
+- **Horyzont Czasowy**: Wdrożono deterministyczny moduł `backend/domain/cognitive/time_horizon.py` do dekodowania perspektyw czasowych w języku polskim (DEC-034).
+- **Etap B (Bramka dostępu po stronie serwera)**: Usunięto tablicę `AUTHORIZED_HASHES` z frontendu. Wdrożono serwerowy endpoint `POST /api/v1/auth/verify-app-access` weryfikujący sekret `YQ_APP_ACCESS_SECRET` stałoczasowo (`hmac.compare_digest`), zabezpieczony ograniczeniem prób (5 nieudanych prób na 15 min per IP) oraz wydający wygasające tokeny sesyjne HMAC-SHA256 (DEC-036).
+- **Etap C (Uziemienie przesłanek w sieci)**: Podłączono pobieranie stron `SafeWebFetcher.fetch()` oraz weryfikację cytatów `EvidenceExtractor.extract_parameter_evidence()` w ścieżce prognoz scenariuszowych `backend/domain/cognitive/active_inference_engine.py`. Przesłanki z potwierdzonym cytatem uzyskują oznaczenie `web_sourced`, a decydent zatwierdza je w `frontend/src/components/RecommendationView.tsx` z jawną adnotacją, że fakt i cytat pochodzą z sieci, a wagi i wpływy proponuje model (DEC-035).
+
+---
+
 ## Następny krok (Next Step)
 
-Cykl audytowy V5–V8 został w pełni domknięty. Wszystkie 24 bramki mechaniczne w `scripts/check_v4.sh` są zielone (PASS). Zgodność przywołań kodu w dokumentacji jest egzekwowana automatycznie przez bramkę G-DOCS (`scripts/check_doc_citations.py`, DEC-033). System jest w 100% gotowy do dalszych prac rozwojowych.
+Oczekiwanie na potwierdzenie od Jana wdrożenia zmiennej środowiskowej `YQ_APP_ACCESS_SECRET` w panelu Vercel. Po potwierdzeniu: scalenie gałęzi `feat/v9-technical-debt` do `main` (lub cherry-pick Etapu B), wypchnięcie do `origin/main` i empiryczna weryfikacja na produkcji `https://yourquantum.pl` nagłówka `x-vercel-id` oraz endpointu `/api/v1/health/solvers`. Do tego czasu do `main` włączane są wyłącznie Etap A i Etap C wraz z dokumentacją.

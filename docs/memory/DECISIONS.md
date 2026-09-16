@@ -581,3 +581,38 @@ Bramka jakości wykrywała perspektywę czasową pytania prognostycznego pojedyn
 
 **Konsekwencje:**
 Użytkownik nie jest pytany o perspektywę czasową, którą już podał. Rozszerzenie zakresu rozpoznawanych sformułowań wymaga dopisania reguły w `backend/domain/cognitive/time_horizon.py` wraz z testem w `tests/unit/test_time_horizon.py` — nie zaś rozbudowywania wyrażenia regularnego w bramce jakości.
+
+---
+
+## DEC-035 — Uziemienie przesłanek prognoz scenariuszowych w zweryfikowanych dokumentach sieciowych
+
+**Date:** 2026-09-15
+**Status:** ACTIVE
+
+**Kontekst:**
+W ścieżce analizy scenariuszowej (`backend/domain/cognitive/active_inference_engine.py`) silnik pobierał jedynie snippety z wyszukiwarki i wklejał je do promptu modelu językowego. W efekcie wszystkie przesłanki miały oznaczenie `provenance="llm_suggested"`, a znacznik `🌐 Zweryfikowane źródło sieciowe` w interfejsie (`frontend/src/components/RecommendationView.tsx`) pozostawał kodem nieosiągalnym.
+
+**Decyzja:**
+1. **Pełne pobieranie stron z weryfikacją**: Ścieżka scenariuszowa pobiera rzeczywistą treść stron za pomocą `SafeWebFetcher.fetch(url)` (ochrona SSRF, limit rozmiaru, hash SHA-256) oraz ekstraktuje dowody przez `EvidenceExtractor.extract_parameter_evidence(...)`.
+2. **Weryfikacja dosłownego cytatu**: Przesłanka otrzymuje oznaczenie `provenance="web_sourced"` wyłącznie wtedy, gdy dosłowny cytat zostanie w 100% odnaleziony w pobranym tekście strony źródłowej.
+3. **Rozdział faktu od interpretacji numerycznej**: Ze źródła sieciowego pochodzi *fakt i dosłowny cytat*. Wpływy liczbowe na poszczególne scenariusze proponuje model językowy, a decydent ma ich pełną świadomość dzięki dedykowanemu opisowi w interfejsie użytkownika.
+4. **Bramka zatwierdzenia decydenta**: Zgodnie z zasadą ograniczonego zaufania do danych zewnętrznych, przesłanki `web_sourced` są domyślnie tworzone z `is_accepted=False` i nie wchodzą do obliczeń rozkładu bez aktywnej zgody człowieka.
+5. **Budżet i telemetria**: Pobieranie ograniczone do maksymalnie 3 adresów URL per zapytanie z limitem czasu i kontrolą `ws.energy_budget`. Rzeczywiste liczby (zwrócone adresy, pobrane strony, zweryfikowane cytaty) są bez zmyślania zapisywane w telemetrii.
+
+---
+
+## DEC-036 — Bezpieczna weryfikacja bramki dostępu do aplikacji po stronie serwera
+
+**Date:** 2026-09-15
+**Status:** ACTIVE
+
+**Kontekst:**
+Bramka dostępu do aplikacji weryfikowała hasło po stronie klienta (`frontend/src/components/AuthGate.tsx`), porównując skróty SHA-256 ze stałą tablicą `AUTHORIZED_HASHES`. Choć nie ujawniało to hasła w tekście jawnym, lista skrótów była publicznie widoczna w bundlu JavaScript, co narażało ją na ataki słownikowe offline, a zmiana hasła wymagała ponownej kompilacji i wdrożenia frontendu.
+
+**Decyzja:**
+1. **Endpoint weryfikacyjny**: Utworzono dedykowany endpoint `POST /api/v1/auth/verify-app-access` w `backend/api/routes.py`.
+2. **Sekret serwerowy**: Hasło dostępu konfigurowane jest w zmiennej środowiskowej `YQ_APP_ACCESS_SECRET`. Przy braku konfiguracji sekretu serwer zwraca kod HTTP 503 Service Unavailable z czytelnym komunikatem o konieczności konfiguracji środowiska.
+3. **Bezpieczne porównanie**: Weryfikacja po stronie serwera odbywa się w stałym czasie za pomocą `hmac.compare_digest`.
+4. **Ograniczenie liczby prób (Rate Limiting)**: Wdrożono mechanizm ograniczania prób w pamięci procesu (5 nieudanych prób na 15 minut per adres IP; 6. próba zwraca kod HTTP 429 Too Many Requests).
+5. **Wygasający token sesyjny**: Po pomyślnej autoryzacji serwer wystawia podpisany kryptograficznie token HMAC-SHA256 (`yq_app_<exp>_<sig>`), który klient przechowuje w pamięci przeglądarki (`sessionStorage`).
+6. **Eliminacja skrótów z klienta**: Tablica `AUTHORIZED_HASHES` została w całości usunięta z kodu frontendu.
