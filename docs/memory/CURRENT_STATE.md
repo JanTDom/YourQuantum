@@ -1,7 +1,7 @@
 # YourQuantum — CURRENT STATE
-_Last updated: 2026-09-16 (V9: Domknięcie trzech zaległych długów technicznych A, B, C; DEC-035, DEC-036)_
+_Last updated: 2026-09-16 (V11: Dwa zmyślone miejsca i produkcja Vercel; 24/24 PASS)_
 
-## Status: V9 — TRZY ZALEGŁE DŁUGI TECHNICZNE (24/24 PASS)
+## Status: V11 — DWA ZMYŚLONE MIEJSCA I NIEWDROŻONA PRODUKCJA (24/24 PASS)
 
 - **Gałąź i stan repo**: `feat/v9-technical-debt` (odgałęziona od `main` `cdf2326`):
   * **Etap A (Commit `b1a4fd7`)**: Wyznaczono empiryczny próg niezależnej enumeracji binarnej. Benchmark `scripts/bench_enumeration.py` wykazał medianę 3.65s dla $n=16$ oraz 15.91s dla $n=18$ (przy budżecie 2.0s). Zgodnie z zasadą dowodu próg pozostał na poziomie 16 zmiennych, skonsolidowany do nazwanej stałej `MAX_ENUMERATION_VARS = 16` w `backend/verifier/verifier.py`.
@@ -319,6 +319,15 @@ WYNIK KOŃCOWY: WSZYSTKIE BRAMKI ZIELONE (PASS)
 - **Horyzont Czasowy**: Wdrożono deterministyczny moduł `backend/domain/cognitive/time_horizon.py` do dekodowania perspektyw czasowych w języku polskim (DEC-034).
 - **Etap B (Bramka dostępu po stronie serwera)**: Usunięto tablicę `AUTHORIZED_HASHES` z frontendu. Wdrożono serwerowy endpoint `POST /api/v1/auth/verify-app-access` weryfikujący sekret `YQ_APP_ACCESS_SECRET` stałoczasowo (`hmac.compare_digest`), zabezpieczony ograniczeniem prób (5 nieudanych prób na 15 min per IP) oraz wydający wygasające tokeny sesyjne HMAC-SHA256 (DEC-036).
 - **Etap C (Uziemienie przesłanek w sieci)**: Podłączono pobieranie stron `SafeWebFetcher.fetch()` oraz weryfikację cytatów `EvidenceExtractor.extract_parameter_evidence()` w ścieżce prognoz scenariuszowych `backend/domain/cognitive/active_inference_engine.py`. Przesłanki z potwierdzonym cytatem uzyskują oznaczenie `web_sourced`, a decydent zatwierdza je w `frontend/src/components/RecommendationView.tsx` z jawną adnotacją, że fakt i cytat pochodzą z sieci, a wagi i wpływy proponuje model (DEC-035).
+
+---
+
+### ✅ Faza V11: Dwa Zmyślone Miejsca i Wdrożenie Produkcji (2026-09-16)
+- **Punkt 1 (Wpływy przesłanek sieciowych)**: Całkowicie wyeliminowano arbitralny fallback `0.5` / `-0.5` w `_integrate_verified_evidences` (`backend/domain/cognitive/scenario_decomposer.py`). W przypadku braku specyfikacji wag przez model stosowane jest neutralne `0.0`. Dodano oznacznik w polu `source_ref` (`f"{ev.source_url} [wpływy: nieokreślone]"`) oraz dwa warianty opisu (`"Wpływ na scenariusze nie został określony; przesłanka nie przeważa rozkładu, dopóki nie nadasz jej wag ręcznie."` vs `"Liczbowy wpływ na scenariusze jest propozycją analityczną modelu i wymaga zatwierdzenia przez decydenta."`). Licznik nieokreślonych przesłanek jest rejestrowany w `forecast.telemetry["unspecified_impacts_count"]`.
+- **Punkt 2 (Eliminacja zmyślonych scenariuszy fallback)**: Usunięto sztuczne scenariusze `sc_1` / `sc_2` z fałszywymi poziomami ryzyka. Gdy model zwróci mniej niż 2 scenariusze, silnik zwraca czysty stan `too_vague` wymagający podania alternatyw przez decydenta.
+- **Punkt 3 (Wdrożenie produkcyjne Vercel)**: Rozwiązano problem braku automatycznego deploymentu przy pushu do GitHuba. Wdrożono build na żywo przez Vercel CLI (`https://yourquantum.pl`). Zweryfikowano identyczność sumy kontrolnej SHA-256 bundla produkcyjnego `assets/index-CCa7IAFf.js` z lokalnym (`9ed9b1b933b3a0ddb040b32e5e8049fda00f8fa85f70d20d83975ffcff0686a3`). Na produkcji obecne są frazy Etapu C i V11 (`analityczną propozycją modelu`, `Fakt i cytat zweryfikowane:`, `Zweryfikowane źródło sieciowe`, `nie zatwierdzono jeszcze żadnej przesłanki`).
+- **Punkt 4 (Realna telemetria)**: Zarejestrowano przebieg zapytania scenariuszowego z aktywnym providerem `gemini`. Potwierdzono poprawne rejestrowanie surowej telemetrii (`forecast.telemetry`) bez zakłamywania danych przy awariach sieciowych.
+- **Punkt 5 (Dokumentacja i bramki)**: Skorygowano commit w `docs/REPORT_V9.md`, uzupełniono `DEC-035` w `docs/memory/DECISIONS.md`, rozszerzono maszynową weryfikację cytatów `scripts/check_doc_citations.py` o `docs/REPORT_V9.md`. Wszystkie 24 bramki `scripts/check_v4.sh` zielone.
 
 ---
 
