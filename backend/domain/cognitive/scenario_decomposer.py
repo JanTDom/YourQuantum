@@ -364,24 +364,8 @@ def _integrate_verified_evidences(
     p_json: dict[str, Any] | None,
     query: str,
 ) -> tuple[list[EvidencePremise], list[ScenarioOutcome], int]:
-    if not verified_evidences:
+    if not verified_evidences or len(scenarios) < 2:
         return premises, scenarios, 0
-
-    if len(scenarios) < 2:
-        scenarios = [
-            ScenarioOutcome(
-                id="sc_1",
-                title=normalize_polish_geopolitical_text(f"Scenariusz bazowy: {query[:50]}"),
-                description="Główny kierunek rozwoju sytuacji wynikający z analizy.",
-                risk_level="MEDIUM",
-            ),
-            ScenarioOutcome(
-                id="sc_2",
-                title=normalize_polish_geopolitical_text(f"Scenariusz alternatywny: {query[:50]}"),
-                description="Wariant alternatywny rozwoju sytuacji w przypadku zmiany uwarunkowań.",
-                risk_level="HIGH",
-            ),
-        ]
 
     raw_premises_data = p_json.get("premises", []) if isinstance(p_json, dict) else []
     web_premises: list[EvidencePremise] = []

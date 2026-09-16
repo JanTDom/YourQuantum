@@ -303,10 +303,24 @@ def test_active_inference_scenario_intake_telemetry():
             confidence=0.95,
         )
 
+        mock_llm_res = MagicMock()
+        mock_llm_res.parsed_json = {
+            "domain": "Rynek energii",
+            "scenarios": [
+                {"id": "sc_1", "title": "Stabilizacja cen energii", "description": "Utrzymanie cen", "risk_level": "LOW"},
+                {"id": "sc_2", "title": "Wzrost cen energii", "description": "Presja kosztowa", "risk_level": "MEDIUM"},
+            ],
+            "premises": [
+                {"id": "web_1", "name": "Cena energii 430 PLN", "description": "Rynek mocy", "impacts": [{"scenario_id": "sc_1", "impact": 0.5}, {"scenario_id": "sc_2", "impact": -0.5}], "confidence": 0.95, "weight": 1.0}
+            ],
+        }
+
         with patch("backend.infrastructure.web_research.search_adapter.WebResearchAdapter.is_available", return_value=True), \
              patch("backend.infrastructure.web_research.search_adapter.WebResearchAdapter.search", AsyncMock(return_value=mock_search_results)), \
              patch.object(SafeWebFetcher, "fetch", AsyncMock(return_value=mock_doc)), \
-             patch("backend.infrastructure.web_research.extractor.EvidenceExtractor.extract_parameter_evidence", AsyncMock(return_value=mock_evidence)):
+             patch("backend.infrastructure.web_research.extractor.EvidenceExtractor.extract_parameter_evidence", AsyncMock(return_value=mock_evidence)), \
+             patch("backend.domain.cognitive.scenario_decomposer.LLMGateway.is_available", return_value=True), \
+             patch("backend.domain.cognitive.scenario_decomposer.LLMGateway.generate", AsyncMock(return_value=mock_llm_res)):
 
             formalization, ws = await engine.run_intake(session=mock_session, query=test_query)
 
@@ -317,4 +331,54 @@ def test_active_inference_scenario_intake_telemetry():
         assert formalization.scenario_forecast is not None
 
     asyncio.run(_run())
+
+
+def test_verified_evidences_with_insufficient_scenarios_does_not_fabricate_scenarios():
+    """
+    Case 6 (Prompt V11-2): When verified_evidences is non-empty but the model returns
+    fewer than 2 scenarios (or none at all), the decomposer must NOT fabricate any fallback scenarios.
+    Instead, it must cleanly return too_vague input quality requiring user clarification.
+    """
+    async def _run():
+        raw_doc_text = "Raport: produkcja przemysłowa spadła o 1.2% r/r."
+        doc_hash = hashlib.sha256(raw_doc_text.encode("utf-8")).hexdigest()
+
+        verified_ev = Evidence(
+            id="ev_ind_1",
+            claim="Spadek produkcji przemysłowej o 1.2%",
+            value=-1.2,
+            unit="%",
+            source_url="https://stat.gov.pl/przemysl-2026.html",
+            source_title="GUS Przemysł",
+            publisher="Główny Urząd Statystyczny",
+            content_hash=doc_hash,
+            quote="produkcja przemysłowa spadła o 1.2% r/r",
+            extraction_method=ExtractionMethod.LLM_EXTRACTED,
+            confidence=0.95,
+        )
+
+        mock_llm_res = MagicMock()
+        # Model returns empty scenarios or only 1 scenario!
+        mock_llm_res.parsed_json = {
+            "domain": "Gospodarka",
+            "scenarios": [],
+            "premises": [],
+        }
+
+        with patch("backend.domain.cognitive.scenario_decomposer.LLMGateway.is_available", return_value=True), \
+             patch("backend.domain.cognitive.scenario_decomposer.LLMGateway.generate", AsyncMock(return_value=mock_llm_res)):
+            case, forecast = await decompose_scenario_query_async(
+                query="Prognoza koniunktury gospodarczej w Polsce do końca roku",
+                web_snippets=["[GUS](https://stat.gov.pl): Spadek produkcji."],
+                verified_evidences=[verified_ev],
+            )
+
+        # Must NOT fabricate sc_1 or sc_2
+        assert len(forecast.scenarios) == 0, f"Must not fabricate scenarios, got: {forecast.scenarios}"
+        assert case.input_quality.level == "too_vague", "Must require user clarification when scenarios < 2"
+        assert "sc_1" not in [s.id for s in forecast.scenarios]
+        assert "Scenariusz bazowy" not in case.title
+
+    asyncio.run(_run())
+
 
