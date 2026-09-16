@@ -593,6 +593,99 @@ class ApiAccessVerifyRequest(BaseModel):
     password: str
 
 
+class AppAccessVerifyRequest(BaseModel):
+    password: str | None = None
+    token: str | None = None
+
+
+_FAILED_APP_AUTH_ATTEMPTS: dict[str, list[float]] = {}
+_APP_AUTH_LOCKOUT_SECONDS = 15 * 60  # 15 minut
+_APP_AUTH_MAX_FAILURES = 5
+
+
+def _check_app_auth_rate_limit(client_ip: str) -> None:
+    import time
+    now = time.time()
+    attempts = _FAILED_APP_AUTH_ATTEMPTS.get(client_ip, [])
+    recent = [t for t in attempts if now - t < _APP_AUTH_LOCKOUT_SECONDS]
+    _FAILED_APP_AUTH_ATTEMPTS[client_ip] = recent
+    if len(recent) >= _APP_AUTH_MAX_FAILURES:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Zbyt wiele nieudanych prób logowania. Dostęp zablokowany na 15 minut.",
+        )
+
+
+def _record_app_auth_failure(client_ip: str) -> None:
+    import time
+    now = time.time()
+    attempts = _FAILED_APP_AUTH_ATTEMPTS.setdefault(client_ip, [])
+    attempts.append(now)
+    _FAILED_APP_AUTH_ATTEMPTS[client_ip] = [t for t in attempts if now - t < _APP_AUTH_LOCKOUT_SECONDS]
+
+
+@router.post("/auth/verify-app-access")
+async def verify_app_access(
+    req: AppAccessVerifyRequest,
+    request: Request,
+) -> dict[str, Any]:
+    """Verify application access password or existing token with IP rate limiting and expiring HMAC token."""
+    from backend.api.universal_engine import (
+        create_app_expiring_token,
+        get_app_access_secret,
+        verify_app_access_secret,
+    )
+    client_ip = get_client_ip(request)
+    _check_app_auth_rate_limit(client_ip)
+
+    secret = get_app_access_secret()
+    if not secret:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Brama aplikacji nie jest skonfigurowana na serwerze (brak zmiennej środowiskowej YQ_APP_ACCESS_SECRET).",
+        )
+
+    # 1. Walidacja istniejącego tokenu sesyjnego (np. przy starcie aplikacji)
+    if req.token:
+        if verify_app_access_secret(req.token):
+            return {
+                "valid": True,
+                "token": req.token,
+                "message": "Sesja aplikacji jest ważna.",
+                "expires_in_hours": 24,
+            }
+        _record_app_auth_failure(client_ip)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token sesji wygasł lub jest nieprawidłowy.",
+        )
+
+    # 2. Weryfikacja hasła
+    if not req.password:
+        _record_app_auth_failure(client_ip)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Wymagane hasło dostępu do aplikacji.",
+        )
+
+    if not verify_app_access_secret(req.password):
+        _record_app_auth_failure(client_ip)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Nieprawidłowe hasło dostępu do aplikacji.",
+        )
+
+    # Sukces logowania — czyszczenie licznika błędów dla tego IP
+    _FAILED_APP_AUTH_ATTEMPTS.pop(client_ip, None)
+    token = create_app_expiring_token(secret, ttl_hours=24)
+    return {
+        "valid": True,
+        "token": token,
+        "message": "Dostęp do aplikacji został autoryzowany.",
+        "expires_in_hours": 24,
+    }
+
+
 @router.post("/auth/verify-api-access")
 async def verify_api_access(req: ApiAccessVerifyRequest) -> dict[str, Any]:
     """Verify master API access secret and issue expiring HMAC-signed bearer token."""

@@ -540,6 +540,12 @@ export const api = {
       body: JSON.stringify({ password }),
     }),
 
+  verifyAppAccess: (password?: string, token?: string) =>
+    request<{ valid: boolean; token: string; message: string }>('/auth/verify-app-access', {
+      method: 'POST',
+      body: JSON.stringify({ password, token }),
+    }),
+
   runUniversalCompute: (req: UniversalComputeRequest, keyOrToken: string) =>
     request<UniversalComputeResponse>('/universal/compute', {
       method: 'POST',

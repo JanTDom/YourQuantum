@@ -1,36 +1,27 @@
 import React, { useState, useEffect } from 'react'
+import { api } from '../api'
 
 interface AuthGateProps {
   children: React.ReactNode
   onLogoutRegistered?: (logoutFn: () => void) => void
 }
 
-// SHA-256 hashes of the authorized passcodes.
+// ARCHITEKTURA AUTORYZACJI I BRAMY APLIKACJI (SERVER-SIDE):
 // UWAGA DOTYCZĄCA BEZPIECZEŃSTWA:
-// Jest to bariera wyłącznie po stronie przeglądarki (client-side), zniechęcająca przypadkowych odwiedzających.
-// Nie stanowi ona kryptograficznego zabezpieczenia danych przed zdeterminowanym użytkownikiem —
-// skróty SHA-256 znajdują się w publicznym kodzie klienta, a stan autoryzacji w localStorage można
-// ustawić z poziomu konsoli deweloperskiej.
-// Pełna ochrona wrażliwych zasobów wymaga weryfikacji tokenu/hasła po stronie serwera (backend API).
-const AUTHORIZED_HASHES = [
-  'aff0d626d1dd85ed88ab023b216429ab75cb3324f47dc393aba2e92294c53cfd',
-  'fa3ec33c54cd4f08c3a1a193e959ed636d9d5f934264698366f20ae961081ee6',
-]
-
+// Weryfikacja dostępu odbywa się w całości po stronie serwera (POST /api/v1/auth/verify-app-access).
+// Hasło jest porównywane na serwerze z wartością zmiennej środowiskowej YQ_APP_ACCESS_SECRET
+// za pomocą funkcji stałoczasowej (hmac.compare_digest).
+// W kodzie klienta ani w przeglądarce nie są przechowywane żadne hasła ani ich skróty.
+// Po udanej autoryzacji serwer wydaje wygasający kryptograficzny token HMAC (TTL 24h),
+// który jest zapisywany w localStorage i walidowany serwerowo przy każdym uruchomieniu aplikacji.
+// Ochrona przed atakiem brute-force: blokada czasowa po 5 nieudanych próbach z danego IP (HTTP 429).
 const AUTH_STORAGE_KEY = 'yq_access_auth_v1'
 
-async function sha256Hex(text: string): Promise<string> {
-  const encoder = new TextEncoder()
-  const data = encoder.encode(text)
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
-  const hashArray = Array.from(new Uint8Array(hashBuffer))
-  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('')
-}
-
 export const AuthGate: React.FC<AuthGateProps> = ({ children, onLogoutRegistered }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false)
+  const [isCheckingInitialAuth, setIsCheckingInitialAuth] = useState<boolean>(() => {
     try {
-      return localStorage.getItem(AUTH_STORAGE_KEY) === 'granted'
+      return Boolean(localStorage.getItem(AUTH_STORAGE_KEY))
     } catch {
       return false
     }
@@ -58,6 +49,50 @@ export const AuthGate: React.FC<AuthGateProps> = ({ children, onLogoutRegistered
     }
   }, [onLogoutRegistered])
 
+  // Walidacja zapisanego tokenu sesyjnego przy starcie komponentu
+  useEffect(() => {
+    let active = true
+    const savedToken = (() => {
+      try {
+        return localStorage.getItem(AUTH_STORAGE_KEY)
+      } catch {
+        return null
+      }
+    })()
+
+    if (!savedToken) {
+      setIsCheckingInitialAuth(false)
+      return
+    }
+
+    api.verifyAppAccess(undefined, savedToken)
+      .then((res) => {
+        if (active) {
+          if (res.valid) {
+            setIsAuthenticated(true)
+          } else {
+            try { localStorage.removeItem(AUTH_STORAGE_KEY) } catch {}
+            setIsAuthenticated(false)
+          }
+        }
+      })
+      .catch(() => {
+        if (active) {
+          try { localStorage.removeItem(AUTH_STORAGE_KEY) } catch {}
+          setIsAuthenticated(false)
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setIsCheckingInitialAuth(false)
+        }
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
+
   const handleUnlock = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
     const trimmed = password.trim()
@@ -70,23 +105,56 @@ export const AuthGate: React.FC<AuthGateProps> = ({ children, onLogoutRegistered
     setError(null)
 
     try {
-      const computedHash = await sha256Hex(trimmed)
-      if (AUTHORIZED_HASHES.includes(computedHash)) {
+      const res = await api.verifyAppAccess(trimmed)
+      if (res.valid && res.token) {
         try {
-          localStorage.setItem(AUTH_STORAGE_KEY, 'granted')
+          localStorage.setItem(AUTH_STORAGE_KEY, res.token)
         } catch {
           // ignore
         }
         setIsAuthenticated(true)
         setError(null)
       } else {
-        setError('Nieprawidłowe hasło. Wprowadź autoryzowany klucz dostępu decydenta.')
+        setError('Nieprawidłowe hasło dostępu do aplikacji.')
       }
-    } catch (err) {
-      setError('Błąd weryfikacji kryptograficznej. Spróbuj ponownie.')
+    } catch (err: any) {
+      let msg = 'Nieprawidłowe hasło dostępu do aplikacji.'
+      const rawMsg = err?.message || ''
+      try {
+        const jsonMatch = rawMsg.match(/\{.*\}/)
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0])
+          if (parsed.detail) msg = parsed.detail
+        } else if (rawMsg.includes('429')) {
+          msg = 'Zbyt wiele nieudanych prób logowania. Dostęp zablokowany na 15 minut.'
+        } else if (rawMsg.includes('503')) {
+          msg = 'Brama aplikacji nie jest skonfigurowana na serwerze.'
+        }
+      } catch {
+        // ignore parse error
+      }
+      setError(msg)
     } finally {
       setIsVerifying(false)
     }
+  }
+
+  if (isCheckingInitialAuth) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        width: '100%',
+        background: 'oklch(6% 0.01 250)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: 'oklch(75% 0.12 80)',
+        fontFamily: 'var(--font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif)',
+        fontSize: '0.95rem',
+      }}>
+        Weryfikacja autoryzacji sesji...
+      </div>
+    )
   }
 
   if (isAuthenticated) {

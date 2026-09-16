@@ -85,6 +85,48 @@ def verify_master_secret(key_or_password: str) -> bool:
     return hmac.compare_digest(candidate, secret)
 
 
+def get_app_access_secret() -> str | None:
+    """Retrieve app access secret from environment without hardcoded fallback."""
+    val = (os.getenv("YQ_APP_ACCESS_SECRET") or "").strip()
+    return val if val else None
+
+
+def create_app_expiring_token(secret: str, ttl_hours: int = 24) -> str:
+    """Issue HMAC-signed token for app access containing expiry timestamp."""
+    exp = int(time.time()) + ttl_hours * 3600
+    payload = f"app_{exp}"
+    sig = hmac.new(secret.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()[:24]
+    return f"yq_app_exp_{exp}_{sig}"
+
+
+def verify_app_access_secret(key_or_password: str) -> bool:
+    """Constant-time verification of app access password or HMAC-signed expiring token."""
+    secret = get_app_access_secret()
+    if not secret or not key_or_password:
+        return False
+    candidate = key_or_password.strip()
+    if candidate.startswith("Bearer "):
+        candidate = candidate[len("Bearer ") :].strip()
+
+    # Expiring HMAC token: yq_app_exp_{exp}_{sig}
+    if candidate.startswith("yq_app_exp_"):
+        parts = candidate.split("_")
+        if len(parts) == 5:
+            try:
+                exp = int(parts[3])
+                if time.time() <= exp:
+                    payload = f"app_{exp}"
+                    expected_sig = hmac.new(secret.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()[:24]
+                    if hmac.compare_digest(parts[4], expected_sig):
+                        return True
+            except (ValueError, TypeError):
+                pass
+        return False
+
+    # Direct password comparison
+    return hmac.compare_digest(candidate, secret)
+
+
 class VariableDef(BaseModel):
     id: str
     name: str
