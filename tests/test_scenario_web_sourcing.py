@@ -382,3 +382,33 @@ def test_verified_evidences_with_insufficient_scenarios_does_not_fabricate_scena
     asyncio.run(_run())
 
 
+
+def test_search_adapter_v12_status_and_timeout():
+    """
+    Test V12-1: search adapter status reports can_fetch_content and grounding_urls_only for Gemini,
+    full_fetch for Tavily/Serper, and gemini timeout is 30.0s.
+    """
+    from backend.infrastructure.web_research.search_adapter import WebResearchAdapter
+    import inspect
+
+    # Check timeout in source code
+    lines = inspect.getsource(WebResearchAdapter._search_gemini)
+    assert "timeout=30.0" in lines, "Gemini search timeout must be raised to 30.0s"
+
+    # Status check for gemini
+    adapter_gemini = WebResearchAdapter(api_key="dummy_key", provider="gemini")
+    status_gemini = adapter_gemini.get_status()
+    assert status_gemini["mode"] == "grounding_urls_only"
+    assert status_gemini["can_fetch_content"] is False
+
+    # Status check for tavily
+    adapter_tavily = WebResearchAdapter(api_key="dummy_key", provider="tavily")
+    status_tavily = adapter_tavily.get_status()
+    assert status_tavily["mode"] == "full_fetch"
+    assert status_tavily["can_fetch_content"] is True
+
+    # Status check for offline
+    adapter_offline = WebResearchAdapter(api_key=None, provider="none")
+    status_offline = adapter_offline.get_status()
+    assert status_offline["mode"] == "offline_user_data_only"
+    assert status_offline["can_fetch_content"] is False

@@ -75,9 +75,11 @@ class WebResearchAdapter(EvidenceSourcePort):
         mode = "grounding_urls_only" if self.provider == "gemini" else "full_fetch"
         if not self.is_available():
             mode = "offline_user_data_only"
+        can_fetch = (mode == "full_fetch") and self.is_available()
         return {
             "provider": self.provider if (self.api_key or self.mock_fixtures) else "offline_user_data_only",
             "mode": mode,
+            "can_fetch_content": can_fetch,
             "is_available": self.is_available(),
             "queries_performed": self.queries_performed,
             "max_session_queries": self.max_session_queries,
@@ -132,7 +134,7 @@ class WebResearchAdapter(EvidenceSourcePort):
             "tools": [{"google_search": {}}],
         }
         try:
-            async with httpx.AsyncClient(timeout=15.0) as client:
+            async with httpx.AsyncClient(timeout=30.0) as client:
                 res = await client.post(url, json=payload)
                 if res.status_code != 200:
                     logger.warning("Gemini Search Grounding returned status %d: %s", res.status_code, res.text[:200])

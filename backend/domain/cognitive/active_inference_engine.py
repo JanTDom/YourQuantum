@@ -503,6 +503,10 @@ class ActiveInferenceOrchestrator:
             web_pages_fetched = 0
             web_quotes_verified = 0
 
+            adapter_status = search_adapter.get_status()
+            search_mode = str(adapter_status.get("mode", "offline_user_data_only"))
+            web_fetch_skipped_reason: str | None = None
+
             if search_adapter.is_available():
                 ws.energy_budget.consume_search(2)
                 try:
@@ -515,26 +519,30 @@ class ActiveInferenceOrchestrator:
                     fetcher = SafeWebFetcher(timeout=5.0)
                     extractor = EvidenceExtractor()
 
-                    for sr in search_results[:3]:
-                        if not sr.url:
-                            continue
-                        if ws.energy_budget.tokens_used >= ws.energy_budget.max_tokens:
-                            logger.info("Energy budget reached limit, skipping further web fetches.")
-                            break
-                        try:
-                            doc = await asyncio.wait_for(fetcher.fetch(sr.url), timeout=5.0)
-                            if doc and doc.page_text:
-                                web_pages_fetched += 1
-                                ev = await extractor.extract_parameter_evidence(
-                                    document=doc,
-                                    target_param=query[:80],
-                                    parameter_description=f"Kluczowy fakt lub wskaźnik dla analizy scenariuszowej: {query}",
-                                )
-                                if ev and ev.quote:
-                                    web_quotes_verified += 1
-                                    verified_evidences.append(ev)
-                        except Exception as fetch_err:
-                            logger.warning("Failed to fetch or extract evidence from %s: %s", sr.url, fetch_err)
+                    if search_mode == "grounding_urls_only":
+                        web_fetch_skipped_reason = "provider_returns_redirect_urls"
+                        logger.info("Skipping web document fetch: provider is in grounding_urls_only mode.")
+                    else:
+                        for sr in search_results[:3]:
+                            if not sr.url:
+                                continue
+                            if ws.energy_budget.tokens_used >= ws.energy_budget.max_tokens:
+                                logger.info("Energy budget reached limit, skipping further web fetches.")
+                                break
+                            try:
+                                doc = await asyncio.wait_for(fetcher.fetch(sr.url), timeout=5.0)
+                                if doc and doc.page_text:
+                                    web_pages_fetched += 1
+                                    ev = await extractor.extract_parameter_evidence(
+                                        document=doc,
+                                        target_param=query[:80],
+                                        parameter_description=f"Kluczowy fakt lub wskaźnik dla analizy scenariuszowej: {query}",
+                                    )
+                                    if ev and ev.quote:
+                                        web_quotes_verified += 1
+                                        verified_evidences.append(ev)
+                            except Exception as fetch_err:
+                                logger.warning("Failed to fetch or extract evidence from %s: %s", sr.url, fetch_err)
                 except Exception as s_err:
                     logger.warning("Web search in scenario intake failed: %s", s_err)
 
@@ -544,6 +552,11 @@ class ActiveInferenceOrchestrator:
                 verified_evidences=verified_evidences,
             )
 
+            forecast.telemetry["search_provider"] = str(adapter_status.get("provider", "offline_user_data_only")) if search_adapter.is_available() else "offline_user_data_only"
+            forecast.telemetry["search_mode"] = str(adapter_status.get("mode", "offline_user_data_only")) if search_adapter.is_available() else "offline_user_data_only"
+            forecast.telemetry["can_fetch_content"] = bool(adapter_status.get("can_fetch_content", False)) if search_adapter.is_available() else False
+            if search_adapter.is_available() and web_fetch_skipped_reason:
+                forecast.telemetry["web_fetch_skipped_reason"] = web_fetch_skipped_reason
             forecast.telemetry["web_search_urls_returned"] = web_search_urls_returned
             forecast.telemetry["web_pages_fetched"] = web_pages_fetched
             forecast.telemetry["web_quotes_verified"] = web_quotes_verified

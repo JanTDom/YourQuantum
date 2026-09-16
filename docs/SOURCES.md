@@ -59,3 +59,27 @@ Each entry states: what was checked, when, the exact version, and which decision
 Limity czasu i pamięci wg tej samej strony dokumentacji: Pro — domyślnie 300 s, maksymalnie 800 s (1800 s w becie); pamięć domyślnie 2 GB / 1 vCPU, maksymalnie 4 GB / 2 vCPU.
 
 **Konsekwencja dla projektu:** uzasadnienie DEC-022 (limit 250 MB jako powód wydzielenia kontenera obliczeniowego) jest nieaktualne od 29.06.2026. Stos obliczeniowy (~650 MB) mieści się w limicie 5 GB. `Dockerfile` i `docker-compose.yml` pozostają jako alternatywa na wypadek, gdyby koszty Active CPU lub limity czasu okazały się nie do przyjęcia — decyzja wymaga pomiaru, nie założeń.
+
+---
+
+## Dostawcy wyszukiwania sieciowego — warunki i cenniki (sprawdzone 2026-09-16)
+
+Źródła skonsultowane bezpośrednio 2026-09-16 (wymóg V12 §1):
+
+### 1. Tavily (Tavily Search API)
+- **Oficjalny adres:** https://tavily.com oraz https://docs.tavily.com
+- **Model rozliczeń:** Kredytowy (API Credits).
+  - *Basic Search:* 1 kredyt / zapytanie.
+  - *Advanced Search:* 2 kredyty / zapytanie.
+- **Darmowy pakiet (Free Tier):** 1 000 darmowych kredytów API miesięcznie (bez wymogu podawania karty kredytowej).
+- **Płatne plany:**
+  - *Pay-As-You-Go:* ~$0.008 per kredyt (czyli ~$8.00 za 1 000 zapytań Basic Search).
+  - *Plany abonamentowe:* od $30 / miesiąc (obniżające koszt jednostkowy zapytania przy wyższym wolumenie).
+- **Cechy kluczowe dla YourQuantum:** Zwraca bezpośrednie, docelowe adresy URL stron źródłowych (nie przekierowania), co umożliwia bezpieczne, pełne pobranie stron przez `SafeWebFetcher` i ekstrakcję cytatów przez `EvidenceExtractor` (`full_fetch`).
+
+### 2. Serper (Serper.dev Google Search API)
+- **Oficjalny adres:** https://serper.dev
+- **Model rozliczeń:** Pay-as-you-go per zapytanie na bazie doładowań konta (top-up, standardowo min. $50).
+- **Koszt jednostkowy:** $1.00 – $2.50 za 1 000 zapytań ($0.001 – $0.0025 per search).
+- **Darmowy pakiet (Free Tier):** 2 500 darmowych zapytań przy rejestracji konta testowego.
+- **Cechy kluczowe dla YourQuantum:** Zwraca surowe wyniki Google SERP z bezpośrednimi adresami URL witryn wydawców, obsługiwane w trybie `full_fetch`.
