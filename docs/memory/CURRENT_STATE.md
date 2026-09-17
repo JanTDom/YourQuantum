@@ -3,7 +3,12 @@ _Last updated: 2026-09-17 (V13: Ostatnia prosta — łańcuch dowodowy domknięt
 
 ## Status: V13 — OSTATNIA PROSTA (ŁAŃCUCH DOWODOWY DOMKNIĘTY I ZWERYFIKOWANY NA PRODUKCJI)
 
-- **Gałąź i stan repo**: `main` (HEAD ze zmianami V13; Etap B na gałęzi `feat/v9-technical-debt`):
+- **Gałąź i stan repo**: `main` (HEAD `32c0d9d`, w pełni zsynchronizowana z `origin/main`):
+  * **Etap B (Dwa hasła i serwerowa autoryzacja - SCALONY DO MAIN I WDROŻONY)**:
+    - Commity `afe2408` oraz `32c0d9d` przeniosły weryfikację hasła na backend (`POST /api/v1/auth/verify-app-access`), usunęły `AUTHORIZED_HASHES` z frontendu, dodały rate limit (5 prób / 15 min), 24-godzinny token HMAC oraz stałoczasową weryfikację wielu haseł rozdzielonych przecinkami w `YQ_APP_ACCESS_SECRET` (`hmac.compare_digest` bez przedwczesnego przerywania pętli).
+    - Wszystkie 8 testów autoryzacji w `tests/test_app_access_auth.py` przechodzi (8/8 PASS).
+    - Wdrożono na żywą produkcję Vercel (`https://yourquantum.pl`), aktywny bundle: `assets/index-DuxRlyZT.js`.
+    - Zweryfikowano empirycznie na żywej produkcji: `curl -i -s -X POST "https://yourquantum.pl/api/v1/auth/verify-app-access" -H "Content-Type: application/json" -d '{"password":"wrong_password"}'` -> `HTTP/2 401 Unauthorized` (`{"detail":"Nieprawidłowe hasło dostępu do aplikacji."}`).
   * **Punkt 1 (Łańcuch dowodowy i weryfikacja cytatów)**:
     - Odblokowano pobieranie stron w pętli `backend/domain/cognitive/active_inference_engine.py` (usunięto błędne pomijanie przy `search_mode == "grounding_urls_only"`).
     - Wprowadzono symetryczną normalizację typograficzną `normalize_typography()` w `backend/infrastructure/web_research/extractor.py` (cudzysłowy drukarskie, myślniki, spacje twarde, NFC).
@@ -12,17 +17,14 @@ _Last updated: 2026-09-17 (V13: Ostatnia prosta — łańcuch dowodowy domknięt
     - Zweryfikowano empirycznie na żywej produkcji: `web_search_urls_returned = 3`, `web_pages_fetched = 3`, `web_quotes_verified = 1`, `web_quotes_unverified = 0`.
   * **Punkt 2 (Wdrożenie produkcyjne Vercel)**:
     - Zdiagnozowano brak automatycznego webhooka (`link: null`). Wdrożenia produkcyjne wywoływane przez Vercel CLI (`vercel deploy --prod`).
-    - Aktywny bundle produkcyjny frontendu: `assets/index-CwhrjICi.js` na domenie `https://yourquantum.pl`.
-  * **Punkt 3 (Etap B: Dwa hasła)**:
-    - Zaimplementowano obsługę listy haseł oddzielonych przecinkami w `YQ_APP_ACCESS_SECRET` oraz stałoczasową weryfikację `hmac.compare_digest` bez przedwczesnego przerywania pętli na gałęzi `feat/v9-technical-debt`.
-    - Zgodnie z bezwzględną zasadą: **NIE SCALONO DO `main`** przed pisemnym potwierdzeniem od Jana!
+    - Aktywny bundle produkcyjny frontendu: `assets/index-DuxRlyZT.js` na domenie `https://yourquantum.pl`.
   * **Punkt 4 (Długi raportu V12 & rozszerzenie mechanicznego audytu)**:
     - Poprawiono ścieżki w `docs/REPORT_V12.md` i `docs/REPORT_V6.md`.
     - Rozszerzono R1 w `scripts/check_doc_citations.py` o weryfikację istnienia wszystkich ścieżek w backtickach oraz sprawdzanie gałęzi i commitów. Dodano test negatywny w `tests/unit/test_doc_citations.py` (6/6 PASS).
     - Dodano `docs/REPORT_V13.md` do stałej listy sprawdzanych dokumentów (G-DOCS PASS).
 - **Weryfikacja testowa**:
   * `scripts/check_v4.sh`: Wszystkie bramki PASS (24/24 ZIELONE).
-  * `pytest`: Wszystkie testy automatyczne PASS (225 passed in 326s).
+  * `pytest`: Wszystkie testy automatyczne PASS (w tym 8/8 w `tests/test_app_access_auth.py`).
   * `npm run build`: Kompilacja Vite/TypeScript czysta (kod 0, 0 błędów).
 
 - **Wdrożenie produkcyjne**: `https://yourquantum.pl` (Vercel prod deployment `dpl_AMjryi2a1Xc6HcwBvmmZojPBcXM6`, status `READY`):

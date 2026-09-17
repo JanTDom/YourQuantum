@@ -612,10 +612,11 @@ Bramka dostępu do aplikacji weryfikowała hasło po stronie klienta (`frontend/
 **Decyzja:**
 1. **Endpoint weryfikacyjny**: Utworzono dedykowany endpoint `POST /api/v1/auth/verify-app-access` w `backend/api/routes.py`.
 2. **Sekret serwerowy**: Hasło dostępu konfigurowane jest w zmiennej środowiskowej `YQ_APP_ACCESS_SECRET`. Przy braku konfiguracji sekretu serwer zwraca kod HTTP 503 Service Unavailable z czytelnym komunikatem o konieczności konfiguracji środowiska.
-3. **Bezpieczne porównanie**: Weryfikacja po stronie serwera odbywa się w stałym czasie za pomocą `hmac.compare_digest`.
+3. **Bezpieczne porównanie**: Weryfikacja po stronie serwera odbywa się w stałym czasie za pomocą `hmac.compare_digest`. Obsługiwana jest lista haseł oddzielonych przecinkami w `YQ_APP_ACCESS_SECRET`; pętla porównuje kandydatów w pełnym przebiegu bez przedwczesnego przerywania (`early break`), zapobiegając atakom typu timing leak.
 4. **Ograniczenie liczby prób (Rate Limiting)**: Wdrożono mechanizm ograniczania prób w pamięci procesu (5 nieudanych prób na 15 minut per adres IP; 6. próba zwraca kod HTTP 429 Too Many Requests).
 5. **Wygasający token sesyjny**: Po pomyślnej autoryzacji serwer wystawia podpisany kryptograficznie token HMAC-SHA256 (`yq_app_<exp>_<sig>`), który klient przechowuje w pamięci przeglądarki (`sessionStorage`).
 6. **Eliminacja skrótów z klienta**: Tablica `AUTHORIZED_HASHES` została w całości usunięta z kodu frontendu.
+7. **Wdrożenie produkcyjne (2026-09-17)**: Po pisemnej akceptacji Etap B został scalony z `feat/v9-technical-debt` do `main` (commity `afe2408` i `32c0d9d`) i wdrożony na żywą produkcję Vercel (`https://yourquantum.pl`). Zweryfikowano empirycznie: brak `AUTHORIZED_HASHES` w bundlu frontendu, kod HTTP 401 przy błędnym haśle z żywej domeny produkcyjnej.
 
 ---
 
