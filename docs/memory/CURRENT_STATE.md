@@ -5,7 +5,7 @@ _Last updated: 2026-09-17 (V13: Ostatnia prosta — łańcuch dowodowy domknięt
 
 - **Gałąź i stan repo**: `main` (HEAD ze zmianami V13; Etap B na gałęzi `feat/v9-technical-debt`):
   * **Punkt 1 (Łańcuch dowodowy i weryfikacja cytatów)**:
-    - Odblokowano pobieranie stron w pętli `active_inference_engine.py` (usunięto błędne pomijanie przy `search_mode == "grounding_urls_only"`).
+    - Odblokowano pobieranie stron w pętli `backend/domain/cognitive/active_inference_engine.py` (usunięto błędne pomijanie przy `search_mode == "grounding_urls_only"`).
     - Wprowadzono symetryczną normalizację typograficzną `normalize_typography()` w `backend/infrastructure/web_research/extractor.py` (cudzysłowy drukarskie, myślniki, spacje twarde, NFC).
     - Zaostrzono system prompt ekstraktora LLM o bezwzględny zakaz wielokropków, skracania i parafraz.
     - Dodano precyzyjne liczniki telemetrii: `web_docs_empty`, `web_extractor_no_evidence`, `web_quotes_unverified`.
@@ -343,7 +343,7 @@ WYNIK KOŃCOWY: WSZYSTKIE BRAMKI ZIELONE (PASS)
 - **Punkt 5 (Dokumentacja i bramki)**: Skorygowano commit w `docs/REPORT_V9.md`, uzupełniono `DEC-035` w `docs/memory/DECISIONS.md`, rozszerzono maszynową weryfikację cytatów `scripts/check_doc_citations.py` o `docs/REPORT_V9.md`. Wszystkie 24 bramki `scripts/check_v4.sh` zielone.
 
 ### ✅ Faza V13: Ostatnia Prosta — Weryfikacja Cytatów i Domknięcie Łańcucha Dowodowego (2026-09-17)
-- **Punkt 1 (Łańcuch dowodowy)**: Usunięto barierę pomijania fetchowania stron w `active_inference_engine.py` przy `search_mode == "grounding_urls_only"`. Wprowadzono symetryczną normalizację typograficzną `normalize_typography()` w `backend/infrastructure/web_research/extractor.py` oraz rygorystyczny prompt systemowy dla ekstraktora LLM, eliminując odrzucanie cytatów przez formatowanie. Wprowadzono precyzyjne liczniki telemetrii (`web_docs_empty`, `web_extractor_no_evidence`, `web_quotes_unverified`). Zweryfikowano na żywej produkcji: 3 zwrócone URL, 3 pobrane strony, 1 zweryfikowany dosłowny cytat.
+- **Punkt 1 (Łańcuch dowodowy)**: Usunięto barierę pomijania fetchowania stron w `backend/domain/cognitive/active_inference_engine.py` przy `search_mode == "grounding_urls_only"`. Wprowadzono symetryczną normalizację typograficzną `normalize_typography()` w `backend/infrastructure/web_research/extractor.py` oraz rygorystyczny prompt systemowy dla ekstraktora LLM, eliminując odrzucanie cytatów przez formatowanie. Wprowadzono precyzyjne liczniki telemetrii (`web_docs_empty`, `web_extractor_no_evidence`, `web_quotes_unverified`). Zweryfikowano na żywej produkcji: 3 zwrócone URL, 3 pobrane strony, 1 zweryfikowany dosłowny cytat.
 - **Punkt 2 (Wdrożenia Vercel)**: Ustalono przyczynę braku wdrożeń (`link: null`). Wdrożono na żywą produkcję bundle `assets/index-CwhrjICi.js` za pomocą Vercel CLI.
 - **Punkt 3 (Etap B: Dwa hasła)**: Wdrożono obsługę listy haseł po przecinku w `YQ_APP_ACCESS_SECRET` i stałoczasową weryfikację `hmac.compare_digest` po całej liście na gałęzi `feat/v9-technical-debt`. Zachowano izolację gałęzi bez scalania do `main`.
 - **Punkt 4 (Długi i mechaniczny audyt)**: Naprawiono ścieżki w `docs/REPORT_V12.md` i `docs/REPORT_V6.md`. Rozszerzono `scripts/check_doc_citations.py` o weryfikację wszystkich ścieżek w backtickach i gałęzi/commitów git. Dodano `docs/REPORT_V13.md`. Wszystkie 24 bramki `scripts/check_v4.sh` zielone.
