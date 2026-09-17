@@ -37,6 +37,28 @@ def test_app_auth_success_with_random_secret(monkeypatch):
     assert data["token"].startswith("yq_app_exp_")
 
 
+def test_app_auth_multiple_passwords_in_env(monkeypatch):
+    """Obsługa dwóch lub więcej haseł oddzielonych przecinkami -> oba dają 200."""
+    pwd1 = secrets.token_hex(16)
+    pwd2 = secrets.token_hex(16)
+    monkeypatch.setenv("YQ_APP_ACCESS_SECRET", f" {pwd1} ,  {pwd2} ")
+
+    client = TestClient(app)
+    resp1 = client.post("/api/v1/auth/verify-app-access", json={"password": pwd1})
+    assert resp1.status_code == 200
+    assert resp1.json().get("valid") is True
+    token1 = resp1.json().get("token")
+
+    resp2 = client.post("/api/v1/auth/verify-app-access", json={"password": pwd2})
+    assert resp2.status_code == 200
+    assert resp2.json().get("valid") is True
+
+    # Token wydany pierwszym hasłem jest ważny
+    resp_token1 = client.post("/api/v1/auth/verify-app-access", json={"token": token1})
+    assert resp_token1.status_code == 200
+    assert resp_token1.json().get("valid") is True
+
+
 def test_app_auth_bad_password_returns_401(monkeypatch):
     """Niepoprawne hasło -> 401."""
     random_secret = secrets.token_hex(16)

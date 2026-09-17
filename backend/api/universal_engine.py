@@ -85,10 +85,21 @@ def verify_master_secret(key_or_password: str) -> bool:
     return hmac.compare_digest(candidate, secret)
 
 
+def get_app_access_secrets() -> list[str]:
+    """Retrieve list of app access secrets from environment without hardcoded fallback.
+
+    Supports multiple passwords separated by commas.
+    """
+    raw = (os.getenv("YQ_APP_ACCESS_SECRET") or "").strip()
+    if not raw:
+        return []
+    return [s.strip() for s in raw.split(",") if s.strip()]
+
+
 def get_app_access_secret() -> str | None:
-    """Retrieve app access secret from environment without hardcoded fallback."""
-    val = (os.getenv("YQ_APP_ACCESS_SECRET") or "").strip()
-    return val if val else None
+    """Retrieve primary app access secret from environment."""
+    secrets = get_app_access_secrets()
+    return secrets[0] if secrets else None
 
 
 def create_app_expiring_token(secret: str, ttl_hours: int = 24) -> str:
@@ -100,9 +111,12 @@ def create_app_expiring_token(secret: str, ttl_hours: int = 24) -> str:
 
 
 def verify_app_access_secret(key_or_password: str) -> bool:
-    """Constant-time verification of app access password or HMAC-signed expiring token."""
-    secret = get_app_access_secret()
-    if not secret or not key_or_password:
+    """Constant-time verification of app access password or HMAC-signed expiring token.
+
+    Always checks all configured secrets without early exit to prevent timing attacks.
+    """
+    secrets = get_app_access_secrets()
+    if not secrets or not key_or_password:
         return False
     candidate = key_or_password.strip()
     if candidate.startswith("Bearer "):
@@ -116,15 +130,22 @@ def verify_app_access_secret(key_or_password: str) -> bool:
                 exp = int(parts[3])
                 if time.time() <= exp:
                     payload = f"app_{exp}"
-                    expected_sig = hmac.new(secret.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()[:24]
-                    if hmac.compare_digest(parts[4], expected_sig):
-                        return True
+                    valid = False
+                    for secret in secrets:
+                        expected_sig = hmac.new(secret.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()[:24]
+                        if hmac.compare_digest(parts[4], expected_sig):
+                            valid = True
+                    return valid
             except (ValueError, TypeError):
                 pass
         return False
 
-    # Direct password comparison
-    return hmac.compare_digest(candidate, secret)
+    # Direct password comparison against all configured passwords without early break
+    matches = False
+    for secret in secrets:
+        if hmac.compare_digest(candidate, secret):
+            matches = True
+    return matches
 
 
 class VariableDef(BaseModel):
