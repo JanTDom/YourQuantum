@@ -613,8 +613,8 @@ Bramka dostępu do aplikacji weryfikowała hasło po stronie klienta (`frontend/
 1. **Endpoint weryfikacyjny**: Utworzono dedykowany endpoint `POST /api/v1/auth/verify-app-access` w `backend/api/routes.py`.
 2. **Sekret serwerowy**: Hasło dostępu konfigurowane jest w zmiennej środowiskowej `YQ_APP_ACCESS_SECRET`. Przy braku konfiguracji sekretu serwer zwraca kod HTTP 503 Service Unavailable z czytelnym komunikatem o konieczności konfiguracji środowiska.
 3. **Bezpieczne porównanie**: Weryfikacja po stronie serwera odbywa się w stałym czasie za pomocą `hmac.compare_digest`. Obsługiwana jest lista haseł oddzielonych przecinkami w `YQ_APP_ACCESS_SECRET`; pętla porównuje kandydatów w pełnym przebiegu bez przedwczesnego przerywania (`early break`), zapobiegając atakom typu timing leak.
-4. **Ograniczenie liczby prób (Rate Limiting)**: Wdrożono mechanizm ograniczania prób w pamięci procesu (5 nieudanych prób na 15 minut per adres IP; 6. próba zwraca kod HTTP 429 Too Many Requests).
-5. **Wygasający token sesyjny**: Po pomyślnej autoryzacji serwer wystawia podpisany kryptograficznie token HMAC-SHA256 (`yq_app_<exp>_<sig>`), który klient przechowuje w pamięci przeglądarki (`sessionStorage`).
+4. **Ograniczenie liczby prób (Rate Limiting)**: Wdrożono mechanizm ograniczania prób w pamięci procesu (5 nieudanych prób na 15 minut per adres IP; 6. próba zwraca kod HTTP 429 Too Many Requests). Uwaga architektoniczna: w środowisku serverless (Vercel) pamięć procesu nie jest współdzielona między niezależnymi instancjami lambd, w związku z czym ochrona w pamięci procesu chroni daną instancję; docelowe globalne ograniczanie prób wymaga zewnętrznego magazynu stanu (np. Redis / Upstash).
+5. **Wygasający token sesyjny**: Po pomyślnej autoryzacji serwer wystawia podpisany kryptograficznie token HMAC-SHA256 (`yq_app_<exp>_<sig>`), który klient przechowuje w pamięci przeglądarki (`localStorage` w `frontend/src/components/AuthGate.tsx`).
 6. **Eliminacja skrótów z klienta**: Tablica `AUTHORIZED_HASHES` została w całości usunięta z kodu frontendu.
 7. **Wdrożenie produkcyjne (2026-09-17)**: Po pisemnej akceptacji Etap B został scalony z `feat/v9-technical-debt` do `main` (commity `afe2408` i `32c0d9d`) i wdrożony na żywą produkcję Vercel (`https://yourquantum.pl`). Zweryfikowano empirycznie: brak `AUTHORIZED_HASHES` w bundlu frontendu, kod HTTP 401 przy błędnym haśle z żywej domeny produkcyjnej.
 
@@ -639,4 +639,22 @@ W wersjach V1–V11 wagi przesłanek (`weight`) oraz ich wiarygodności (`confid
 2. **Pełna audytowalność**: Każda przesłanka zawiera pola `weight_breakdown` (wartości cząstkowe $S$) oraz `weight_justification` (tekstowe uzasadnienie wyliczenia).
 3. **Transparentność w UI**: Komponent `WebEvidenceNotice` w `frontend/src/components/RecommendationView.tsx` wyświetla decydentowi rozbicie składowych wagi oraz uzasadnienie.
 4. **Przesłanki bez źródeł**: Gdy brak źródeł sieciowych (`provenance === "llm_suggested"`), wagi pozostają neutralne ($1.00$), a interfejs wyświetla żółty baner uczciwości informujący, że przesłanki pochodzą wyłącznie od modelu i nie posiadają zweryfikowanych źródeł.
+
+---
+
+## DEC-038 — Uziemienie dowodów sieciowych przez selekcję indeksów zdań zamiast transkrypcji cytatów
+
+**Date:** 2026-09-17
+**Status:** ACTIVE
+
+**Kontekst:**
+W wersjach V12–V13 model językowy w zadaniu ekstrakcji dowodów (`EvidenceExtractor`) otrzymywał instrukcję przepisania dosłownego cytatu z dokumentu. Pomiary na żywej produkcji ujawniły, że LLM ma tendencję do sklejania komórek tabel, wstawiania wielokropków w miejsce pominiętych fraz, parafrazowania lub modyfikacji interpunkcji, co skutkowało odrzuceniem cytatu w bramce weryfikacyjnej (`web_quotes_verified = 0`, `web_quotes_unverified > 0`), mimo że pobrana strona zawierała poszukiwane fakty.
+
+**Decyzja:**
+1. **Model nie przepisuje cytatów**: Backend dzieli pobraną stronę na ponumerowane zdania za pomocą `split_into_sentences()` w `backend/infrastructure/web_research/extractor.py`, uwzględniając polskie skróty i formaty liczb, oraz śledzi dokładne indeksy znakowe (`char_start`, `char_end`) w tekście źródłowym.
+2. **Selekcja indeksów zdań**: Model LLM otrzymuje ponumerowane zdania i wskazuje od 1 do 3 indeksów zdań (`sentence_indices`) zawierających dowód lub wskaźnik empiryczny, nie generując żadnego tekstu cytatu.
+3. **Deterministyczne wycinanie przez backend**: Cytat jest wycinany bezpośrednio z tekstu strony za pomocą przedziału `[first_sentence.start, last_sentence.end]`. Długość cytatu jest ograniczona do 300 znaków, a `char_start` i `char_end` są zapisywane w modelu `Evidence` (`backend/domain/evidence/models.py`).
+4. **Nienegocjowalna weryfikacja**: Metoda `_verify_quote_in_text(quote, document.page_text)` pozostaje w 100% aktywna i nienaruszona jako niezależny filtr uczciwości.
+5. **Obsługa krawędziowa i telemetria**: Gdy strona zawiera mniej niż 2 zdania, następuje bezpieczny fallback do ścieżki dosłownej (`legacy_verbatim`). Jeśli model wskaże więcej niż 3 zdania lub niepoprawny indeks, dowód jest odrzucany z odpowiednim licznikiem telemetrii (`web_too_many_sentences`, `web_invalid_sentence_index`).
+
 

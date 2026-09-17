@@ -8,8 +8,8 @@ Data: 2026-09-17 · Gałąź: `main` (Etap B na gałęzi `feat/v9-technical-debt
 | Punkt | Zadanie | Status | Zmienione pliki | Weryfikacja empiryczna |
 |---|---|---|---|---|
 | **Punkt 1** | Domknięcie łańcucha dowodowego i naprawa weryfikacji cytatów: rygorystyczna instrukcja ekstrakcji, normalizacja typograficzna (`normalize_typography`), odblokowanie fetchowania URL przy `SEARCH_PROVIDER=gemini`, telemetria pustych stron i niezweryfikowanych cytatów | **WDROŻONE I ZWERYFIKOWANE** | `backend/infrastructure/web_research/extractor.py`, `backend/domain/cognitive/active_inference_engine.py` | Żywa produkcja: `web_pages_fetched = 3`, `web_quotes_verified = 1`, `tests/test_scenario_web_sourcing.py` (10/10 PASS) |
-| **Punkt 2** | Wdrożenie produkcyjne Vercel: diagnoza braku webhooków GitHuba (`link: null`), bezpośrednie wdrożenie produkcyjne za pomocą Vercel CLI (`vercel deploy --prod`), weryfikacja bundla `assets/index-CwhrjICi.js` na domenie `https://yourquantum.pl` | **WDROŻONE PRODUKCYJNIE** | `frontend/dist/assets/index-CwhrjICi.js`, `vercel.json` | `curl -i -s "https://yourquantum.pl/health/live"` (HTTP 200, bundle `index-CwhrjICi.js` obecny w odpowiedzi HTML) |
-| **Punkt 3** | Etap B: Dwa hasła dostępu do aplikacji (`YQ_APP_ACCESS_SECRET` jako lista oddzielona przecinkami, weryfikacja stałoczasowa bez wczesnego wyjścia, brak wycieku treści haseł, zachowanie izolacji gałęzi) | **WDROŻONE NA GAŁĘZI `feat/v9-technical-debt`** | `backend/api/universal_engine.py`, `backend/api/routes.py`, `frontend/src/components/AuthGate.tsx`, `tests/test_app_access_auth.py` | 7 testów jednostkowych autoryzacji PASS. Zgodnie z bezwzględną regułą gałąź nie została scalona do `main` przed pisemnym potwierdzeniem od Jana. |
+| **Punkt 2** | Wdrożenie produkcyjne Vercel: diagnoza braku webhooków GitHuba (`link: null`), bezpośrednie wdrożenie produkcyjne za pomocą Vercel CLI (`vercel deploy --prod`), weryfikacja bundla na domenie `https://yourquantum.pl` | **WDROŻONE PRODUKCYJNIE** | `frontend/dist/assets/`, `vercel.json` | `curl -i -s "https://yourquantum.pl/health/live"` (HTTP 200, aktywny bundle JS obecny w odpowiedzi HTML) |
+| **Punkt 3** | Etap B: Dwa hasła dostępu do aplikacji (`YQ_APP_ACCESS_SECRET` jako lista oddzielona przecinkami, weryfikacja stałoczasowa bez wczesnego wyjścia, brak wycieku treści haseł, zachowanie izolacji gałęzi) | **WDROŻONE I SCALONE DO `main`** | `backend/api/universal_engine.py`, `backend/api/routes.py`, `frontend/src/components/AuthGate.tsx`, `tests/test_app_access_auth.py` | 7 testów jednostkowych autoryzacji PASS. Po pisemnej akceptacji Etap B został scalony z `feat/v9-technical-debt` do `main` (commity `afe2408` i `32c0d9d`) i wdrożony na produkcję. |
 | **Punkt 4** | Długi z raportu V12 & rozszerzenie mechanicznego audytu: sprostowanie ścieżki adaptera wyszukiwania, weryfikacja statusu na produkcji, rozszerzenie R1 w `scripts/check_doc_citations.py` o wszystkie literały ścieżek w backtickach i weryfikację gałęzi/commitów | **WDROŻONE I ZWERYFIKOWANE** | `docs/REPORT_V12.md`, `docs/REPORT_V6.md`, `scripts/check_doc_citations.py`, `tests/unit/test_doc_citations.py` | `bash scripts/check_v4.sh` (24/24 PASS), `tests/unit/test_doc_citations.py` (6/6 PASS) |
 
 ---
@@ -74,7 +74,7 @@ Zgodnie z wymaganiami zlecenia V13:
 3. Tokeny HMAC są podpisywane pierwszym hasłem z listy.
 4. Brak zmiennej środowiskowej zwraca kod HTTP 503 Service Unavailable z komunikatem o braku konfiguracji bramy aplikacji.
 5. Niepoprawne hasło lub wygasły token zwraca kod HTTP 401 Unauthorized. Treść haseł nie pojawia się w żadnym logu ani komunikacie błędu.
-6. **Zasada izolacji gałęzi**: Zmiany Etapu B znajdują się wyłącznie na gałęzi `feat/v9-technical-debt`. Gałąź ta **nie została scalona do `main`** i czeka na pisemne potwierdzenie od Jana.
+6. **Zasada izolacji gałęzi i scalenie**: Zmiany Etapu B znajdowały się początkowo na gałęzi `feat/v9-technical-debt`. Po uzyskaniu pisemnej akceptacji gałąź ta została scalona do `main` (commity `afe2408` i `32c0d9d`) oraz wdrożona na produkcję.
 
 ---
 
@@ -114,4 +114,4 @@ Wynik: **225 passed in 326s (100% green)**.
 
 1. **Łańcuch dowodowy**: W pełni sprawny i zweryfikowany na żywym pytaniu geopolitycznym na serwerze produkcyjnym.
 2. **Wdrożenia produkcyjne**: Ze względu na brak webhooków z GitHuba do Vercel, wdrożenia zmian z `main` należy wykonywać za pomocą `vercel deploy --prod`.
-3. **Decyzja w sprawie Etapu B**: W panelu Vercel zmienna `YQ_APP_ACCESS_SECRET` została skonfigurowana. Gdy Jan wyrazi pisemną zgodę na wdrożenie serwerowej bramy aplikacji, gałąź `feat/v9-technical-debt` może zostać natychmiast scalona do `main` i wdrożona na produkcję.
+3. **Decyzja w sprawie Etapu B**: Etap B (serwerowa weryfikacja bramki z `YQ_APP_ACCESS_SECRET`) został pomyślnie scalony do `main` i wdrożony produkcyjnie.
