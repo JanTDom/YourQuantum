@@ -347,11 +347,11 @@ WYNIK KOŃCOWY: WSZYSTKIE BRAMKI ZIELONE (PASS)
 ### ✅ Faza V13: Ostatnia Prosta — Weryfikacja Cytatów i Domknięcie Łańcucha Dowodowego (2026-09-17)
 - **Punkt 1 (Łańcuch dowodowy)**: Usunięto barierę pomijania fetchowania stron w `backend/domain/cognitive/active_inference_engine.py` przy `search_mode == "grounding_urls_only"`. Wprowadzono symetryczną normalizację typograficzną `normalize_typography()` w `backend/infrastructure/web_research/extractor.py` oraz rygorystyczny prompt systemowy dla ekstraktora LLM, eliminując odrzucanie cytatów przez formatowanie. Wprowadzono precyzyjne liczniki telemetrii (`web_docs_empty`, `web_extractor_no_evidence`, `web_quotes_unverified`). Zweryfikowano na żywej produkcji: 3 zwrócone URL, 3 pobrane strony, 1 zweryfikowany dosłowny cytat.
 - **Punkt 2 (Wdrożenia Vercel)**: Ustalono przyczynę braku wdrożeń (`link: null`). Wdrożono na żywą produkcję bundle `assets/index-CwhrjICi.js` za pomocą Vercel CLI.
-- **Punkt 3 (Etap B: Dwa hasła)**: Wdrożono obsługę listy haseł po przecinku w `YQ_APP_ACCESS_SECRET` i stałoczasową weryfikację `hmac.compare_digest` po całej liście na gałęzi `feat/v9-technical-debt`. Zachowano izolację gałęzi bez scalania do `main`.
-- **Punkt 4 (Długi i mechaniczny audyt)**: Naprawiono ścieżki w `docs/REPORT_V12.md` i `docs/REPORT_V6.md`. Rozszerzono `scripts/check_doc_citations.py` o weryfikację wszystkich ścieżek w backtickach i gałęzi/commitów git. Dodano `docs/REPORT_V13.md`. Wszystkie 24 bramki `scripts/check_v4.sh` zielone.
+### ✅ Faza V14: Wycinanie Cytatów z Dokumentu, Spójność Bramki i Optymalizacja Czasu (2026-09-17)
+- **Czas odpowiedzi i konfiguracja serwerless (V14-5)**: Skonfigurowano jawny limit `maxDuration: 300` sekund dla funkcji `api/index.py` w `vercel.json` (w ramach planu Pro, mieszczący się znacznie poniżej twardego limitu 800 s). Równoległe pobieranie stron za pomocą `asyncio.gather` zredukowało czas operacji sieciowych w ścieżce scenariuszowej. Wprowadzono do telemetrii wskaźnik `intake_wall_time_seconds`.
 
 ---
 
 ## Następny krok (Next Step)
 
-Oczekiwanie na potwierdzenie od Jana w sprawie wdrożenia Etapu B (bramka dostępu po stronie serwera). Po pisemnej dyspozycji: scalenie gałęzi `feat/v9-technical-debt` do `main`, wypchnięcie do `origin/main` oraz wdrożenie na produkcję przez `vercel deploy --prod`.
+Wdrożenie punktu 1 zlecenia V14: ekstrakcja dowodów w oparciu o wybór zdań przez model (`sentence_selection`), deterministyczny podział tekstu na zdania z zachowaniem offsetów (`char_start`, `char_end`), ścieżka zapasowa `legacy_verbatim` oraz uruchomienie pełnej weryfikacji diagnostycznej `scripts/diag_evidence_chain.py`.
