@@ -1,7 +1,7 @@
 # YourQuantum — CURRENT STATE
-_Last updated: 2026-09-17 (V13: Ostatnia prosta — łańcuch dowodowy domknięty, cytaty zweryfikowane na żywej produkcji, 24/24 PASS)_
+_Last updated: 2026-09-17 (V14: Cytat przestaje być przepisywany — sentence selection, zero fałszywych needs_clarification, 24/24 PASS)_
 
-## Status: V13 — OSTATNIA PROSTA (ŁAŃCUCH DOWODOWY DOMKNIĘTY I ZWERYFIKOWANY NA PRODUKCJI)
+## Status: V14 — CYTAT PRZESTAJE BYĆ PRZEPISYWANY (SENTENCE SELECTION WDROŻONE I ZWERYFIKOWANE)
 
 - **Gałąź i stan repo**: `main` (HEAD `32c0d9d`, w pełni zsynchronizowana z `origin/main`):
   * **Etap B (Dwa hasła i serwerowa autoryzacja - SCALONY DO MAIN I WDROŻONY)**:
@@ -347,11 +347,16 @@ WYNIK KOŃCOWY: WSZYSTKIE BRAMKI ZIELONE (PASS)
 ### ✅ Faza V13: Ostatnia Prosta — Weryfikacja Cytatów i Domknięcie Łańcucha Dowodowego (2026-09-17)
 - **Punkt 1 (Łańcuch dowodowy)**: Usunięto barierę pomijania fetchowania stron w `backend/domain/cognitive/active_inference_engine.py` przy `search_mode == "grounding_urls_only"`. Wprowadzono symetryczną normalizację typograficzną `normalize_typography()` w `backend/infrastructure/web_research/extractor.py` oraz rygorystyczny prompt systemowy dla ekstraktora LLM, eliminując odrzucanie cytatów przez formatowanie. Wprowadzono precyzyjne liczniki telemetrii (`web_docs_empty`, `web_extractor_no_evidence`, `web_quotes_unverified`). Zweryfikowano na żywej produkcji: 3 zwrócone URL, 3 pobrane strony, 1 zweryfikowany dosłowny cytat.
 - **Punkt 2 (Wdrożenia Vercel)**: Ustalono przyczynę braku wdrożeń (`link: null`). Wdrożono na żywą produkcję bundle `assets/index-CwhrjICi.js` za pomocą Vercel CLI.
-### ✅ Faza V14: Wycinanie Cytatów z Dokumentu, Spójność Bramki i Optymalizacja Czasu (2026-09-17)
-- **Czas odpowiedzi i konfiguracja serwerless (V14-5)**: Skonfigurowano jawny limit `maxDuration: 300` sekund dla funkcji `api/index.py` w `vercel.json` (w ramach planu Pro, mieszczący się znacznie poniżej twardego limitu 800 s). Równoległe pobieranie stron za pomocą `asyncio.gather` zredukowało czas operacji sieciowych w ścieżce scenariuszowej. Wprowadzono do telemetrii wskaźnik `intake_wall_time_seconds`.
+### ✅ Faza V14: Wycinanie Cytatów ze Zdań, Spójność Bramki i Eliminacja Halucynacji (2026-09-17)
+- **Ekstrakcja przez wybór zdań (V14-1)**: Wprowadzono metodę `sentence_selection` w `backend/infrastructure/web_research/extractor.py`. LLM otrzymuje ponumerowane zdania ze strony i wybiera 1–3 indeksy; backend sam wycina cytat na podstawie offsetów `char_start` i `char_end` (do 300 znaków). Weryfikacja `_verify_quote_in_text` osiągnęła 100% PASS na rzeczywistych stronach w `scripts/diag_evidence_chain.py` (7/7 zweryfikowanych cytatów, 0 halucynacji).
+- **Fałszywe needs_clarification (V14-2)**: Usunięto pole `clarification_prompt`, dodano `ConfigDict(extra="forbid")` do `FormalizationResult`, obsłużono neutralny fallback w `frontend/src/App.tsx`.
+- **Jednolita definicja zapytania scenariuszowego (V14-3)**: Wprowadzono `is_scenario_forecast_query` jako jedyne źródło prawdy w `backend/domain/cognitive/quality_gate.py` i silniku.
+- **Odporność dekompozycji scenariuszy (V14-4)**: Dodano jednokrotny retry przy < 2 scenariuszach oraz licznik `scenario_decomposition_retries`.
+- **Czas odpowiedzi i konfiguracja serverless (V14-5)**: Skonfigurowano limit `maxDuration: 300` w `vercel.json`, zrównoleglono pobieranie stron przez `asyncio.gather`, dodano telemetrię `intake_wall_time_seconds`.
+- **Dokumentacja i bramki (V14-6, V14-8)**: Zaktualizowano `docs/REPORT_V13.md`, `docs/memory/DECISIONS.md` (DEC-036, DEC-038), zarejestrowano i wygenerowano `docs/REPORT_V14.md` z surową telemetrią diagnostyczną. 24/24 bramki zielone.
 
 ---
 
 ## Następny krok (Next Step)
 
-Wdrożenie punktu 1 zlecenia V14: ekstrakcja dowodów w oparciu o wybór zdań przez model (`sentence_selection`), deterministyczny podział tekstu na zdania z zachowaniem offsetów (`char_start`, `char_end`), ścieżka zapasowa `legacy_verbatim` oraz uruchomienie pełnej weryfikacji diagnostycznej `scripts/diag_evidence_chain.py`.
+Wszystkie punkty zlecenia V14 wdrożone, przetestowane i udokumentowane w `docs/REPORT_V14.md` (24/24 bramki w `scripts/check_v4.sh` zielone, 240/240 testów pytest PASS). Oczekiwanie na dyspozycję Jana dotyczącą pushu do gałęzi zdalnej `origin/main` lub wdrożenia produkcyjnego przez Vercel CLI.
