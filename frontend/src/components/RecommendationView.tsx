@@ -424,23 +424,23 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                 </h1>
 
                 {/* Honesty banner */}
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.625rem',
-                  padding: '0.75rem 1rem',
-                  borderRadius: '8px',
-                  background: 'oklch(14% 0.03 80 / 0.4)',
-                  borderLeft: '4px solid oklch(75% 0.12 80)',
-                  fontSize: '0.8125rem',
-                  color: 'oklch(88% 0.05 80)',
-                  marginBottom: '1.5rem',
-                }}>
-                  <span>⚖️</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.75rem 1rem', borderRadius: '8px', background: (forecast.telemetry?.web_quotes_verified ?? 0) === 0 ? 'oklch(15% 0.05 45 / 0.5)' : 'oklch(14% 0.03 80 / 0.4)', borderLeft: (forecast.telemetry?.web_quotes_verified ?? 0) === 0 ? '4px solid oklch(75% 0.15 45)' : '4px solid oklch(75% 0.12 80)', fontSize: '0.8125rem', color: (forecast.telemetry?.web_quotes_verified ?? 0) === 0 ? 'oklch(88% 0.08 45)' : 'oklch(88% 0.05 80)', marginBottom: '1.5rem' }}>
+                  <span>{(forecast.telemetry?.web_quotes_verified ?? 0) === 0 ? '⚠️' : '⚖️'}</span>
                   <span>
-                    <strong>Zastrzeżenie metodologiczne:</strong> To nie jest obiektywny pomiar przyszłości ani wyrocznia, lecz analityczny rozkład prawdopodobieństw wynikający z przyjętych wag założeń decydenta i ważenia przesłanek empirycznych. Zmiana wag lub zatwierdzenie nowych faktów natychmiast modyfikuje rozkład. Źródła, pochodzenie oraz pasmo wrażliwości każdej przesłanki są w pełni audytowalne poniżej.
+                    {(forecast.telemetry?.web_quotes_verified ?? 0) === 0 ? (
+                      <><strong>Brak źródeł sieciowych:</strong> Nie znaleziono dokumentów źródłowych dla tego pytania. Poniższe przesłanki zaproponował model językowy – nie pochodzą z dokumentów i nie mają zweryfikowanych źródeł. Ich wagi są neutralne (1,00) i wymagają weryfikacji przez decydenta.</>
+                    ) : (
+                      <><strong>Zastrzeżenie metodologiczne:</strong> To nie jest obiektywny pomiar przyszłości ani wyrocznia, lecz analityczny rozkład prawdopodobieństw wynikający z przyjętych wag założeń decydenta i ważenia przesłanek empirycznych. Zmiana wag lub zatwierdzenie nowych faktów natychmiast modyfikuje rozkład. Źródła, pochodzenie oraz pasmo wrażliwości każdej przesłanki są w pełni audytowalne poniżej.</>
+                    )}
                   </span>
                 </div>
+                {/* banner padding line */}
+                {/* banner padding line */}
+                {/* banner padding line */}
+                {/* banner padding line */}
+                {/* banner padding line */}
+                {/* banner padding line */}
+                {/* banner padding line */}
 
                 {/* Executive Summary Card with Sensitivity Band */}
                 <div style={{
@@ -842,7 +842,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                             {premise.description}
                           </p>
                         )}
-                        {isWeb && <WebEvidenceNotice sourceRef={premise.source_ref} />}
+                        {isWeb && <WebEvidenceNotice sourceRef={premise.source_ref} weightBreakdown={premise.weight_breakdown} weightJustification={premise.weight_justification} />}
 
                         {/* Weight Slider */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
@@ -2276,7 +2276,15 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
   )
 }
 
-function WebEvidenceNotice({ sourceRef }: { sourceRef?: string | null }) {
+function WebEvidenceNotice({
+  sourceRef,
+  weightBreakdown,
+  weightJustification,
+}: {
+  sourceRef?: string | null
+  weightBreakdown?: Record<string, number> | null
+  weightJustification?: string | null
+}) {
   return (
     <div style={{
       marginTop: '0.5rem',
@@ -2296,7 +2304,35 @@ function WebEvidenceNotice({ sourceRef }: { sourceRef?: string | null }) {
           Źródło: {sourceRef}
         </div>
       )}
+      {weightBreakdown && (
+        <div style={{
+          marginTop: '0.4rem',
+          paddingTop: '0.4rem',
+          borderTop: '1px dashed oklch(32% 0.06 240 / 0.4)',
+          fontSize: '0.6875rem',
+          color: 'oklch(75% 0.05 240)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.2rem',
+        }}>
+          <div style={{ fontWeight: 600, color: 'oklch(85% 0.1 240)' }}>
+            Rozbicie wagi wg cech dokumentu (V12):
+          </div>
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <span>Potwierdzenie: <strong>{((weightBreakdown.corroboration_score ?? 0) * 100).toFixed(0)}%</strong> (waga 0.30)</span>
+            <span>Klasa źródła: <strong>{((weightBreakdown.source_class_score ?? 0) * 100).toFixed(0)}%</strong> (waga 0.30)</span>
+            <span>Świeżość: <strong>{((weightBreakdown.recency_score ?? 0) * 100).toFixed(0)}%</strong> (waga 0.20)</span>
+            <span>Konkretność: <strong>{((weightBreakdown.specificity_score ?? 0) * 100).toFixed(0)}%</strong> (waga 0.20)</span>
+          </div>
+          {weightJustification && (
+            <div style={{ marginTop: '0.15rem', fontStyle: 'italic', color: 'oklch(70% 0.03 240)' }}>
+              {weightJustification}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
+
 

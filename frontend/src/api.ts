@@ -301,6 +301,8 @@ export interface EvidencePremise {
   provenance?: 'user_supplied' | 'web_sourced' | 'llm_suggested' | 'assumed'
   source_ref?: string | null
   is_accepted?: boolean
+  weight_breakdown?: Record<string, number> | null
+  weight_justification?: string | null
 }
 
 export interface ScenarioForecast {
