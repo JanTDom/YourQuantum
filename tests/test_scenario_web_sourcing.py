@@ -708,3 +708,184 @@ def test_scenario_decomposition_retry_triggers_on_insufficient_scenarios():
     asyncio.run(_run())
 
 
+def test_sentence_selection_single_sentence():
+    """
+    V14-1A: Single sentence index selected by model -> quote sliced exactly by offsets, verified.
+    """
+    from backend.infrastructure.web_research.extractor import EvidenceExtractor, split_into_sentences
+    from backend.domain.evidence.models import EvidenceDocument, ExtractionMethod
+
+    text = "Pierwsze zdanie dokumentu analitycznego. Inflacja w Polsce w 2026 roku wyniesie 3.1 procent według NBP. Trzecie zdanie podsumowujące raport."
+    doc = EvidenceDocument(
+        url="https://nbp.pl/raport",
+        content_hash="hash123",
+        page_text=text,
+        title="NBP Raport",
+        status_code=200,
+    )
+    extractor = EvidenceExtractor(llm_gateway=MagicMock(is_available=True))
+
+    mock_llm_json = {
+        "claim": "Prognoza inflacji w 2026 roku wynosi 3.1%",
+        "sentence_indices": [1],
+        "value": 3.1,
+        "unit": "%",
+        "confidence": 0.95,
+    }
+
+    async def _run():
+        with patch.object(extractor.gateway, "generate", AsyncMock(return_value=MagicMock(parsed_json=mock_llm_json))):
+            ev = await extractor.extract_parameter_evidence(doc, target_param="inflacja")
+
+        assert ev is not None
+        assert ev.extraction_method == ExtractionMethod.SENTENCE_SELECTION
+        assert ev.char_start is not None and ev.char_end is not None
+        assert ev.quote == text[ev.char_start:ev.char_end]
+        assert ev.quote in text
+        assert "Inflacja w Polsce w 2026 roku wyniesie 3.1 procent według NBP." in ev.quote
+        assert extractor.telemetry["web_evidence_from_sentences"] == 1
+
+    asyncio.run(_run())
+
+
+def test_sentence_selection_adjacent_sentences():
+    """
+    V14-1B: Two adjacent sentence indices -> contiguous slice text[s1.start : s2.end], verified.
+    """
+    from backend.infrastructure.web_research.extractor import EvidenceExtractor
+    from backend.domain.evidence.models import EvidenceDocument, ExtractionMethod
+
+    text = "Pierwsze zdanie raportu. Gen. Grynkewich ocenia sytuację bezpieczeństwa w Europie. Rosja będzie gotowa do konfrontacji z Europą w 2027 roku. Czwarte zdanie podsumowujące."
+    doc = EvidenceDocument(
+        url="https://defence.pl/artykul",
+        content_hash="hash456",
+        page_text=text,
+        title="Raport Bezpieczeństwa",
+        status_code=200,
+    )
+    extractor = EvidenceExtractor(llm_gateway=MagicMock(is_available=True))
+
+    mock_llm_json = {
+        "claim": "Rosja gotowa do konfrontacji w 2027 roku",
+        "sentence_indices": [1, 2],
+        "value": 2027,
+        "unit": "rok",
+        "confidence": 0.9,
+    }
+
+    async def _run():
+        with patch.object(extractor.gateway, "generate", AsyncMock(return_value=MagicMock(parsed_json=mock_llm_json))):
+            ev = await extractor.extract_parameter_evidence(doc, target_param="gotowosc_rosji")
+
+        assert ev is not None
+        assert ev.extraction_method == ExtractionMethod.SENTENCE_SELECTION
+        assert ev.char_start is not None and ev.char_end is not None
+        assert ev.quote == text[ev.char_start:ev.char_end]
+        assert "Gen. Grynkewich" in ev.quote
+        assert "2027 roku" in ev.quote
+        assert ev.quote in text
+
+    asyncio.run(_run())
+
+
+def test_sentence_selection_rejects_out_of_bounds_index():
+    """
+    V14-1C: Model returns index out of bounds -> rejected, web_invalid_sentence_index incremented.
+    """
+    from backend.infrastructure.web_research.extractor import EvidenceExtractor
+    from backend.domain.evidence.models import EvidenceDocument
+
+    text = "Pierwsze zdanie raportu. Drugie zdanie raportu."
+    doc = EvidenceDocument(
+        url="https://test.com/doc",
+        content_hash="hash789",
+        page_text=text,
+        title="Test",
+        status_code=200,
+    )
+    extractor = EvidenceExtractor(llm_gateway=MagicMock(is_available=True))
+
+    mock_llm_json = {
+        "claim": "Błędny indeks",
+        "sentence_indices": [99],
+        "value": None,
+    }
+
+    async def _run():
+        with patch.object(extractor.gateway, "generate", AsyncMock(return_value=MagicMock(parsed_json=mock_llm_json))):
+            ev = await extractor.extract_parameter_evidence(doc, target_param="test")
+
+        assert ev is None
+        assert extractor.telemetry["web_invalid_sentence_index"] == 1
+
+    asyncio.run(_run())
+
+
+def test_sentence_selection_rejects_more_than_three_sentences():
+    """
+    V14-1D: Model returns >3 sentence indices -> rejected, web_too_many_sentences incremented.
+    """
+    from backend.infrastructure.web_research.extractor import EvidenceExtractor
+    from backend.domain.evidence.models import EvidenceDocument
+
+    text = "Zdanie 1 opisujące wstęp. Zdanie 2 opisujące metodę. Zdanie 3 opisujące wyniki. Zdanie 4 opisujące wnioski. Zdanie 5 opisujące rekomendacje."
+    doc = EvidenceDocument(
+        url="https://test.com/doc",
+        content_hash="hash999",
+        page_text=text,
+        title="Test",
+        status_code=200,
+    )
+    extractor = EvidenceExtractor(llm_gateway=MagicMock(is_available=True))
+
+    mock_llm_json = {
+        "claim": "Zbyt wiele zdań",
+        "sentence_indices": [0, 1, 2, 3],
+        "value": None,
+    }
+
+    async def _run():
+        with patch.object(extractor.gateway, "generate", AsyncMock(return_value=MagicMock(parsed_json=mock_llm_json))):
+            ev = await extractor.extract_parameter_evidence(doc, target_param="test")
+
+        assert ev is None
+        assert extractor.telemetry["web_too_many_sentences"] == 1
+
+    asyncio.run(_run())
+
+
+def test_sentence_selection_fallback_to_legacy_when_fewer_than_two_sentences():
+    """
+    V14-1E: When document text contains fewer than 2 sentences, falls back to legacy verbatim path.
+    """
+    from backend.infrastructure.web_research.extractor import EvidenceExtractor
+    from backend.domain.evidence.models import EvidenceDocument
+
+    text = "Dokument zawierający tylko jeden wers bez kropek"
+    doc = EvidenceDocument(
+        url="https://test.com/doc",
+        content_hash="hash000",
+        page_text=text,
+        title="Test",
+        status_code=200,
+    )
+    extractor = EvidenceExtractor(llm_gateway=MagicMock(is_available=True))
+
+    mock_llm_json = {
+        "claim": "Pojedynczy wers",
+        "quote": "jeden wers",
+        "value": 1.0,
+    }
+
+    async def _run():
+        with patch.object(extractor.gateway, "generate", AsyncMock(return_value=MagicMock(parsed_json=mock_llm_json))):
+            ev = await extractor.extract_parameter_evidence(doc, target_param="test")
+
+        assert extractor.extraction_path == "legacy_verbatim"
+        assert ev is not None
+        assert ev.quote == "jeden wers"
+
+    asyncio.run(_run())
+
+
+

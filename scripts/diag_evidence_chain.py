@@ -100,40 +100,36 @@ async def diagnose_query(query: str, max_results: int = 3) -> None:
             print("  Dokument pusty (brak tekstu po usunięciu HTML). Ekstrakcja niemożliwa.")
             continue
 
-        # KROK 3: EKSTRAKCJA PRZEZ EvidenceExtractor
+        # KROK 3: EKSTRAKCJA PRZEZ EvidenceExtractor (V14 sentence selection & offset slicing)
         print("\n  --- KROK 3: EKSTRAKCJA DOWODU ---")
-        # Wywołujemy bezpieczny tekst tak jak w extractorze
-        safe_text = doc.page_text[:20000]
-        safe_text = safe_text.replace("<<<END_UNTRUSTED_WEB_CONTENT>>>", "[ESCAPED_BOUNDARY]")
-        safe_text = safe_text.replace("<<<UNTRUSTED_WEB_CONTENT>>>", "[ESCAPED_BOUNDARY]")
+        ev = None
+        try:
+            ev = await extractor.extract_parameter_evidence(
+                document=doc,
+                target_param=query[:80],
+                parameter_description=f"Kluczowy fakt lub wskaźnik dla analizy: {query}",
+            )
+        except Exception as e:
+            print(f"  Błąd wywołania ekstraktora: {e}")
 
-        extracted_raw = None
-        if extractor.gateway.is_available:
-            try:
-                extracted_raw = await extractor._extract_via_llm(
-                    text=safe_text,
-                    target_param=query[:80],
-                    expected_unit="any",
-                    description=f"Kluczowy fakt lub wskaźnik dla analizy: {query}",
-                )
-            except Exception as e:
-                print(f"  Błąd wywołania bramki LLM w ekstraktorze: {e}")
+        print(f"  Ścieżka ekstrakcji (path): {extractor.extraction_path}")
+        print(f"  Status ekstraktora: {extractor.last_status}")
+        print(f"  Telemetria ekstraktora: {extractor.telemetry}")
 
-        print(f"  Surowa odpowiedź ekstraktora (JSON): {extracted_raw}")
-
-        if not extracted_raw or not extracted_raw.get("quote"):
-            print("  Ekstraktor nie zwrócił dowodu lub pole 'quote' jest puste.")
+        if not ev:
+            print("  Ekstraktor nie zwrócił zweryfikowanego dowodu (Evidence is None).")
             continue
 
-        quote = str(extracted_raw.get("quote", "")).strip()
-        print(f"  Twierdzenie (claim): {extracted_raw.get('claim')}")
-        print(f"  Wartość (value): {extracted_raw.get('value')} {extracted_raw.get('unit')}")
-        print(f"  Zwrócony cytat ({len(quote)} zn.): {repr(quote)}")
+        print(f"  Twierdzenie (claim): {ev.claim}")
+        print(f"  Wartość (value): {ev.value} {ev.unit}")
+        print(f"  Metoda ekstrakcji: {ev.extraction_method.value}")
+        print(f"  Przedział znakowy (offsets): char_start={ev.char_start}, char_end={ev.char_end}")
+        print(f"  Zwrócony cytat ({len(ev.quote)} zn.): {repr(ev.quote)}")
 
-        # KROK 4: WERYFIKACJA CYTATU
+        # KROK 4: WERYFIKACJA CYTATU W TEKŚCIE STRONY
         print("\n  --- KROK 4: WERYFIKACJA CYTATU W TEKŚCIE STRONY ---")
-        exact_in_raw = quote in doc.page_text
-        ws_norm_quote = " ".join(quote.split())
+        exact_in_raw = ev.quote in doc.page_text
+        ws_norm_quote = " ".join(ev.quote.split())
         ws_norm_text = " ".join(doc.page_text.split())
         ws_in_text = ws_norm_quote in ws_norm_text
 
@@ -141,7 +137,7 @@ async def diagnose_query(query: str, max_results: int = 3) -> None:
         print(f"  Dopasowanie ze zredukowanymi spacjami (ws-normalized): {ws_in_text}")
 
         # Normalizacja typograficzna
-        typo_quote = normalize_typography(quote)
+        typo_quote = normalize_typography(ev.quote)
         typo_text = normalize_typography(doc.page_text)
         typo_in_text = typo_quote in typo_text
         print(f"  Dopasowanie po równoważnej normalizacji typografii: {typo_in_text}")
@@ -152,7 +148,6 @@ async def diagnose_query(query: str, max_results: int = 3) -> None:
             print("  >>> STATUS: PASS PO NORMALIZACJI TYPOGRAFICZNEJ (cudzysłowy/myślniki/twarde spacje)")
         else:
             print("  >>> STATUS: FAIL (Cytat NIE znaleziony w tekście)")
-            # Diagnostyka difflib: najdłuższy wspólny fragment
             lcs = longest_common_substring(typo_quote, typo_text)
             print(f"  Najdłuższy wspólny fragment ({len(lcs)} zn.): {repr(lcs)}")
             if len(lcs) > 0 and len(typo_quote) > 0:

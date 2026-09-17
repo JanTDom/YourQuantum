@@ -16,6 +16,7 @@ class ExtractionMethod(str, Enum):
     API_FIELD = "api_field"
     TABLE_CELL = "table_cell"
     USER_VERIFIED = "user_verified"
+    SENTENCE_SELECTION = "sentence_selection"
 
 
 class Evidence(BaseModel):
@@ -38,6 +39,8 @@ class Evidence(BaseModel):
     confidence: float = 1.0  # 0.0 to 1.0
     conflicts_with: list[str] = Field(default_factory=list)
     target_param: str | None = None  # e.g., "option_a.cost" or "v_1"
+    char_start: int | None = None
+    char_end: int | None = None
 
 
 class EvidenceConflict(BaseModel):
