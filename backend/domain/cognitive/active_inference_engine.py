@@ -601,7 +601,12 @@ class ActiveInferenceOrchestrator:
                     fingerprint=fp,
                     problem_class="CHOICE",
                     confidence=classification.confidence,
-                    clarification_prompt="Nie udało się wygenerować spójnych scenariuszy alternatywnych dla tego zapytania prognostycznego. Doprecyzuj horyzont czasowy lub kryteria oceny.",
+                    explanation="Nie udało się wygenerować spójnych scenariuszy alternatywnych ani mierzalnych przesłanek dla tego zapytania prognostycznego.",
+                    questions=[
+                        "Doprecyzuj horyzont czasowy analizy (np. 'do końca 2026 roku' lub 'w ciągu najbliższych 12 miesięcy').",
+                        "Wskaż rozważane warianty sytuacji (np. deeskalacja vs presja hybrydowa vs otwarty konflikt).",
+                        "Podaj kluczowe wskaźniki lub założenia wyjściowe, na których ma się opierać ocena.",
+                    ],
                     session_id=ws.session_id,
                 )
                 return formalization, ws

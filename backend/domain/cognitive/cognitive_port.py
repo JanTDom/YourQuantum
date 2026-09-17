@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from typing import Any, Literal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from backend.domain.problem_ir import ProblemIR
 
@@ -20,6 +20,8 @@ class FormalizationResult(BaseModel):
     Standardized result of cognitive problem formalization.
     Validated boundary model consumable by frontends, workers, and active inference loops.
     """
+    model_config = ConfigDict(extra="forbid")
+
     status: Literal["ready_for_review", "needs_clarification", "not_computable"] = "ready_for_review"
     problem_ir: ProblemIR | None = None
     decision_case: DecisionCase | None = None

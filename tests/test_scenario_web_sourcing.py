@@ -590,3 +590,37 @@ def test_extractor_v13_verbatim_quote_acceptance_and_rejection():
     asyncio.run(_run())
 
 
+def test_scenario_needs_clarification_has_explanation_and_questions():
+    """
+    V14-2: A needs_clarification result from the scenario forecasting fallback branch
+    MUST have non-empty explanation and non-empty questions list (never empty, no clarification_prompt).
+    """
+    from backend.domain.cognitive.active_inference_engine import ActiveInferenceOrchestrator
+    from backend.domain.cognitive.cognitive_port import FormalizationResult
+
+    async def _run():
+        mock_reasoning_port = MagicMock()
+        mock_session = AsyncMock()
+        engine = ActiveInferenceOrchestrator(reasoning_port=mock_reasoning_port)
+
+        # Mock decompose_scenario_query_async to return empty scenarios/premises (< 2 scenarios)
+        mock_case = MagicMock()
+        mock_forecast = MagicMock()
+        mock_forecast.scenarios = []
+        mock_forecast.evidence_premises = []
+        mock_forecast.telemetry = {}
+
+        with patch("backend.domain.cognitive.scenario_decomposer.is_scenario_forecast_query", return_value=True), \
+             patch("backend.domain.cognitive.scenario_decomposer.decompose_scenario_query_async", AsyncMock(return_value=(mock_case, mock_forecast))), \
+             patch("backend.infrastructure.web_research.search_adapter.WebResearchAdapter.is_available", return_value=False):
+
+            res, ws = await engine.run_intake(session=mock_session, query="Czy Rosja do końca tego roku napadnie na Polskę?")
+            assert isinstance(res, FormalizationResult)
+            assert res.status == "needs_clarification"
+            assert res.explanation != "", "explanation must NOT be empty"
+            assert len(res.questions) > 0, "questions must NOT be empty"
+            assert not hasattr(res, "clarification_prompt"), "clarification_prompt must not exist on model"
+
+    asyncio.run(_run())
+
+

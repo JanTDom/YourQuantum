@@ -97,10 +97,10 @@ export const App: React.FC = () => {
       }
 
       if (intakeRes.status === 'needs_clarification' && !intakeRes.decision_case) {
-        const reason = intakeRes.explanation || 'Opis wymaga zdefiniowania wariantów decyzyjnych.'
+        const reason = intakeRes.explanation || 'Silnik nie zdołał zbudować modelu z tego opisu.'
         const suggestions = intakeRes.questions?.length
           ? ` Sugestia: ${intakeRes.questions.join(' ')}`
-          : ' Zdefiniuj co najmniej dwie opcje do wyboru (np. "Wybierz między opcją A a B").'
+          : ' Doprecyzuj pytanie.'
         setErrorMessage(`[Wymaga uściślenia] ${reason}${suggestions}`)
         return
       }
