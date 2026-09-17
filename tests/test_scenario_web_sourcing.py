@@ -624,3 +624,35 @@ def test_scenario_needs_clarification_has_explanation_and_questions():
     asyncio.run(_run())
 
 
+@pytest.mark.parametrize("query,expected_is_scenario,expected_quality_level", [
+    ("Czy Rosja napadnie na Polskę?", True, "too_vague"),
+    ("Czy Rosja do końca tego roku napadnie na Polskę?", True, "sufficient"),
+    ("Czy Iran uderzy na Izrael?", True, "too_vague"),
+    ("Czy Chiny zaatakują Tajwan?", True, "too_vague"),
+])
+def test_scenario_forecast_definition_and_quality_gate_consistency(
+    query: str,
+    expected_is_scenario: bool,
+    expected_quality_level: str,
+):
+    """
+    V14-3: Parametric test across the specification table.
+    Both is_scenario_forecast_query and assess_input_quality MUST be consistent,
+    and missing time horizon must block all queries equally with scenario-specific suggestions
+    (never suggestions about apartments or two options).
+    """
+    from backend.domain.cognitive.scenario_decomposer import is_scenario_forecast_query
+    from backend.domain.cognitive.quality_gate import assess_input_quality
+
+    is_scenario = is_scenario_forecast_query(query)
+    assert is_scenario is expected_is_scenario
+
+    gate = assess_input_quality(query, is_scenario=is_scenario)
+    assert gate.level == expected_quality_level
+
+    if gate.level == "too_vague":
+        assert not any("mieszkanie" in s.lower() or "dwie opcje" in s.lower() for s in gate.suggestions), \
+            f"Scenario query got non-scenario suggestions: {gate.suggestions}"
+        assert any("horyzont" in s.lower() or "wariant" in s.lower() for s in gate.suggestions)
+
+

@@ -368,8 +368,12 @@ class ActiveInferenceOrchestrator:
             )
             return res, ws
 
-        # 2. Input Quality Gate (aware of problem class)
-        quality = assess_input_quality(query, problem_class=classification.problem_class)
+        # 2. Input Quality Gate (aware of problem class & scenario context)
+        quality = assess_input_quality(
+            query,
+            problem_class=classification.problem_class,
+            is_scenario=is_scenario_forecast,
+        )
         if quality.level != "sufficient":
             ws.update_hypothesis(None, {"status": "needs_clarification", "quality_level": quality.level})
             res = FormalizationResult(

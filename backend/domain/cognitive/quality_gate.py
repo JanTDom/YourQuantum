@@ -14,7 +14,12 @@ from backend.domain.cognitive.time_horizon import detect_time_horizon
 logger = logging.getLogger(__name__)
 
 
-def assess_input_quality(text: str, options_count: int = 0, problem_class: str = "CHOICE") -> InputQuality:
+def assess_input_quality(
+    text: str,
+    options_count: int = 0,
+    problem_class: str = "CHOICE",
+    is_scenario: bool | None = None,
+) -> InputQuality:
     """
     Evaluate whether the user prompt contains enough degrees of freedom
     and specific data to model an exact mathematical dilemma.
@@ -29,6 +34,8 @@ def assess_input_quality(text: str, options_count: int = 0, problem_class: str =
     2. Does not require user to pre-specify options, as the engine decomposes
        the system into architectural levers via domain knowledge and web research.
     """
+    from backend.domain.cognitive.scenario_decomposer import is_scenario_forecast_query
+
     cleaned = text.strip()
     words = [w for w in cleaned.split() if len(w) > 1]
     lower = cleaned.lower()
@@ -50,14 +57,10 @@ def assess_input_quality(text: str, options_count: int = 0, problem_class: str =
             )
         return InputQuality(level="sufficient", reason="", suggestions=[])
 
-    # Scenario forecasting & future risk handling
-    is_scenario_context = bool(
-        re.search(r"\b(scenariusz\w*|prognoz\w*|czy\s+rosja\s+(zaatakuje|napadnie)|inwazj\w*|wojn\w*\s+w\s+europ)\b", lower)
-    )
+    # Scenario forecasting & future risk handling (DEC-034 / V14)
+    is_scenario_context = is_scenario if is_scenario is not None else is_scenario_forecast_query(text)
     if is_scenario_context:
         # Horyzont czasowy dekodujemy deterministycznie (DEC-034), a nie pojedynczym regexem.
-        # Parser rozpoznaje m.in. "do końca tego roku", "w przyszłym roku", "w ciągu trzech lat",
-        # "do marca 2027", "do końca dekady" — formy, których poprzedni wzorzec nie obejmował.
         detected_horizon = detect_time_horizon(text)
         has_time_horizon = detected_horizon is not None
         if len(words) < 5 or not has_time_horizon:
