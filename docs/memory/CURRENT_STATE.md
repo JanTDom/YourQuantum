@@ -1,17 +1,29 @@
 # YourQuantum — CURRENT STATE
-_Last updated: 2026-09-17 (V12: Przesłanki i wagi z dokumentów, nie z modelu; 24/24 PASS)_
+_Last updated: 2026-09-17 (V13: Ostatnia prosta — łańcuch dowodowy domknięty, cytaty zweryfikowane na żywej produkcji, 24/24 PASS)_
 
-## Status: V12 — PRZESŁANKI I WAGI MAJĄ POCHODZIĆ Z DOKUMENTÓW, NIE Z MODELU
+## Status: V13 — OSTATNIA PROSTA (ŁAŃCUCH DOWODOWY DOMKNIĘTY I ZWERYFIKOWANY NA PRODUKCJI)
 
-- **Gałąź i stan repo**: `feat/v12-documented-weights` (odgałęziona od `main` `de4b25f`):
-  * **Punkt 1**: Podniesienie timeoutu wyszukiwania Gemini z 10s do 30s (`GEMINI_SEARCH_TIMEOUT = 30.0` w `backend/infrastructure/gemini_cognitive_adapter.py`). `get_status()` raportuje zdolność (`can_fetch_content: True` i `mode: "full_content"`). Ignorowanie URL przekierowujących (`google.com/url`, `vertexaisearch...`). Udokumentowanie warunków dostawców wyszukiwania w `docs/SOURCES.md`.
-  * **Punkt 2**: Plik `config/source_classes.json` (v1.0.0, 4 klasy domen). Deterministyczne wyliczanie wag przesłanek w `backend/domain/evidence/evidence_weighting.py` na podstawie wzoru: $W = 0.30 \cdot S_{\text{corroboration}} + 0.30 \cdot S_{\text{source\_class}} + 0.20 \cdot S_{\text{recency}} + 0.20 \cdot S_{\text{specificity}}$ (DEC-037). Integracja w `backend/domain/cognitive/active_inference_engine.py`.
-  * **Punkt 3 & 4**: Baner uczciwości w `frontend/src/components/RecommendationView.tsx` informujący o braku źródeł sieciowych, gdy liczba zweryfikowanych cytatów wynosi 0. Pola `weight_breakdown` i `weight_justification` w `frontend/src/api.ts` oraz ich wizualizacja w `WebEvidenceNotice`.
-  * **Punkt 5**: Maszynowe pilnowanie przywołań w `docs/REPORT_V11.md` i `docs/REPORT_V12.md` przez `scripts/check_doc_citations.py` (G-DOCS).
+- **Gałąź i stan repo**: `main` (HEAD ze zmianami V13; Etap B na gałęzi `feat/v9-technical-debt`):
+  * **Punkt 1 (Łańcuch dowodowy i weryfikacja cytatów)**:
+    - Odblokowano pobieranie stron w pętli `active_inference_engine.py` (usunięto błędne pomijanie przy `search_mode == "grounding_urls_only"`).
+    - Wprowadzono symetryczną normalizację typograficzną `normalize_typography()` w `backend/infrastructure/web_research/extractor.py` (cudzysłowy drukarskie, myślniki, spacje twarde, NFC).
+    - Zaostrzono system prompt ekstraktora LLM o bezwzględny zakaz wielokropków, skracania i parafraz.
+    - Dodano precyzyjne liczniki telemetrii: `web_docs_empty`, `web_extractor_no_evidence`, `web_quotes_unverified`.
+    - Zweryfikowano empirycznie na żywej produkcji: `web_search_urls_returned = 3`, `web_pages_fetched = 3`, `web_quotes_verified = 1`, `web_quotes_unverified = 0`.
+  * **Punkt 2 (Wdrożenie produkcyjne Vercel)**:
+    - Zdiagnozowano brak automatycznego webhooka (`link: null`). Wdrożenia produkcyjne wywoływane przez Vercel CLI (`vercel deploy --prod`).
+    - Aktywny bundle produkcyjny frontendu: `assets/index-CwhrjICi.js` na domenie `https://yourquantum.pl`.
+  * **Punkt 3 (Etap B: Dwa hasła)**:
+    - Zaimplementowano obsługę listy haseł oddzielonych przecinkami w `YQ_APP_ACCESS_SECRET` oraz stałoczasową weryfikację `hmac.compare_digest` bez przedwczesnego przerywania pętli na gałęzi `feat/v9-technical-debt`.
+    - Zgodnie z bezwzględną zasadą: **NIE SCALONO DO `main`** przed pisemnym potwierdzeniem od Jana!
+  * **Punkt 4 (Długi raportu V12 & rozszerzenie mechanicznego audytu)**:
+    - Poprawiono ścieżki w `docs/REPORT_V12.md` i `docs/REPORT_V6.md`.
+    - Rozszerzono R1 w `scripts/check_doc_citations.py` o weryfikację istnienia wszystkich ścieżek w backtickach oraz sprawdzanie gałęzi i commitów. Dodano test negatywny w `tests/unit/test_doc_citations.py` (6/6 PASS).
+    - Dodano `docs/REPORT_V13.md` do stałej listy sprawdzanych dokumentów (G-DOCS PASS).
 - **Weryfikacja testowa**:
-  * `scripts/check_v4.sh`: Wszystkie bramki PASS (G-R1a do G-N11, G-DOCS oraz G-TESTS).
-  * `pytest -q tests/`: Wszystkie testy jednostkowe i regresyjne PASS.
-  * `npm run build`: Kompilacja TypeScript/Vite czysta (kod 0, 0 błędów).
+  * `scripts/check_v4.sh`: Wszystkie bramki PASS (24/24 ZIELONE).
+  * `pytest`: Wszystkie testy automatyczne PASS (225 passed in 326s).
+  * `npm run build`: Kompilacja Vite/TypeScript czysta (kod 0, 0 błędów).
 
 - **Wdrożenie produkcyjne**: `https://yourquantum.pl` (Vercel prod deployment `dpl_AMjryi2a1Xc6HcwBvmmZojPBcXM6`, status `READY`):
   * Nowy bundle produkcyjny frontendu: `assets/index-DYAG9ngC.js`.
@@ -330,8 +342,14 @@ WYNIK KOŃCOWY: WSZYSTKIE BRAMKI ZIELONE (PASS)
 - **Punkt 4 (Realna telemetria)**: Zarejestrowano przebieg zapytania scenariuszowego z aktywnym providerem `gemini`. Potwierdzono poprawne rejestrowanie surowej telemetrii (`forecast.telemetry`) bez zakłamywania danych przy awariach sieciowych.
 - **Punkt 5 (Dokumentacja i bramki)**: Skorygowano commit w `docs/REPORT_V9.md`, uzupełniono `DEC-035` w `docs/memory/DECISIONS.md`, rozszerzono maszynową weryfikację cytatów `scripts/check_doc_citations.py` o `docs/REPORT_V9.md`. Wszystkie 24 bramki `scripts/check_v4.sh` zielone.
 
+### ✅ Faza V13: Ostatnia Prosta — Weryfikacja Cytatów i Domknięcie Łańcucha Dowodowego (2026-09-17)
+- **Punkt 1 (Łańcuch dowodowy)**: Usunięto barierę pomijania fetchowania stron w `active_inference_engine.py` przy `search_mode == "grounding_urls_only"`. Wprowadzono symetryczną normalizację typograficzną `normalize_typography()` w `backend/infrastructure/web_research/extractor.py` oraz rygorystyczny prompt systemowy dla ekstraktora LLM, eliminując odrzucanie cytatów przez formatowanie. Wprowadzono precyzyjne liczniki telemetrii (`web_docs_empty`, `web_extractor_no_evidence`, `web_quotes_unverified`). Zweryfikowano na żywej produkcji: 3 zwrócone URL, 3 pobrane strony, 1 zweryfikowany dosłowny cytat.
+- **Punkt 2 (Wdrożenia Vercel)**: Ustalono przyczynę braku wdrożeń (`link: null`). Wdrożono na żywą produkcję bundle `assets/index-CwhrjICi.js` za pomocą Vercel CLI.
+- **Punkt 3 (Etap B: Dwa hasła)**: Wdrożono obsługę listy haseł po przecinku w `YQ_APP_ACCESS_SECRET` i stałoczasową weryfikację `hmac.compare_digest` po całej liście na gałęzi `feat/v9-technical-debt`. Zachowano izolację gałęzi bez scalania do `main`.
+- **Punkt 4 (Długi i mechaniczny audyt)**: Naprawiono ścieżki w `docs/REPORT_V12.md` i `docs/REPORT_V6.md`. Rozszerzono `scripts/check_doc_citations.py` o weryfikację wszystkich ścieżek w backtickach i gałęzi/commitów git. Dodano `docs/REPORT_V13.md`. Wszystkie 24 bramki `scripts/check_v4.sh` zielone.
+
 ---
 
 ## Następny krok (Next Step)
 
-Oczekiwanie na potwierdzenie od Jana wdrożenia zmiennej środowiskowej `YQ_APP_ACCESS_SECRET` w panelu Vercel. Po potwierdzeniu: scalenie gałęzi `feat/v9-technical-debt` do `main` (lub cherry-pick Etapu B), wypchnięcie do `origin/main` i empiryczna weryfikacja na produkcji `https://yourquantum.pl` nagłówka `x-vercel-id` oraz endpointu `/api/v1/health/solvers`. Do tego czasu do `main` włączane są wyłącznie Etap A i Etap C wraz z dokumentacją.
+Oczekiwanie na potwierdzenie od Jana w sprawie wdrożenia Etapu B (bramka dostępu po stronie serwera). Po pisemnej dyspozycji: scalenie gałęzi `feat/v9-technical-debt` do `main`, wypchnięcie do `origin/main` oraz wdrożenie na produkcję przez `vercel deploy --prod`.

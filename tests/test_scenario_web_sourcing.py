@@ -508,3 +508,85 @@ def test_evidence_weighting_properties():
         res_check = compute_evidence_weight(ev_tier1, all_evidences=[ev_tier1, ev_tier2_diff_domain]).final_weight
         assert res_first == res_check
 
+
+def test_extractor_v13_verbatim_quote_acceptance_and_rejection():
+    """
+    Test V13-1D:
+    1. Cytat obecny w treści -> dowód przyjęty.
+    2. Cytat obecny, ale zapisany cudzysłowami drukarskimi i z twardą spacją -> przyjęty po normalizacji.
+    3. Cytat będący parafrazą (te same fakty, inne słowa) -> odrzucony.
+    4. Cytat zmyślony -> odrzucony.
+    """
+    import asyncio
+    from unittest.mock import MagicMock, AsyncMock, patch
+    from backend.infrastructure.web_research.extractor import EvidenceExtractor
+    from backend.domain.evidence.models import EvidenceDocument
+
+    full_page = (
+        "W marcu 2026 r. stopa bezrobocia w Polsce wyniosła 5,1%.\n"
+        "Główny Urząd Statystyczny podał: „Wskaźnik inflacji bazowej obniżył się do 3,2% rok do roku”.\n"
+        "Wartość eksportu wyniosła 120 mld zł."
+    )
+
+    doc = EvidenceDocument(
+        url="https://stat.gov.pl/test-v13",
+        content_hash="dummy_hash_v13",
+        page_text=full_page,
+        title="GUS Test",
+        status_code=200,
+        mime_type="text/html",
+    )
+
+    extractor = EvidenceExtractor(llm_gateway=MagicMock(is_available=True))
+
+    async def _run():
+        # 1. Exact quote present -> ACCEPTED
+        ev1_json = {
+            "claim": "Stopa bezrobocia wyniosła 5,1%",
+            "value": 5.1,
+            "unit": "%",
+            "quote": "stopa bezrobocia w Polsce wyniosła 5,1%",
+        }
+        with patch.object(extractor, "_extract_via_llm", AsyncMock(return_value=ev1_json)):
+            ev1 = await extractor.extract_parameter_evidence(doc, target_param="bezrobocie")
+        assert ev1 is not None, "Exact continuous quote must be accepted"
+        assert ev1.quote == "stopa bezrobocia w Polsce wyniosła 5,1%"
+
+        # 2. Typographic differences (straight vs curly quotes, non-breaking spaces) -> ACCEPTED
+        # Note: in full_page we have „Wskaźnik inflacji bazowej obniżył się do 3,2% rok do roku”.
+        # Candidate quote uses ASCII straight quotes and non-breaking space
+        ev2_json = {
+            "claim": "Inflacja bazowa 3,2%",
+            "value": 3.2,
+            "unit": "%",
+            "quote": "\"Wskaźnik\u00a0inflacji bazowej obniżył się do 3,2% rok do roku\".",
+        }
+        with patch.object(extractor, "_extract_via_llm", AsyncMock(return_value=ev2_json)):
+            ev2 = await extractor.extract_parameter_evidence(doc, target_param="inflacja")
+        assert ev2 is not None, "Quote with typographic quotes and nbsp must be accepted via equivalent normalization"
+
+        # 3. Paraphrase (same facts, different words) -> REJECTED
+        ev3_json = {
+            "claim": "Stopa bezrobocia 5,1%",
+            "value": 5.1,
+            "unit": "%",
+            "quote": "W marcu bezrobocie na terenie Polski osiągnęło poziom 5,1 procent.",
+        }
+        with patch.object(extractor, "_extract_via_llm", AsyncMock(return_value=ev3_json)):
+            ev3 = await extractor.extract_parameter_evidence(doc, target_param="bezrobocie")
+        assert ev3 is None, "Paraphrase quote must be strictly rejected"
+
+        # 4. Hallucinated / invented quote -> REJECTED
+        ev4_json = {
+            "claim": "PKB wzrosło o 4%",
+            "value": 4.0,
+            "unit": "%",
+            "quote": "GUS odnotował wzrost PKB w pierwszym kwartale o 4.0%.",
+        }
+        with patch.object(extractor, "_extract_via_llm", AsyncMock(return_value=ev4_json)):
+            ev4 = await extractor.extract_parameter_evidence(doc, target_param="pkb")
+        assert ev4 is None, "Hallucinated quote must be strictly rejected"
+
+    asyncio.run(_run())
+
+

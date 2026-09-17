@@ -14,6 +14,7 @@ Sprawdza trzy reguły:
 import sys
 import os
 import re
+import subprocess
 from typing import List, Tuple, Optional, Dict
 
 CHECKED_DOCS: List[str] = [
@@ -21,6 +22,7 @@ CHECKED_DOCS: List[str] = [
     "docs/REPORT_V9.md",
     "docs/REPORT_V11.md",
     "docs/REPORT_V12.md",
+    "docs/REPORT_V13.md",
 ]
 
 # Ignorowane katalogi przy indeksowaniu plików
@@ -58,7 +60,10 @@ class CitationChecker:
         matches = cache.get(base, [])
 
         if len(matches) == 1:
-            return matches[0], None
+            matched = matches[0]
+            if "/" in fname and not matched.endswith(fname):
+                return None, f"R1: Przywołany plik '{fname}' nie istnieje na dysku (znaleziono plik o tej samej nazwie w innej ścieżce: '{matched}')."
+            return matched, None
         elif len(matches) > 1:
             return None, f"R1: Nazwa pliku '{fname}' jest niejednoznaczna ({len(matches)} trafień: {', '.join(matches)}). Podaj pełną ścieżkę."
         else:
@@ -79,6 +84,8 @@ class CitationChecker:
         return s.lower()
 
     def check_document(self, doc_path: str) -> List[str]:
+        import subprocess
+
         violations: List[str] = []
         full_doc_path = os.path.join(self.repo_root, doc_path) if not os.path.isabs(doc_path) else doc_path
 
@@ -91,7 +98,63 @@ class CitationChecker:
 
         sticky_file: Optional[str] = None
 
+        # Wykrywamy gałąź odniesienia z nagłówka dokumentu (np. Gałąź: `feat/v9-technical-debt`)
+        doc_branch: Optional[str] = None
+        for head_line in lines[:10]:
+            b_match = re.search(r"(?:branch|ga[ł\u0142][a\u0105][ź\u017a])[^\`\n]*?\`([a-zA-Z0-9_./-]+)\`", head_line, re.IGNORECASE)
+            if b_match:
+                doc_branch = b_match.group(1).strip("`'\" ()")
+                break
+
         for line_no, line_text in enumerate(lines, 1):
+            # R1: Sprawdzenie wszystkich ścieżek plików w backtickach w całym dokumencie (nawet bez numerów linii)
+            for bt_match in re.finditer(r"\`([^\`\n]+)\`", line_text):
+                raw_cand = bt_match.group(1).strip()
+                if not raw_cand or " " in raw_cand or "\t" in raw_cand:
+                    continue
+                cand = raw_cand.split("::")[0].strip("'\"()[]{}")
+                if cand.startswith(("http://", "https://", "api/", "/api/", "assets/", "dist/", "frontend/dist/")):
+                    continue
+                if any(c in cand for c in "*?$<>="):
+                    continue
+                if cand.endswith("/"):
+                    continue
+
+                ext = os.path.splitext(cand)[1].lower()
+                base = os.path.basename(cand)
+                is_file = (base in {"Dockerfile", "Makefile"}) or (
+                    ext in {".py", ".ts", ".tsx", ".js", ".jsx", ".json", ".md", ".sh", ".yml", ".yaml", ".txt", ".html", ".css", ".sql", ".toml"}
+                    and ("/" in cand or ext in {".py", ".tsx", ".ts", ".sh"} or base in {"package.json", "tsconfig.json"})
+                )
+                if not is_file:
+                    continue
+
+                resolved_path, err = self.resolve_file(cand)
+                if err:
+                    # Sprawdzamy gałąź z nagłówka, gałąź z linii lub commit
+                    target_refs: List[str] = []
+                    if doc_branch:
+                        target_refs.append(doc_branch)
+                    for lb in re.finditer(r"(?:branch|ga[ł\u0142][a\u0105eę][źz][a-z]*)[^\`\n]*?\`([a-zA-Z0-9_./-]+)\`", line_text, re.IGNORECASE):
+                        target_refs.append(lb.group(1).strip("`'\" ()"))
+                    for lc in re.finditer(r"\b([0-9a-f]{7,40})\b", line_text):
+                        target_refs.append(lc.group(1))
+
+                    found_in_ref = False
+                    for ref in target_refs:
+                        check_ref = subprocess.run(
+                            ["git", "rev-parse", "--verify", f"{ref}:{cand}"],
+                            capture_output=True,
+                            cwd=self.repo_root,
+                        )
+                        if check_ref.returncode == 0:
+                            found_in_ref = True
+                            break
+
+                    if found_in_ref:
+                        continue
+
+                    violations.append(f"{doc_path}:{line_no} - {err}")
             # Szukamy nawiasów zawierających przywołania linii: (linia N), (linie N–M), (plik, linia N) itp.
             for p_match in re.finditer(r"\(([^)\n]*?lini[a-z]*?[^)\n]*?)\)", line_text, re.IGNORECASE):
                 inside = p_match.group(1)

@@ -129,3 +129,12 @@ W sekcji 4 dokumentu `docs/REPORT_V6.md` doszło do błędu fabrykowania opisu i
 - **Objaw**: Dodanie kodu w górnych partiach pliku komponentu (np. `RecommendationView.tsx` przed linią 875) przesuwa wszystkie kolejne linie, powodując naruszenie bramki `G-DOCS` (`scripts/check_doc_citations.py`), która weryfikuje cytaty kodu z raportów historycznych (np. `docs/REPORT_V6.md`) z tolerancją $\pm 3$ linie.
 - **Zasada**: Wszelkie nowe funkcje pomocnicze, komponenty podrzędne i rozszerzone definicje należy umieszczać za ostatnią przywoływaną linią pliku (lub na samym końcu pliku), a modyfikacje w blokach objętych tolerancją linii muszą być ściśle neutralne pod kątem liczby linii (kompaktowe jednolinijkowe instrukcje, linie wyrównawcze/padding comments), aby nie naruszać historycznego śladu audytowego.
 
+
+---
+
+## L-025: Zgodność dosłowna cytatów z dokumentów źródłowych wymaga normalizacji typograficznej przed weryfikacją
+- **Objaw**: Łańcuch dowodowy sieciowy zwracał `web_quotes_verified = 0`, mimo że ekstraktor LLM poprawnie wskazał fragment z pobranej strony WWW. Weryfikacja programistyczna `raw_quote in page_content` fałszywie odrzucała cytat.
+- **Przyczyna**: Modele LLM mają wbudowane zjawisko podmiany znaków typograficznych (proste cudzysłowy ASCII na cudzysłowy drukarskie `“”„”`, łączniki na półpauzy `–` lub myślniki `—`, spacje twarde/NBSP na zwykłe spacje, różne formy normalizacji Unicode NFC/NFD). Dodatkowo LLM ma tendencję do wstawiania wielokropków wewnątrz cytatu zamiast zwrócenia jednego ciągłego fragmentu tekstu.
+- **Zasada**: 
+  1. Instrukcja systemowa ekstraktora musi bezwzględnie zabraniać używania wielokropków, skracania zdań i parafrazowania: wymagać dokładnie jednego, ciągłego wycinka tekstu.
+  2. Sprawdzenie dopasowania cytatu w treści dokumentu źródłowego musi stosować symetryczną normalizację typograficzną (`normalize_typography()`), ujednolicając formy cudzysłowów, myślników i spacji w obu porównywanych ciągach znaków, z zachowaniem 100% rygoru co do słów i kolejności (zero rozluźniania dopasowania rozmytego typu Levenshtein/fuzzy).

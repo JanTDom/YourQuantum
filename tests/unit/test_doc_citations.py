@@ -137,3 +137,34 @@ def test_r3_skips_jsx_templates_and_ellipsis():
         # Ponieważ linia 10 istnieje w scenario_decomposer.py i literał zawiera {...} oraz ...,
         # reguła R3 jest pomijana i nie ma błędu R3
         assert not any("R3:" in v for v in violations)
+
+
+def test_negative_r1_bare_backtick_path_without_line_number():
+    """
+    Test R1 (V13): atrapa dokumentu zawierająca nieistniejącą ścieżkę pliku w backtickach
+    BEZ przywołania linii (linie X-Y).
+    Skrypt musi zgłosić naruszenie R1 i zakończyć się kodem 1.
+    """
+    checker = CitationChecker()
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        mock_doc = os.path.join(tmpdir, "mock_r1_bare_path.md")
+        with open(mock_doc, "w", encoding="utf-8") as f:
+            f.write(
+                "# Mock Document Bare Path\n"
+                "Wprowadzono modyfikację w pliku `backend/adapters/cognitive/gemini_cognitive_adapter.py` w ramach optymalizacji.\n"
+            )
+
+        violations = checker.check_document(mock_doc)
+        assert len(violations) >= 1
+        assert any("R1:" in v and "gemini_cognitive_adapter.py" in v for v in violations)
+
+        res = subprocess.run(
+            [sys.executable, "scripts/check_doc_citations.py", mock_doc],
+            capture_output=True,
+            text=True,
+        )
+        assert res.returncode == 1
+        assert "R1:" in res.stdout
+        assert "gemini_cognitive_adapter.py" in res.stdout
+

@@ -502,6 +502,9 @@ class ActiveInferenceOrchestrator:
             web_search_urls_returned = 0
             web_pages_fetched = 0
             web_quotes_verified = 0
+            web_docs_empty = 0
+            web_extractor_no_evidence = 0
+            web_quotes_unverified = 0
 
             adapter_status = search_adapter.get_status()
             search_mode = str(adapter_status.get("mode", "offline_user_data_only"))
@@ -515,34 +518,37 @@ class ActiveInferenceOrchestrator:
                     for sr in search_results:
                         web_context_snippets.append(f"[{sr.title}]({sr.url}): {sr.snippet}")
 
-                    # Ground scenario premises in fetched web documents with verified verbatim quotes (V9-C / DEC-032)
-                    fetcher = SafeWebFetcher(timeout=5.0)
+                    # Ground scenario premises in fetched web documents with verified verbatim quotes (V9-C / DEC-032 / V13)
+                    fetcher = SafeWebFetcher(timeout=10.0)
                     extractor = EvidenceExtractor()
 
-                    if search_mode == "grounding_urls_only":
-                        web_fetch_skipped_reason = "provider_returns_redirect_urls"
-                        logger.info("Skipping web document fetch: provider is in grounding_urls_only mode.")
-                    else:
-                        for sr in search_results[:3]:
-                            if not sr.url:
+                    for sr in search_results[:3]:
+                        if not sr.url:
+                            continue
+                        if ws.energy_budget.tokens_used >= ws.energy_budget.max_tokens:
+                            logger.info("Energy budget reached limit, skipping further web fetches.")
+                            break
+                        try:
+                            doc = await asyncio.wait_for(fetcher.fetch(sr.url), timeout=10.0)
+                            if not doc or not doc.page_text or not doc.page_text.strip():
+                                web_docs_empty += 1
                                 continue
-                            if ws.energy_budget.tokens_used >= ws.energy_budget.max_tokens:
-                                logger.info("Energy budget reached limit, skipping further web fetches.")
-                                break
-                            try:
-                                doc = await asyncio.wait_for(fetcher.fetch(sr.url), timeout=5.0)
-                                if doc and doc.page_text:
-                                    web_pages_fetched += 1
-                                    ev = await extractor.extract_parameter_evidence(
-                                        document=doc,
-                                        target_param=query[:80],
-                                        parameter_description=f"Kluczowy fakt lub wskaźnik dla analizy scenariuszowej: {query}",
-                                    )
-                                    if ev and ev.quote:
-                                        web_quotes_verified += 1
-                                        verified_evidences.append(ev)
-                            except Exception as fetch_err:
-                                logger.warning("Failed to fetch or extract evidence from %s: %s", sr.url, fetch_err)
+                            web_pages_fetched += 1
+                            ev = await extractor.extract_parameter_evidence(
+                                document=doc,
+                                target_param=query[:80],
+                                parameter_description=f"Kluczowy fakt lub wskaźnik dla analizy scenariuszowej: {query}",
+                            )
+                            if ev and ev.quote:
+                                web_quotes_verified += 1
+                                verified_evidences.append(ev)
+                            else:
+                                if getattr(extractor, "last_status", None) == "quote_unverified":
+                                    web_quotes_unverified += 1
+                                else:
+                                    web_extractor_no_evidence += 1
+                        except Exception as fetch_err:
+                            logger.warning("Failed to fetch or extract evidence from %s: %s", sr.url, fetch_err)
                 except Exception as s_err:
                     logger.warning("Web search in scenario intake failed: %s", s_err)
 
@@ -560,6 +566,9 @@ class ActiveInferenceOrchestrator:
             forecast.telemetry["web_search_urls_returned"] = web_search_urls_returned
             forecast.telemetry["web_pages_fetched"] = web_pages_fetched
             forecast.telemetry["web_quotes_verified"] = web_quotes_verified
+            forecast.telemetry["web_docs_empty"] = web_docs_empty
+            forecast.telemetry["web_extractor_no_evidence"] = web_extractor_no_evidence
+            forecast.telemetry["web_quotes_unverified"] = web_quotes_unverified
 
             if len(forecast.scenarios) >= 2 and len(forecast.evidence_premises) > 0:
                 formalization = FormalizationResult(

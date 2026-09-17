@@ -158,7 +158,7 @@ Nie jest to wnioskowanie bayesowskie. Nie występuje tu rozkład a priori, funkc
 
 Zgodnie z wyraźną instrukcją punktu 0 i sekcji 6 promptu naprawczego V6:
 - **Zakres był celowo i ściśle zamknięty do 5 punktów.**
-- **Nie ruszano `backend/domain/cognitive/scenario_weighting.py`:** silnik ten w V5 został w 100% oczyszczony z pseudokwantowości, nie importuje Qiskita, liczy punkty zwrotne analitycznie i został w pełni zweryfikowany testami jednostkowymi.
+- **Nie ruszano `backend/domain/scenario_weighting.py`:** silnik ten w V5 został w 100% oczyszczony z pseudokwantowości, nie importuje Qiskita, liczy punkty zwrotne analitycznie i został w pełni zweryfikowany testami jednostkowymi.
 - **Nie modyfikowano wyrażeń regularnych routingu w `is_scenario_forecast_query`:** routing został przetestowany na 14 zapytaniach i daje 14/14 poprawnych klasyfikacji.
 - **Nie modyfikowano plików reguł i decyzji:** `AGENTS.md` oraz `docs/memory/DECISIONS.md` pozostały nietknięte, aby zapobiec rozbieżnościom pamięciowym.
 - **Nie zmieniano parametrów czułości \(\beta\):** domyślne pasmo \(\beta \in \{0.5, 1.0, 2.0, 3.0\}\) działa poprawnie i stabilnie.
