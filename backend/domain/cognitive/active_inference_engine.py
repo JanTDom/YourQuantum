@@ -556,12 +556,24 @@ class ActiveInferenceOrchestrator:
                 except Exception as s_err:
                     logger.warning("Web search in scenario intake failed: %s", s_err)
 
+            decomposition_retries = 0
             case, forecast = await decompose_scenario_query_async(
                 query=query,
                 web_snippets=web_context_snippets,
                 verified_evidences=verified_evidences,
             )
 
+            # Retry once if fewer than 2 scenarios were returned before falling back to clarification (V14-4)
+            if len(forecast.scenarios) < 2:
+                logger.info("First scenario decomposition returned %d scenarios (<2). Retrying once...", len(forecast.scenarios))
+                decomposition_retries = 1
+                case, forecast = await decompose_scenario_query_async(
+                    query=query,
+                    web_snippets=web_context_snippets,
+                    verified_evidences=verified_evidences,
+                )
+
+            forecast.telemetry["scenario_decomposition_retries"] = decomposition_retries
             forecast.telemetry["search_provider"] = str(adapter_status.get("provider", "offline_user_data_only")) if search_adapter.is_available() else "offline_user_data_only"
             forecast.telemetry["search_mode"] = str(adapter_status.get("mode", "offline_user_data_only")) if search_adapter.is_available() else "offline_user_data_only"
             forecast.telemetry["can_fetch_content"] = bool(adapter_status.get("can_fetch_content", False)) if search_adapter.is_available() else False

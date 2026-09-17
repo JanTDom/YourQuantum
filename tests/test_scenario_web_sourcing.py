@@ -656,3 +656,55 @@ def test_scenario_forecast_definition_and_quality_gate_consistency(
         assert any("horyzont" in s.lower() or "wariant" in s.lower() for s in gate.suggestions)
 
 
+def test_scenario_decomposition_retry_triggers_on_insufficient_scenarios():
+    """
+    V14-4: When the first decomposition call returns fewer than 2 scenarios,
+    ActiveInferenceOrchestrator must retry once and record scenario_decomposition_retries=1 in telemetry.
+    If the second call succeeds with >=2 scenarios, it proceeds to ready_for_review.
+    """
+    from backend.domain.cognitive.active_inference_engine import ActiveInferenceOrchestrator
+
+    async def _run():
+        mock_reasoning_port = MagicMock()
+        mock_session = AsyncMock()
+        engine = ActiveInferenceOrchestrator(reasoning_port=mock_reasoning_port)
+
+        from backend.domain.decision_case import DecisionCase, InputQuality
+
+        # Call 1: fails (<2 scenarios)
+        mock_forecast_fail = MagicMock()
+        mock_forecast_fail.scenarios = []
+        mock_forecast_fail.evidence_premises = []
+        mock_forecast_fail.telemetry = {}
+        mock_case_fail = DecisionCase(title="test", context="test", options=[], criteria=[], score_matrix={})
+
+        # Call 2: succeeds (2 scenarios + premises)
+        mock_forecast_succ = MagicMock()
+        mock_forecast_succ.scenarios = [MagicMock(), MagicMock()]
+        mock_forecast_succ.evidence_premises = [MagicMock()]
+        mock_forecast_succ.telemetry = {}
+        mock_forecast_succ.model_dump.return_value = {"scenarios": [{}, {}], "telemetry": {}}
+        mock_forecast_succ.briefing = MagicMock(executive_summary="Podsumowanie")
+        mock_forecast_succ.dominant_scenario_id = "sc_1"
+        mock_case_succ = DecisionCase(title="test", context="test", options=[], criteria=[], score_matrix={})
+
+        call_count = 0
+        async def _mock_decompose(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return mock_case_fail, mock_forecast_fail
+            return mock_case_succ, mock_forecast_succ
+
+        with patch("backend.domain.cognitive.scenario_decomposer.is_scenario_forecast_query", return_value=True), \
+             patch("backend.domain.cognitive.scenario_decomposer.decompose_scenario_query_async", side_effect=_mock_decompose), \
+             patch("backend.infrastructure.web_research.search_adapter.WebResearchAdapter.is_available", return_value=False):
+
+            res, ws = await engine.run_intake(session=mock_session, query="Czy Rosja do końca tego roku napadnie na Polskę?")
+            assert call_count == 2, f"Expected 2 decomposition calls (1 initial + 1 retry), got {call_count}"
+            assert res.status == "ready_for_review"
+            assert mock_forecast_succ.telemetry.get("scenario_decomposition_retries") == 1
+
+    asyncio.run(_run())
+
+
