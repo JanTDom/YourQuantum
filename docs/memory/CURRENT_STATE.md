@@ -1,17 +1,18 @@
 # YourQuantum — CURRENT STATE
-_Last updated: 2026-09-16 (V11: Dwa zmyślone miejsca i produkcja Vercel; 24/24 PASS)_
+_Last updated: 2026-09-17 (V12: Przesłanki i wagi z dokumentów, nie z modelu; 24/24 PASS)_
 
-## Status: V11 — DWA ZMYŚLONE MIEJSCA I NIEWDROŻONA PRODUKCJA (24/24 PASS)
+## Status: V12 — PRZESŁANKI I WAGI MAJĄ POCHODZIĆ Z DOKUMENTÓW, NIE Z MODELU
 
-- **Gałąź i stan repo**: `feat/v9-technical-debt` (odgałęziona od `main` `cdf2326`):
-  * **Etap A (Commit `b1a4fd7`)**: Wyznaczono empiryczny próg niezależnej enumeracji binarnej. Benchmark `scripts/bench_enumeration.py` wykazał medianę 3.65s dla $n=16$ oraz 15.91s dla $n=18$ (przy budżecie 2.0s). Zgodnie z zasadą dowodu próg pozostał na poziomie 16 zmiennych, skonsolidowany do nazwanej stałej `MAX_ENUMERATION_VARS = 16` w `backend/verifier/verifier.py`.
-  * **Usprawnienie Horyzontu Czasowego (Commit `c001bdf`)**: Deterministyczne dekodowanie perspektyw czasowych w języku polskim w `backend/domain/cognitive/time_horizon.py` (DEC-034).
-  * **Etap B (Commit `43ca3c9`)**: Przeniesienie weryfikacji bramki dostępu do aplikacji na serwer (`POST /api/v1/auth/verify-app-access`, stałoczasowe porównanie `hmac.compare_digest`, in-memory rate limiting 5 prób / 15 min, wygasający token HMAC-SHA256). Całkowita eliminacja `AUTHORIZED_HASHES` z frontendu (DEC-036).
-  * **Etap C (Commit `17903b4`)**: Uziemienie przesłanek prognoz scenariuszowych w pobranych dokumentach sieciowych z dosłownymi cytatami zweryfikowanymi przez `SafeWebFetcher` i `EvidenceExtractor` (DEC-035). Przesłanki `web_sourced` oznaczone `is_accepted=False` i podlegające aktywacji przez decydenta.
+- **Gałąź i stan repo**: `feat/v12-documented-weights` (odgałęziona od `main` `de4b25f`):
+  * **Punkt 1**: Podniesienie timeoutu wyszukiwania Gemini z 10s do 30s (`GEMINI_SEARCH_TIMEOUT = 30.0` w `backend/infrastructure/gemini_cognitive_adapter.py`). `get_status()` raportuje zdolność (`can_fetch_content: True` i `mode: "full_content"`). Ignorowanie URL przekierowujących (`google.com/url`, `vertexaisearch...`). Udokumentowanie warunków dostawców wyszukiwania w `docs/SOURCES.md`.
+  * **Punkt 2**: Plik `config/source_classes.json` (v1.0.0, 4 klasy domen). Deterministyczne wyliczanie wag przesłanek w `backend/domain/evidence/evidence_weighting.py` na podstawie wzoru: $W = 0.30 \cdot S_{\text{corroboration}} + 0.30 \cdot S_{\text{source\_class}} + 0.20 \cdot S_{\text{recency}} + 0.20 \cdot S_{\text{specificity}}$ (DEC-037). Integracja w `backend/domain/cognitive/active_inference_engine.py`.
+  * **Punkt 3 & 4**: Baner uczciwości w `frontend/src/components/RecommendationView.tsx` informujący o braku źródeł sieciowych, gdy liczba zweryfikowanych cytatów wynosi 0. Pola `weight_breakdown` i `weight_justification` w `frontend/src/api.ts` oraz ich wizualizacja w `WebEvidenceNotice`.
+  * **Punkt 5**: Maszynowe pilnowanie przywołań w `docs/REPORT_V11.md` i `docs/REPORT_V12.md` przez `scripts/check_doc_citations.py` (G-DOCS).
 - **Weryfikacja testowa**:
-  * `scripts/check_v4.sh`: Wszystkie 24 bramki PASS (G-R1a do G-N11, G-DOCS oraz G-TESTS).
-  * `pytest -q tests/`: 217/217 PASS (kod wyjścia 0, 0 błędów, 0 regresji).
-  * `npm run build`: Kompilacja TypeScript/Vite czysta (kod 0, 0 błędów, czas 2.35s).
+  * `scripts/check_v4.sh`: Wszystkie bramki PASS (G-R1a do G-N11, G-DOCS oraz G-TESTS).
+  * `pytest -q tests/`: Wszystkie testy jednostkowe i regresyjne PASS.
+  * `npm run build`: Kompilacja TypeScript/Vite czysta (kod 0, 0 błędów).
+
 - **Wdrożenie produkcyjne**: `https://yourquantum.pl` (Vercel prod deployment `dpl_AMjryi2a1Xc6HcwBvmmZojPBcXM6`, status `READY`):
   * Nowy bundle produkcyjny frontendu: `assets/index-DYAG9ngC.js`.
   * Potwierdzony region serwerowy Vercel: `fra1` nagłówkiem HTTP `x-vercel-id: arn1::fra1::mj9g4-1789425647787-752bc4d44759`.

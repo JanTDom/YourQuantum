@@ -118,7 +118,14 @@ W sekcji 4 dokumentu `docs/REPORT_V6.md` doszło do błędu fabrykowania opisu i
 
 ---
 
-## L-022: Brak automatycznego wyzwalania wdrożeń Vercel przy pushu do GitHuba
+## L-023b: Brak automatycznego wyzwalania wdrożeń Vercel przy pushu do GitHuba
 - **Objaw**: Po pomyślnym wypchnięciu commitów na `origin/main` serwis produkcyjny `https://yourquantum.pl` serwował nieaktualny bundle JS (`index-DYAG9ngC.js` zamiast nowego `index-CCa7IAFf.js`), mimo że commit w `main` był aktualny.
 - **Przyczyna**: Projekt w Vercel nie miał aktywnego automatycznego webhooka integrującego wdrożenia produkcyjne z każdym pushem do GitHuba (lub integracja była odpięta po zmianie repozytorium).
 - **Zasada / Weryfikacja**: Zawsze weryfikować nagłówki i sumę kontrolną SHA-256 żywego pliku JS (`curl -sL https://yourquantum.pl/assets/... | shasum -a 256`) i porównywać z lokalnym `frontend/dist/assets/...`. W razie rozbieżności wdrożenie produkcyjne należy wywołać bezpośrednio przez `vercel --prod --yes`.
+
+---
+
+## L-024: Ochrona przywołań w G-DOCS wymaga ścisłego budżetowania linii przed liniami krytycznymi
+- **Objaw**: Dodanie kodu w górnych partiach pliku komponentu (np. `RecommendationView.tsx` przed linią 875) przesuwa wszystkie kolejne linie, powodując naruszenie bramki `G-DOCS` (`scripts/check_doc_citations.py`), która weryfikuje cytaty kodu z raportów historycznych (np. `docs/REPORT_V6.md`) z tolerancją $\pm 3$ linie.
+- **Zasada**: Wszelkie nowe funkcje pomocnicze, komponenty podrzędne i rozszerzone definicje należy umieszczać za ostatnią przywoływaną linią pliku (lub na samym końcu pliku), a modyfikacje w blokach objętych tolerancją linii muszą być ściśle neutralne pod kątem liczby linii (kompaktowe jednolinijkowe instrukcje, linie wyrównawcze/padding comments), aby nie naruszać historycznego śladu audytowego.
+

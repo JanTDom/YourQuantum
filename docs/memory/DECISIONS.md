@@ -616,3 +616,26 @@ Bramka dostępu do aplikacji weryfikowała hasło po stronie klienta (`frontend/
 4. **Ograniczenie liczby prób (Rate Limiting)**: Wdrożono mechanizm ograniczania prób w pamięci procesu (5 nieudanych prób na 15 minut per adres IP; 6. próba zwraca kod HTTP 429 Too Many Requests).
 5. **Wygasający token sesyjny**: Po pomyślnej autoryzacji serwer wystawia podpisany kryptograficznie token HMAC-SHA256 (`yq_app_<exp>_<sig>`), który klient przechowuje w pamięci przeglądarki (`sessionStorage`).
 6. **Eliminacja skrótów z klienta**: Tablica `AUTHORIZED_HASHES` została w całości usunięta z kodu frontendu.
+
+---
+
+## DEC-037 — Deterministyczne wyznaczanie wag przesłanek na podstawie cech dokumentów źródłowych
+
+**Date:** 2026-09-17
+**Status:** ACTIVE
+
+**Kontekst:**
+W wersjach V1–V11 wagi przesłanek (`weight`) oraz ich wiarygodności (`confidence`) były generowane subiektywnie przez model językowy (`backend/domain/cognitive/scenario_decomposer.py`), a w przypadku przesłanek sieciowych otrzymywały arbitralną domyślną wagę `1.0`. Model językowy oceniał wiarygodność na podstawie własnych asocjacji, co prowadziło do sytuacji, w których twierdzenia z blogów mogły otrzymać wagę wyższą lub równą oficjalnym raportom wywiadowczym lub instytucjonalnym, a decydent nie miał wglądu w to, dlaczego dana przesłanka ma określony wpływ.
+
+**Decyzja:**
+1. **Waga jako funkcja cech dokumentu**: Wagi przesłanek o pochodzeniu `web_sourced` nie pochodzą od modelu językowego ani arbitralnych stałych, lecz są obliczane deterministycznie w module `backend/domain/evidence/evidence_weighting.py` za pomocą jawnej formuły:
+   $$W = 0.30 \cdot S_{\text{corroboration}} + 0.30 \cdot S_{\text{source\_class}} + 0.20 \cdot S_{\text{recency}} + 0.20 \cdot S_{\text{specificity}}$$
+   gdzie:
+   - $S_{\text{corroboration}} \in [0.1, 1.0]$: liczba niezależnych domen potwierdzających daną przesłankę ($\min(1.0, 0.4 + 0.3 \cdot (N - 1))$).
+   - $S_{\text{source\_class}} \in [0.1, 1.0]$: klasa wiarygodności domeny wg konfiguracji `config/source_classes.json` (Tier 1: 1.0, Tier 2: 0.8, Tier 3: 0.6, Tier 4: 0.4, nieznane: 0.3).
+   - $S_{\text{recency}} \in [0.1, 1.0]$: świeżość dokumentu względem daty publikacji lub wzmianek w tekście.
+   - $S_{\text{specificity}} \in [0.1, 1.0]$: konkretność cytatu mierzona obecnością liczb, dat, kwot i wskaźników statystycznych.
+2. **Pełna audytowalność**: Każda przesłanka zawiera pola `weight_breakdown` (wartości cząstkowe $S$) oraz `weight_justification` (tekstowe uzasadnienie wyliczenia).
+3. **Transparentność w UI**: Komponent `WebEvidenceNotice` w `frontend/src/components/RecommendationView.tsx` wyświetla decydentowi rozbicie składowych wagi oraz uzasadnienie.
+4. **Przesłanki bez źródeł**: Gdy brak źródeł sieciowych (`provenance === "llm_suggested"`), wagi pozostają neutralne ($1.00$), a interfejs wyświetla żółty baner uczciwości informujący, że przesłanki pochodzą wyłącznie od modelu i nie posiadają zweryfikowanych źródeł.
+

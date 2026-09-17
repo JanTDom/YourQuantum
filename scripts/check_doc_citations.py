@@ -19,6 +19,8 @@ from typing import List, Tuple, Optional, Dict
 CHECKED_DOCS: List[str] = [
     "docs/REPORT_V6.md",
     "docs/REPORT_V9.md",
+    "docs/REPORT_V11.md",
+    "docs/REPORT_V12.md",
 ]
 
 # Ignorowane katalogi przy indeksowaniu plików
@@ -116,6 +118,11 @@ class CitationChecker:
 
                     # Sprawdzenie, czy przywołanie zawiera jawną nazwę pliku
                     fn_match = re.search(r"\`?([a-zA-Z0-9_./-]+\.(?:tsx|ts|py|md|json|sh|yml|txt|html))\`?", sub)
+                    if not fn_match:
+                        # Może nazwa pliku występuje w prefixie bezpośrednio przed nawiasem? (np. `plik.py` (linie X-Y))
+                        prefix_fn = re.search(r"\`?([a-zA-Z0-9_./-]+\.(?:tsx|ts|py|md|json|sh|yml|txt|html))\`?\s*$", prefix)
+                        if prefix_fn:
+                            fn_match = prefix_fn
                     if fn_match:
                         fname_raw = fn_match.group(1)
                         resolved_path, err = self.resolve_file(fname_raw)
@@ -172,6 +179,11 @@ class CitationChecker:
                         continue
 
                     # R3: Sprawdzenie trafienia w treść
+                    if literal:
+                        # Jeśli literał to po prostu nazwa pliku odniesienia, pomijamy szukanie go w treści kodu
+                        if (fn_match and literal == fn_match.group(1)) or (sticky_file and (literal == sticky_file or literal == os.path.basename(sticky_file))):
+                            literal = None
+
                     if literal:
                         # Pomijamy szablony JSX {...} oraz wielokropki (...) i (…)
                         if re.search(r"\{.*?\}|\.\.\.|\u2026", literal):
