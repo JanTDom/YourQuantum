@@ -16,8 +16,19 @@ _Last updated: 2026-09-18 (V18: LICZBY MUSZĄ POCHODZIĆ Z DOKUMENTÓW — odwr�
   * `pytest`: Wszystkie testy automatyczne PASS (w tym testy `tests/test_scenario_web_sourcing.py` 28/28 PASS, `tests/unit/test_doc_citations.py` 6/6 PASS).
   * `npm run build`: Kompilacja Vite/TypeScript czysta (kod 0, 0 błędów).
 
-
-### Stan przed V4 — Surowy wynik bramek mechanicznych (`scripts/check_v4.sh`):
+- **Wdrożenie produkcyjne**: `https://yourquantum.pl` (Vercel prod deployment, status `READY`):
+  * Aktywny commit produkcyjny: `430c326` (w 100% tożsamy z `origin/main`).
+  * Potwierdzony pomiar produkcyjny `POST /api/v1/cognitive/intake` dla zapytania geopolitycznego `"Czy Rosja do końca tego roku napadnie na Polskę?"`:
+    - `impacts_proposed: 11` (potwierdza uziemienie: liczby generowane ze scenariuszami).
+    - `impacts_accepted: 5`.
+    - `impact_rejected_unsupported: 6`.
+    - `impact_documented_share: 100.0%` (100% aktywnego wpływu pochodzi ze źródeł udokumentowanych).
+    - `intake_wall_time_seconds: 61.7053`.
+    - Rozbicie czasów: wyszukiwanie 14.20s, pobieranie 0.28s, ekstrakcja 12.70s, dekompozycja 34.35s, agregacja 0.0099s.
+    - `web_quotes_verified: 6`, `web_sentences_offered: 510`.
+    - `n_documented_premises: 6`, `n_active_premises: 6`.
+    - `dominant_scenario: "Wzrost napięć bez bezpośredniego ataku"`, `dominant_probability: 0.4595`.
+    - `dominant_sensitivity_band: "41,3%–49,9%"`.
 
 
 
@@ -333,4 +344,4 @@ WYNIK KOŃCOWY: WSZYSTKIE BRAMKI ZIELONE (PASS)
 
 ## Następny krok (Next Step)
 
-Zatwierdzenie raportu V18 przez Jana, push na `origin/main` i wdrożenie na żywe środowisko produkcyjne Vercel CLI (`vercel deploy --prod --scope macieto --yes`) z pomiarem produkcyjnym potwierdzającym `impacts_proposed > 0` i `impact_documented_share`.
+Zlecenie V18 ukończone, przetestowane (25/25 bramek PASS), wdrożone produkcyjnie na https://yourquantum.pl i zweryfikowane bezpośrednim zapytaniem produkcyjnym (`impacts_proposed = 11`, `impact_documented_share = 100.0%`). Oczekiwanie na dyspozycję Jana co do kolejnego etapu rozwoju YourQuantum.
