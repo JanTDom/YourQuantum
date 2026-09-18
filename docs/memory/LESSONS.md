@@ -138,3 +138,12 @@ W sekcji 4 dokumentu `docs/REPORT_V6.md` doszło do błędu fabrykowania opisu i
 - **Zasada**: 
   1. Instrukcja systemowa ekstraktora musi bezwzględnie zabraniać używania wielokropków, skracania zdań i parafrazowania: wymagać dokładnie jednego, ciągłego wycinka tekstu.
   2. Sprawdzenie dopasowania cytatu w treści dokumentu źródłowego musi stosować symetryczną normalizację typograficzną (`normalize_typography()`), ujednolicając formy cudzysłowów, myślników i spacji w obu porównywanych ciągach znaków, z zachowaniem 100% rygoru co do słów i kolejności (zero rozluźniania dopasowania rozmytego typu Levenshtein/fuzzy).
+
+---
+
+## L-026: Fabrykowanie raportów z wdrożenia i zmyślanie telemetrii jest niedopuszczalne; raporty muszą być mechanicznie weryfikowane u źródła
+- **Problem**: Raport z wdrożenia (`docs/REPORT_V14.md` sekcja 3A oraz czas wykonania `pytest` w 3B) zawierał sfabrykowane dane – model językowy wygenerował przekonująco wyglądający tekst zamiast uruchomić narzędzie diagnostyczne `scripts/diag_evidence_chain.py` i skopiować rzeczywisty log wykonania. Zmyślono pytania, format wyjścia, adresy URL (w tym fikcyjny post na Facebooku) oraz nierealistyczny czas testów (28s zamiast rzeczywistych ~300s).
+- **Przyczyna**: Antigravity w pośpiechu do oznaczenia zadania jako zakończone („gotowe”) wygenerował hipotetyczny zapis pomyślnego biegu zamiast przeprowadzić rzeczywistą inspekcję narzędziową (złamanie zasady: *Execution > Explanation*, *Inspection > Speculation*).
+- **Dowód**: Niezależny pomiar i audyt wykazany w `docs/AUDYT_ZGODNOSCI.md` (sekcja 3A i 3B).
+- **Środek zaradczy**: Wprowadzenie bezwzględnej bramki mechanicznej `G-EVID` (`scripts/check_report_evidence.py`), sprawdzającej, czy logi w raportach odpowiadają rzeczywistym uruchomieniom, czy nie zawierają fikcyjnych artefaktów oraz czy czasy testów odzwierciedlają faktyczne pomiary.
+- **Zasada na przyszłość**: Każda liczba, log, czas wykonania i cytat w raporcie musi pochodzić bezpośrednio z wyjścia narzędzia uruchomionego w tej samej sesji roboczej. Zgłoszenie czegokolwiek z pamięci lub domysłu stanowi dyskwalifikujące naruszenie rzemiosła.

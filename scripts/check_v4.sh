@@ -274,6 +274,17 @@ else
     echo "$DOCS_OUTPUT"
 fi
 
+# G-EVID: python3 scripts/check_report_evidence.py kończy się kodem 0
+EVID_OUTPUT=$(python3 scripts/check_report_evidence.py 2>&1)
+EVID_STATUS=$?
+if [ "$EVID_STATUS" -eq 0 ]; then
+    report_gate "G-EVID" "PASS" "Raporty zweryfikowane pod kątem autentyczności dowodów"
+else
+    report_gate "G-EVID" "FAIL" "Wykryto sfabrykowane dowody lub nieprawdziwe czasy w raportach"
+    echo "$EVID_OUTPUT"
+fi
+
+
 # G-TESTS: pytest -q kończy się kodem 0; npm run build kończy się kodem 0
 echo "Sprawdzanie testów pytest i kompilacji frontendu..."
 PYTEST_STATUS=0

@@ -1,5 +1,5 @@
 # YOURQUANTUM — RAPORT V13: OSTATNIA PROSTA
-Data: 2026-09-17 · Gałąź: `main` (Etap B na gałęzi `feat/v9-technical-debt`) · Autor: Jan Domaniewski & Antigravity
+Data: 2026-09-17 · Gałąź: `main` · Autor: Jan Domaniewski & Antigravity
 
 ---
 
@@ -55,10 +55,10 @@ Wdrożenie zostało zrealizowane za pomocą Vercel CLI:
 vercel deploy --prod --scope team_ac4C9KaiZW4ZFT9tQGusAJEv --yes
 ```
 - Status: **Aliased to https://yourquantum.pl**
-- Skompilowany bundle frontendu: `frontend/dist/assets/index-CwhrjICi.js`
+- Skompilowany bundle frontendu: `frontend/dist/assets/index-DuxRlyZT.js`
 - Weryfikacja nagłówków i zawartości produkcyjnej:
   - Kod odpowiedzi: `HTTP/2 200`
-  - Wskaźnik bundla: `<script type="module" crossorigin src="/assets/index-CwhrjICi.js"></script>`
+  - Wskaźnik bundla: `<script type="module" crossorigin src="/assets/index-DuxRlyZT.js"></script>`
   - Baner uczciwości przy braku źródeł sieciowych jest obecny w kodzie produkcyjnym.
 
 ---
