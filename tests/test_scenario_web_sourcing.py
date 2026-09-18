@@ -888,4 +888,196 @@ def test_sentence_selection_fallback_to_legacy_when_fewer_than_two_sentences():
     asyncio.run(_run())
 
 
+def test_v16_non_adjacent_sentences_produce_separate_evidences():
+    """
+    V16-1: Non-adjacent sentence indices (e.g. [1, 5]) return separate Evidence objects.
+    """
+    from backend.infrastructure.web_research.extractor import EvidenceExtractor
+    from backend.domain.evidence.models import EvidenceDocument
+
+    text = (
+        "Zdanie zerowe. "
+        "Pierwsze zdanie o budżecie obronnym Polski. "
+        "Drugie zdanie kontekstowe. "
+        "Trzecie zdanie niepowiązane. "
+        "Czwarte zdanie neutralne. "
+        "Piąte zdanie o liczebności sił zbrojnych w 2026 roku. "
+        "Szóste zdanie podsumowujące."
+    )
+    doc = EvidenceDocument(
+        url="https://mon.gov.pl/raport",
+        content_hash="hash12345",
+        page_text=text,
+        title="Raport MON",
+        status_code=200,
+    )
+    extractor = EvidenceExtractor(llm_gateway=MagicMock(is_available=True))
+
+    mock_llm_json = {
+        "claim": "Fakty o obronności",
+        "sentence_indices": [0, 4],
+        "value": None,
+    }
+
+    async def _run():
+        with patch.object(extractor.gateway, "generate", AsyncMock(return_value=MagicMock(parsed_json=mock_llm_json))):
+            evidences = await extractor.extract_parameter_evidences(doc, target_param="obronnosc")
+
+        assert len(evidences) == 2, f"Expected 2 separate evidences for non-adjacent indices [0, 4], got {len(evidences)}"
+        assert "Pierwsze zdanie o budżecie" in evidences[0].quote
+        assert "Piąte zdanie o liczebności" in evidences[1].quote
+        assert evidences[0].quote in text
+        assert evidences[1].quote in text
+        # char offsets strictly match len(quote)
+        assert evidences[0].char_end - evidences[0].char_start == len(evidences[0].quote)
+        assert evidences[1].char_end - evidences[1].char_start == len(evidences[1].quote)
+
+    asyncio.run(_run())
+
+
+def test_v16_quote_truncation_at_sentence_boundary_and_exact_offsets():
+    """
+    V16-2: Quote truncation terminates at sentence boundary, char_end - char_start == len(quote).
+    """
+    from backend.infrastructure.web_research.extractor import EvidenceExtractor
+    from backend.domain.evidence.models import EvidenceDocument
+
+    # Create a document where multiple sentences exceed 300 characters
+    s1 = "To jest pierwsze zdanie testowe mające około sześćdziesięciu znaków długości."
+    s2 = "To jest drugie zdanie testowe mające również około sześćdziesięciu znaków długości."
+    s3 = "To jest trzecie zdanie testowe także o sporej długości znakowej w języku polskim."
+    s4 = "To jest czwarte zdanie testowe, które sprawia, że łączna długość przekracza 300 znaków limitu."
+    s5 = "To jest piąte zdanie, które z pewnością nie powinno się zmieścić."
+    text = f"{s1} {s2} {s3} {s4} {s5}"
+
+    doc = EvidenceDocument(
+        url="https://bezpieczenstwo.pl/raport",
+        content_hash="hash300",
+        page_text=text,
+        title="Raport Długi",
+        status_code=200,
+    )
+    extractor = EvidenceExtractor(llm_gateway=MagicMock(is_available=True))
+
+    mock_llm_json = {
+        "claim": "Wielozdaniowy fakt",
+        "sentence_indices": [0, 1, 2],
+        "value": None,
+    }
+
+    async def _run():
+        with patch.object(extractor.gateway, "generate", AsyncMock(return_value=MagicMock(parsed_json=mock_llm_json))):
+            evidences = await extractor.extract_parameter_evidences(doc, target_param="test_param")
+
+        assert len(evidences) == 1
+        ev = evidences[0]
+        assert len(ev.quote) <= 300
+        assert ev.char_start is not None and ev.char_end is not None
+        assert ev.char_end - ev.char_start == len(ev.quote)
+        assert text[ev.char_start:ev.char_end] == ev.quote
+        # Slicing must preserve sentence boundary: ends with period
+        assert ev.quote.endswith(".")
+
+    asyncio.run(_run())
+
+
+def test_v16_deterministic_heuristics_value_none_and_zero_confidence():
+    """
+    V16-3: _extract_via_deterministic_heuristics returns value=None and confidence=0.0.
+    """
+    from backend.infrastructure.web_research.extractor import EvidenceExtractor
+
+    extractor = EvidenceExtractor(llm_gateway=MagicMock(is_available=False))
+    text = "W 2025 roku wydatki na obronność Polski wyniosły 4.2% PKB."
+    res = extractor._extract_via_deterministic_heuristics(
+        text=text,
+        target_param="wydatki_obronnosc",
+        expected_unit="%",
+    )
+    assert res is not None
+    assert res["value"] is None, f"Expected value=None in heuristics, got {res['value']}"
+    assert res["confidence"] == 0.0, f"Expected confidence=0.0, got {res['confidence']}"
+    assert res["quote"] == text.strip()
+
+
+def test_v16_extraction_mode_constructor_parameter():
+    """
+    V16-4: EvidenceExtractor takes extraction_mode parameter instead of inspecting self.__dict__.
+    """
+    from backend.infrastructure.web_research.extractor import EvidenceExtractor
+
+    e_default = EvidenceExtractor()
+    assert e_default.extraction_mode == "sentence_selection"
+
+    e_legacy = EvidenceExtractor(extraction_mode="legacy_verbatim")
+    assert e_legacy.extraction_mode == "legacy_verbatim"
+
+
+def test_v16_dec_039_documented_premises_automatically_accepted():
+    """
+    V16-5: Documented web premises meeting 5 conditions are automatically accepted (is_accepted = True)
+    and enter probability calculation giving non-uniform distribution.
+    """
+    from backend.domain.evidence.models import Evidence, ExtractionMethod
+    from backend.domain.cognitive.scenario_decomposer import decompose_scenario_query_async
+
+    text = "Zdolności obronne Polski i NATO powstrzymują agresję zbrojną do 2026 roku."
+    verified_ev = Evidence(
+        id="ev_doc_1",
+        claim="Zdolności obronne Polski i NATO",
+        value=None,
+        unit=None,
+        source_url="https://bbn.gov.pl/analiza",
+        source_title="BBN: Analiza Bezpieczeństwa",
+        publisher="Biuro Bezpieczeństwa Narodowego",
+        content_hash="sha256_bbn",
+        quote=text,
+        extraction_method=ExtractionMethod.SENTENCE_SELECTION,
+        confidence=1.0,
+        char_start=0,
+        char_end=len(text),
+        impact_on_scenarios={"sc_1": -0.8, "sc_2": 0.8},
+        impact_justification={
+            "sc_1": {"sentence_index": 0, "justifying_sentence": text, "char_start": 0, "char_end": len(text), "impact": -0.8},
+            "sc_2": {"sentence_index": 0, "justifying_sentence": text, "char_start": 0, "char_end": len(text), "impact": 0.8},
+        }
+    )
+
+    mock_llm_res = MagicMock()
+    mock_llm_res.parsed_json = {
+        "domain": "Geopolityka",
+        "scenarios": [
+            {"id": "sc_1", "title": "Atak na Polskę", "description": "Konflikt zbrojny", "risk_level": "CRITICAL"},
+            {"id": "sc_2", "title": "Brak ataku", "description": "Odstraszanie działa", "risk_level": "LOW"},
+        ],
+        "premises": [],
+    }
+
+    async def _run():
+        with patch("backend.domain.cognitive.scenario_decomposer.LLMGateway.is_available", return_value=True), \
+             patch("backend.domain.cognitive.scenario_decomposer.LLMGateway.generate", AsyncMock(return_value=mock_llm_res)):
+            case, forecast = await decompose_scenario_query_async(
+                query="Czy Rosja zaatakuje Polskę?",
+                web_snippets=["[BBN](https://bbn.gov.pl): Zdolności obronne."],
+                verified_evidences=[verified_ev],
+            )
+
+        web_premises = [p for p in forecast.evidence_premises if p.provenance == "web_sourced"]
+        assert len(web_premises) == 1
+        wp = web_premises[0]
+        # DEC-039: Must be automatically accepted!
+        assert wp.is_accepted is True, "Documented premise meeting all 5 conditions must be accepted!"
+        assert forecast.telemetry.get("n_documented_premises") == 1
+        assert forecast.telemetry.get("n_premises_rejected_as_undocumented") == 0
+
+        # Distribution must be non-uniform since premise is accepted
+        p_sc1 = next(s.probability for s in forecast.scenarios if s.id == "sc_1")
+        p_sc2 = next(s.probability for s in forecast.scenarios if s.id == "sc_2")
+        assert p_sc1 != p_sc2, f"Expected non-uniform distribution, got p(sc_1)={p_sc1}, p(sc_2)={p_sc2}"
+        assert p_sc2 > p_sc1, "Brak ataku should have higher probability due to positive impact"
+
+    asyncio.run(_run())
+
+
+
 

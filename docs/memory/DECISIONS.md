@@ -657,4 +657,26 @@ W wersjach V12–V13 model językowy w zadaniu ekstrakcji dowodów (`EvidenceExt
 4. **Nienegocjowalna weryfikacja**: Metoda `_verify_quote_in_text(quote, document.page_text)` pozostaje w 100% aktywna i nienaruszona jako niezależny filtr uczciwości.
 5. **Obsługa krawędziowa i telemetria**: Gdy strona zawiera mniej niż 2 zdania, następuje bezpieczny fallback do ścieżki dosłownej (`legacy_verbatim`). Jeśli model wskaże więcej niż 3 zdania lub niepoprawny indeks, dowód jest odrzucany z odpowiednim licznikiem telemetrii (`web_too_many_sentences`, `web_invalid_sentence_index`).
 
+---
+
+## DEC-039 — Automatyczne włączanie w pełni udokumentowanych przesłanek sieciowych do obliczeń
+
+**Date:** 2026-09-18
+**Status:** ACTIVE
+
+**Kontekst:**
+W wersjach V11–V15 wszystkie przesłanki sieciowe (`provenance == "web_sourced"`) otrzymywały domyślnie `is_accepted = False` (zgodnie z wcześniejszym DEC-032 / DEC-035). Skutkowało to tym, że nawet po pomyślnym pobraniu stron i zweryfikowaniu cytatów ze źródeł, liczba aktywnych przesłanek w biegu silnika wynosiła zero (`n_active_premises = 0`), a obliczany rozkład scenariuszy pozostawał sztucznie jednostajny (np. 33,3% / 33,3% / 33,3%), dopóki użytkownik nie kliknął akceptacji w UI. Powodowało to paraliż dowodowy w API i brak realnego wpływu zebranych faktów na wynik.
+
+**Decyzja:**
+1. **Definicja przesłanki udokumentowanej**: Przesłanka sieciowa jest uznawana za w pełni udokumentowaną i otrzymuje automatycznie status `is_accepted = True` wtedy i tylko wtedy, gdy spełnia łącznie 5 rygorystycznych warunków:
+   - `provenance == "web_sourced"`
+   - Posiada niepusty, dosłowny cytat zweryfikowany w tekście dokumentu przez `_verify_quote_in_text`.
+   - Posiada określone przedziały znakowe w tekście źródłowym (`char_start is not None` oraz `char_end is not None`).
+   - Posiada poprawny adres źródłowy (`source_url` zaczynający się od `http`).
+   - Posiada deterministycznie wyliczoną wagę dowodową $W > 0.0$ (`WeightBreakdown` wg DEC-037).
+2. **Odrzucenie nieudokumentowanych**: Jeśli którykolwiek z 5 warunków nie jest spełniony, przesłanka zachowuje `is_accepted = False`, a powód odrzucenia jest odnotowywany w opisie i liczniku telemetrii.
+3. **Uzasadnienie wpływu**: Wpływ przesłanki na scenariusze (`impact_on_scenarios`) musi być powiązany z konkretnym indeksem zdania w dokumencie (`impact_justification`), co zapobiega zmyślaniu kierunku asocjacji przez model.
+4. **Telemetria**: Dodano metryki telemetrii `n_documented_premises` oraz `n_premises_rejected_as_undocumented`. Gdy w pełni udokumentowane przesłanki są obecne, wchodzą one bezpośrednio do agregacji probabilistycznej `compute_scenario_distribution`, dając `n_active_premises >= 1` i niejednostajny, ugruntowany dowodowo rozkład prawdopodobieństw.
+
+
 

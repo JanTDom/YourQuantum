@@ -214,7 +214,7 @@ async def decompose_scenario_query_async(
                     ))
         except Exception as exc:
             logger.warning("LLM scenario decomposition failed: %s", exc)
-    premises, scenarios, unspec_count = _integrate_verified_evidences(premises, scenarios, verified_evidences, p_json if "p_json" in locals() else None, query)
+    premises, scenarios, unspec_count, n_doc, n_rej = _integrate_verified_evidences(premises, scenarios, verified_evidences, p_json if "p_json" in locals() else None, query)
 
     # If insufficient items, do NOT inject invented geopolitical numbers.
     # Return empty case requiring user definition.
@@ -256,6 +256,8 @@ async def decompose_scenario_query_async(
             briefing=empty_briefing,
         )
         forecast.telemetry["unspecified_impacts_count"] = unspec_count
+        forecast.telemetry["n_documented_premises"] = n_doc
+        forecast.telemetry["n_premises_rejected_as_undocumented"] = n_rej
         return case, forecast
 
     # Compute scenario distribution using honest weighted softmax
@@ -280,6 +282,8 @@ async def decompose_scenario_query_async(
 
     forecast.telemetry["unspecified_impacts_count"] = unspec_count
     forecast.telemetry["web_sourced_premises_without_model_impacts"] = unspec_count
+    forecast.telemetry["n_documented_premises"] = n_doc
+    forecast.telemetry["n_premises_rejected_as_undocumented"] = n_rej
 
     # Build DecisionCase representation
     case_options: list[Option] = []
@@ -363,33 +367,40 @@ def _integrate_verified_evidences(
     verified_evidences: list[Evidence] | None,
     p_json: dict[str, Any] | None,
     query: str,
-) -> tuple[list[EvidencePremise], list[ScenarioOutcome], int]:
+) -> tuple[list[EvidencePremise], list[ScenarioOutcome], int, int, int]:
+    """
+    Integrates verified evidences into evidence premises.
+    Under DEC-039, premises meeting all 5 conditions of documentation are automatically accepted (is_accepted = True).
+    Returns (premises, scenarios, unspecified_impacts_count, n_documented_premises, n_premises_rejected_as_undocumented).
+    """
     if not verified_evidences or len(scenarios) < 2:
-        return premises, scenarios, 0
+        return premises, scenarios, 0, 0, 0
 
     raw_premises_data = p_json.get("premises", []) if isinstance(p_json, dict) else []
     web_premises: list[EvidencePremise] = []
     unspecified_impacts_count = 0
+    n_documented = 0
+    n_rejected_undoc = 0
 
     for idx, ev in enumerate(verified_evidences):
         web_id = f"web_{idx+1}"
         pub = ev.publisher or ev.source_title or "Zweryfikowane źródło sieciowe"
-        impacts: dict[str, float] = {}
+        impacts: dict[str, float] = dict(ev.impact_on_scenarios) if ev.impact_on_scenarios else {}
         weight = 1.0
-        has_model_impacts = False
+        has_model_impacts = bool(impacts)
 
+        # Also check if decomposing model provided impacts for this web premise
         for pr_data in raw_premises_data:
             pid = str(pr_data.get("id", ""))
             if pid == web_id or f"web_{idx+1}" in pid:
                 raw_impacts = pr_data.get("impacts") or pr_data.get("impact_on_scenarios", {})
                 if isinstance(raw_impacts, list):
-                    impacts = {
-                        str(item["scenario_id"]): float(item["impact"])
-                        for item in raw_impacts
-                        if isinstance(item, dict) and "scenario_id" in item and "impact" in item
-                    }
+                    for item in raw_impacts:
+                        if isinstance(item, dict) and "scenario_id" in item and "impact" in item:
+                            impacts[str(item["scenario_id"])] = float(item["impact"])
                 elif isinstance(raw_impacts, dict):
-                    impacts = {str(k): float(v) for k, v in raw_impacts.items()}
+                    for k, v in raw_impacts.items():
+                        impacts[str(k)] = float(v)
                 weight = float(pr_data.get("weight", 1.0))
                 if len(impacts) > 0:
                     has_model_impacts = True
@@ -401,6 +412,22 @@ def _integrate_verified_evidences(
 
         wb = compute_evidence_weight(ev, all_evidences=verified_evidences)
         computed_weight = wb.final_weight
+
+        # Check 5 conditions of DEC-039 (documented premise)
+        c1_provenance = True  # will be web_sourced
+        c2_quote = bool(ev.quote and ev.quote.strip())
+        c3_offsets = (ev.char_start is not None) and (ev.char_end is not None)
+        c4_url = bool(ev.source_url and ev.source_url.startswith("http"))
+        c5_weight = computed_weight > 0.0
+
+        is_fully_documented = c1_provenance and c2_quote and c3_offsets and c4_url and c5_weight
+
+        if is_fully_documented:
+            premise_accepted = True
+            n_documented += 1
+        else:
+            premise_accepted = False
+            n_rejected_undoc += 1
 
         if not has_model_impacts:
             unspecified_impacts_count += 1
@@ -424,9 +451,10 @@ def _integrate_verified_evidences(
             impact_on_scenarios=impacts,
             provenance="web_sourced",
             source_ref=source_ref_val,
-            is_accepted=False,
+            is_accepted=premise_accepted,
+            impact_justification=dict(ev.impact_justification) if ev.impact_justification else {},
         ))
 
     clean_llm = [p for p in premises if not p.id.startswith("web_")]
-    return web_premises + clean_llm, scenarios, unspecified_impacts_count
+    return web_premises + clean_llm, scenarios, unspecified_impacts_count, n_documented, n_rejected_undoc
 

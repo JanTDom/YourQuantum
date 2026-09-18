@@ -533,35 +533,35 @@ class ActiveInferenceOrchestrator:
                     async def _fetch_and_extract(url: str):
                         if ws.energy_budget.tokens_used >= ws.energy_budget.max_tokens:
                             logger.info("Energy budget reached limit, skipping web fetch: %s", url)
-                            return None, "energy_budget_exceeded"
+                            return [], "energy_budget_exceeded"
                         try:
                             doc = await asyncio.wait_for(fetcher.fetch(url), timeout=10.0)
                             if not doc or not doc.page_text or not doc.page_text.strip():
-                                return None, "doc_empty"
-                            ev = await extractor.extract_parameter_evidence(
+                                return [], "doc_empty"
+                            ev_list = await extractor.extract_parameter_evidences(
                                 document=doc,
                                 target_param=query[:80],
                                 parameter_description=f"Kluczowy fakt lub wskaźnik dla analizy scenariuszowej: {query}",
                             )
-                            if ev and ev.quote:
-                                return ev, "ok"
+                            if ev_list:
+                                return ev_list, "ok"
                             else:
                                 if getattr(extractor, "last_status", None) == "quote_unverified":
-                                    return None, "quote_unverified"
-                                return None, "no_evidence"
+                                    return [], "quote_unverified"
+                                return [], "no_evidence"
                         except Exception as fetch_err:
                             logger.warning("Failed to fetch or extract evidence from %s: %s", url, fetch_err)
-                            return None, "fetch_error"
+                            return [], "fetch_error"
 
                     fetch_results = await asyncio.gather(*[_fetch_and_extract(u) for u in target_urls])
-                    for ev, status in fetch_results:
+                    for ev_sublist, status in fetch_results:
                         if status == "doc_empty":
                             web_docs_empty += 1
                         elif status in ("ok", "quote_unverified", "no_evidence"):
                             web_pages_fetched += 1
-                            if status == "ok" and ev:
-                                web_quotes_verified += 1
-                                verified_evidences.append(ev)
+                            if status == "ok" and ev_sublist:
+                                web_quotes_verified += len(ev_sublist)
+                                verified_evidences.extend(ev_sublist)
                             elif status == "quote_unverified":
                                 web_quotes_unverified += 1
                             elif status == "no_evidence":
