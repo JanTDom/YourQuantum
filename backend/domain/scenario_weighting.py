@@ -190,6 +190,7 @@ class EvidencePremise(BaseModel):
     provenance: Literal["user_supplied", "web_sourced", "llm_suggested", "assumed"] = "assumed"
     source_ref: str | None = None
     is_accepted: bool = True  # If provenance == "llm_suggested", must be explicitly accepted to count
+    impact_justification: dict[str, Any] = Field(default_factory=dict)
 
 
 class TippingPointItem(BaseModel):

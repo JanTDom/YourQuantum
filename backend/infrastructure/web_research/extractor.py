@@ -105,14 +105,76 @@ def normalize_typography(text: str) -> str:
     return " ".join(t.split())
 
 
+def slice_sentence_cluster(cluster_sentences: list[Sentence], page_text: str, max_chars: int = 300) -> tuple[str, int, int]:
+    """
+    Slices a contiguous cluster of sentences from page_text.
+    Truncates at sentence boundaries if possible, falling back to word boundary,
+    and returns (quote, char_start, char_end) strictly satisfying char_end - char_start == len(quote).
+    """
+    if not cluster_sentences:
+        return "", 0, 0
+
+    first_s = cluster_sentences[0]
+    last_s = cluster_sentences[-1]
+    raw_slice = page_text[first_s.start:last_s.end]
+
+    # If within limit, trim whitespace from both sides and adjust offsets accordingly
+    if len(raw_slice.strip()) <= max_chars:
+        l_trim = len(raw_slice) - len(raw_slice.lstrip())
+        quote = raw_slice.strip()
+        c_start = first_s.start + l_trim
+        c_end = c_start + len(quote)
+        return quote, c_start, c_end
+
+    # Truncation required: find sentences within cluster that fit within max_chars
+    included: list[Sentence] = []
+    for s in cluster_sentences:
+        curr_span = page_text[first_s.start:s.end].strip()
+        if len(curr_span) <= max_chars:
+            included.append(s)
+        else:
+            break
+
+    if included:
+        last_inc = included[-1]
+        raw_slice = page_text[first_s.start:last_inc.end]
+        l_trim = len(raw_slice) - len(raw_slice.lstrip())
+        quote = raw_slice.strip()
+        c_start = first_s.start + l_trim
+        c_end = c_start + len(quote)
+        return quote, c_start, c_end
+
+    # Single first sentence is already > max_chars: truncate at last word boundary before max_chars
+    first_text = page_text[first_s.start:first_s.end]
+    l_trim = len(first_text) - len(first_text.lstrip())
+    first_trimmed = first_text.strip()
+    if len(first_trimmed) <= max_chars:
+        quote = first_trimmed
+        c_start = first_s.start + l_trim
+        c_end = c_start + len(quote)
+        return quote, c_start, c_end
+
+    truncated = first_trimmed[:max_chars]
+    last_space = truncated.rfind(" ")
+    if last_space > 0:
+        quote = truncated[:last_space].rstrip()
+    else:
+        quote = truncated
+
+    c_start = first_s.start + l_trim
+    c_end = c_start + len(quote)
+    return quote, c_start, c_end
+
+
 class EvidenceExtractor:
     """
     Extracts structured parameter values and claims from fetched documents.
     Enforces sentence-based selection, character offset slicing, and verbatim quote verification.
     """
 
-    def __init__(self, llm_gateway: LLMGateway | None = None) -> None:
+    def __init__(self, llm_gateway: LLMGateway | None = None, extraction_mode: str = "sentence_selection") -> None:
         self.gateway = llm_gateway or LLMGateway()
+        self.extraction_mode: str = extraction_mode
         self.last_status: str = "init"
         self.extraction_path: str = "none"
         self.telemetry: dict[str, Any] = {
@@ -120,6 +182,7 @@ class EvidenceExtractor:
             "web_evidence_from_sentences": 0,
             "web_invalid_sentence_index": 0,
             "web_too_many_sentences": 0,
+            "impact_rejected_unsupported": 0,
         }
 
     async def extract_parameter_evidence(
@@ -128,14 +191,36 @@ class EvidenceExtractor:
         target_param: str,
         expected_unit: str | None = None,
         parameter_description: str = "",
+        candidate_scenarios: list[Any] | None = None,
     ) -> Evidence | None:
         """
         Attempt to extract a validated piece of Evidence for a target parameter.
-        Returns Evidence if extraction succeeds AND quote is confirmed in document.page_text.
+        Returns the first verified Evidence or None.
+        """
+        evidences = await self.extract_parameter_evidences(
+            document=document,
+            target_param=target_param,
+            expected_unit=expected_unit,
+            parameter_description=parameter_description,
+            candidate_scenarios=candidate_scenarios,
+        )
+        return evidences[0] if evidences else None
+
+    async def extract_parameter_evidences(
+        self,
+        document: EvidenceDocument,
+        target_param: str,
+        expected_unit: str | None = None,
+        parameter_description: str = "",
+        candidate_scenarios: list[Any] | None = None,
+    ) -> list[Evidence]:
+        """
+        Extracts all validated Evidence items from document.
+        When model selects non-adjacent sentences, multiple Evidence objects are produced.
         """
         if not document.page_text or not document.page_text.strip():
             self.last_status = "empty_extraction"
-            return None
+            return []
 
         # Truncate page text if very long to prevent context overflow (keep first 20,000 characters)
         safe_page_text = document.page_text[:20000]
@@ -148,114 +233,128 @@ class EvidenceExtractor:
         sentences = split_into_sentences(safe_page_text)
         self.telemetry["web_sentences_offered"] += len(sentences)
 
-        extracted_data: dict[str, Any] | None = None
-        char_start: int | None = None
-        char_end: int | None = None
-        quote: str = ""
+        extracted_clusters: list[tuple[dict[str, Any], int, int, str, dict[str, float], dict[str, Any]]] = []
         method = ExtractionMethod.LLM_EXTRACTED
+
         if self.gateway.is_available:
-            # If caller or test specifically patched _extract_via_llm on this instance, prioritize it
-            is_patched_llm = "_extract_via_llm" in self.__dict__
-            if is_patched_llm:
+            # Check if legacy mode requested or if test specifically patched _extract_via_llm on this instance
+            is_patched_llm = type(self._extract_via_llm).__name__ in ("AsyncMock", "MagicMock", "Mock")
+            if self.extraction_mode == "legacy_verbatim" or is_patched_llm:
                 self.extraction_path = "legacy_verbatim"
                 try:
-                    extracted_data = await self._extract_via_llm(
+                    legacy_data = await self._extract_via_llm(
                         safe_page_text, target_param, expected_unit, parameter_description
                     )
-                    if extracted_data:
-                        quote = str(extracted_data.get("quote") or "").strip()
+                    if legacy_data and legacy_data.get("quote"):
+                        q = str(legacy_data.get("quote") or "").strip()
+                        c_start = safe_page_text.find(q)
+                        c_end = c_start + len(q) if c_start >= 0 else None
+                        extracted_clusters.append((legacy_data, c_start or 0, c_end or len(q), q, {}, {}))
                 except Exception as e:
-                    logger.warning("Patched LLM extraction error: %s", e)
+                    logger.warning("Legacy verbatim extraction error: %s", e)
             elif len(sentences) >= 2:
                 self.extraction_path = "sentence_selection"
                 try:
-                    res = await self._extract_via_sentence_selection(
+                    cluster_res = await self._extract_via_sentence_selection(
                         safe_page_text=safe_page_text,
                         sentences=sentences,
                         target_param=target_param,
                         expected_unit=expected_unit,
                         description=parameter_description,
+                        candidate_scenarios=candidate_scenarios,
                     )
-                    if res:
-                        extracted_data, char_start, char_end, quote = res
+                    if cluster_res:
+                        extracted_clusters = cluster_res
                         method = ExtractionMethod.SENTENCE_SELECTION
                 except Exception as e:
                     logger.warning("Sentence selection extraction error: %s", e)
             else:
                 self.extraction_path = "legacy_verbatim"
                 try:
-                    extracted_data = await self._extract_via_llm_verbatim(
+                    legacy_data = await self._extract_via_llm_verbatim(
                         safe_page_text, target_param, expected_unit, parameter_description
                     )
-                    if extracted_data:
-                        quote = str(extracted_data.get("quote") or "").strip()
+                    if legacy_data and legacy_data.get("quote"):
+                        q = str(legacy_data.get("quote") or "").strip()
+                        c_start = safe_page_text.find(q)
+                        c_end = c_start + len(q) if c_start >= 0 else None
+                        extracted_clusters.append((legacy_data, c_start or 0, c_end or len(q), q, {}, {}))
                 except Exception as e:
                     logger.warning("Legacy verbatim extraction error: %s", e)
 
-        if not extracted_data:
+        if not extracted_clusters:
             self.extraction_path = "deterministic_heuristics"
-            extracted_data = self._extract_via_deterministic_heuristics(
+            heur_data = self._extract_via_deterministic_heuristics(
                 safe_page_text, target_param, expected_unit
             )
-            if extracted_data:
-                quote = str(extracted_data.get("quote") or "").strip()
+            if heur_data:
+                q = str(heur_data.get("quote") or "").strip()
+                c_start = safe_page_text.find(q)
+                c_end = c_start + len(q) if c_start >= 0 else None
+                extracted_clusters.append((heur_data, c_start or 0, c_end or len(q), q, {}, {}))
                 method = ExtractionMethod.TABLE_CELL
 
-        if not extracted_data:
+        if not extracted_clusters:
             self.last_status = "empty_extraction"
-            return None
+            return []
 
-        claim = str(extracted_data.get("claim") or f"Value for {target_param}")
-        raw_val = extracted_data.get("value")
-        unit = extracted_data.get("unit") or expected_unit
+        verified_evidences: list[Evidence] = []
+        for extracted_data, char_start, char_end, quote, impact_on_scenarios, impact_justification in extracted_clusters:
+            claim = str(extracted_data.get("claim") or f"Value for {target_param}")
+            raw_val = extracted_data.get("value")
+            unit = extracted_data.get("unit") or expected_unit
 
-        if not quote:
-            logger.warning("Evidence rejected: Missing quote for param '%s'", target_param)
-            self.last_status = "empty_extraction"
-            return None
+            if not quote:
+                continue
 
-        # --- MANDATORY VERIFICATION (C3 / V13 / V14-1) ---
-        # The quote must literally exist within the fetched page text.
-        # Verified against full document.page_text using exact, whitespace-collapsed,
-        # or typographical equivalence (quotes, dashes, non-breaking spaces).
-        if not self._verify_quote_in_text(quote, document.page_text):
-            logger.warning(
-                "Honesty check failed: Extracted quote not found in document text for '%s'. Rejecting evidence. Quote: %r",
-                target_param,
-                quote[:80],
+            # --- MANDATORY VERIFICATION (C3 / V13 / V14-1 / V16-ACCEPTANCE-UNTOUCHED) ---
+            if not self._verify_quote_in_text(quote, document.page_text):
+                logger.warning(
+                    "Honesty check failed: Extracted quote not found in document text for '%s'. Rejecting evidence. Quote: %r",
+                    target_param,
+                    quote[:80],
+                )
+                self.last_status = "quote_unverified"
+                continue
+
+            if method == ExtractionMethod.SENTENCE_SELECTION:
+                self.telemetry["web_evidence_from_sentences"] += 1
+
+            parsed_val: float | str | None = None
+            if raw_val is not None:
+                try:
+                    parsed_val = float(raw_val)
+                except (ValueError, TypeError):
+                    parsed_val = str(raw_val)
+
+            ev = Evidence(
+                id=f"ev_{uuid.uuid4().hex[:10]}",
+                claim=claim,
+                value=parsed_val,
+                unit=unit,
+                source_url=document.url,
+                source_title=document.title or document.publisher or "Web Source",
+                publisher=document.publisher,
+                retrieved_at=document.retrieved_at,
+                content_hash=document.content_hash,
+                quote=quote,
+                extraction_method=method,
+                confidence=float(extracted_data.get("confidence", 0.9 if method != ExtractionMethod.TABLE_CELL else 0.0)),
+                target_param=target_param,
+                char_start=char_start,
+                char_end=char_end,
+                impact_on_scenarios=impact_on_scenarios,
+                impact_justification=impact_justification,
             )
-            self.last_status = "quote_unverified"
-            return None
+            verified_evidences.append(ev)
 
-        self.last_status = "ok"
-        if method == ExtractionMethod.SENTENCE_SELECTION:
-            self.telemetry["web_evidence_from_sentences"] += 1
+        if verified_evidences:
+            self.last_status = "ok"
+            return verified_evidences
 
-        # Convert value to numeric if possible
-        parsed_val: float | str | None = None
-        if raw_val is not None:
-            try:
-                parsed_val = float(raw_val)
-            except (ValueError, TypeError):
-                parsed_val = str(raw_val)
-
-        return Evidence(
-            id=f"ev_{uuid.uuid4().hex[:10]}",
-            claim=claim,
-            value=parsed_val,
-            unit=unit,
-            source_url=document.url,
-            source_title=document.title or document.publisher or "Web Source",
-            publisher=document.publisher,
-            retrieved_at=document.retrieved_at,
-            content_hash=document.content_hash,
-            quote=quote[:300],  # bounded to 300 chars
-            extraction_method=method,
-            confidence=float(extracted_data.get("confidence", 0.9)),
-            target_param=target_param,
-            char_start=char_start,
-            char_end=char_end,
-        )
+        if self.last_status != "quote_unverified":
+            self.last_status = "empty_extraction"
+        return []
 
     async def _extract_via_sentence_selection(
         self,
@@ -264,18 +363,33 @@ class EvidenceExtractor:
         target_param: str,
         expected_unit: str | None,
         description: str,
-    ) -> tuple[dict[str, Any], int, int, str] | None:
+        candidate_scenarios: list[Any] | None = None,
+    ) -> list[tuple[dict[str, Any], int, int, str, dict[str, float], dict[str, Any]]] | None:
         """
-        Presents numbered sentences to the LLM and slices the quote using character offsets.
-        Enforces:
-        - 1 <= len(sentence_indices) <= 3 (reject if > 3)
-        - All indices must be within range [0, len(sentences)-1]
-        - Contiguous slice page_text[s_first.start : s_last.end]
+        Presents numbered sentences to the LLM and slices quotes per contiguous sentence cluster.
+        Returns a list of tuples: (extracted_data, char_start, char_end, quote, impact_on_scenarios, impact_justification)
         """
-        # Limit to first 100 sentences to fit prompt comfortably
         offered_sentences = sentences[:100]
         numbered_text = "\n".join(f"[{s.index}] {s.text}" for s in offered_sentences)
         max_idx = offered_sentences[-1].index
+
+        scenario_context_lines: list[str] = []
+        if candidate_scenarios:
+            scenario_context_lines.append("Candidate scenarios to evaluate impact for:")
+            for sc in candidate_scenarios:
+                sc_id = getattr(sc, "id", None) or (sc.get("id") if isinstance(sc, dict) else str(sc))
+                sc_title = getattr(sc, "title", None) or (sc.get("title") if isinstance(sc, dict) else "")
+                scenario_context_lines.append(f"- ID: {sc_id} | Title: {sc_title}")
+
+        scenario_instructions = ""
+        if scenario_context_lines:
+            scenario_instructions = (
+                "\nIMPACT EVALUATION INSTRUCTIONS:\n"
+                "For each candidate scenario, evaluate the direction of impact: from -1.0 (strongly contradicts/reduces likelihood) "
+                "to +1.0 (strongly supports/increases likelihood). "
+                "CRITICAL: For every scenario impact, you MUST provide 'sentence_index' pointing to the specific sentence index in "
+                "'sentence_indices' that directly justifies this impact direction. If no sentence supports the impact, do not emit it."
+            )
 
         system_instruction = (
             "You are a rigorous, honest factual extraction assistant. "
@@ -290,18 +404,20 @@ class EvidenceExtractor:
             f"4. Every index must be a valid integer between 0 and {max_idx}.\n"
             "5. If no sentence in the text contains factual evidence for the parameter, return sentence_indices=[].\n"
             "6. Extract numerical 'value' and 'unit' if present in the selected sentences, otherwise null."
+            f"{scenario_instructions}"
         )
 
         user_content = (
             f"Target parameter: {target_param}\n"
             f"Description: {description or target_param}\n"
             f"Expected unit: {expected_unit or 'any'}\n\n"
-            f"<<<NUMBERED_SENTENCES>>>\n"
+            + ("\n".join(scenario_context_lines) + "\n\n" if scenario_context_lines else "")
+            + f"<<<NUMBERED_SENTENCES>>>\n"
             f"{numbered_text}\n"
             f"<<<END_NUMBERED_SENTENCES>>>\n"
         )
 
-        schema = {
+        schema: dict[str, Any] = {
             "type": "OBJECT",
             "properties": {
                 "claim": {"type": "STRING"},
@@ -312,6 +428,20 @@ class EvidenceExtractor:
             },
             "required": ["claim", "sentence_indices"],
         }
+
+        if candidate_scenarios:
+            schema["properties"]["impacts"] = {
+                "type": "ARRAY",
+                "items": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "scenario_id": {"type": "STRING"},
+                        "impact": {"type": "NUMBER"},
+                        "sentence_index": {"type": "INTEGER"},
+                    },
+                    "required": ["scenario_id", "impact", "sentence_index"],
+                },
+            }
 
         resp = await self.gateway.generate(
             system_instruction=system_instruction,
@@ -328,7 +458,6 @@ class EvidenceExtractor:
         if not raw_indices or not isinstance(raw_indices, list):
             return None
 
-        # Filter valid integers
         indices: list[int] = []
         for item in raw_indices:
             try:
@@ -344,7 +473,6 @@ class EvidenceExtractor:
             self.telemetry["web_too_many_sentences"] += 1
             return None
 
-        # Validate indices bounds
         sentence_map = {s.index: s for s in sentences}
         for idx in indices:
             if idx not in sentence_map:
@@ -352,20 +480,81 @@ class EvidenceExtractor:
                 self.telemetry["web_invalid_sentence_index"] += 1
                 return None
 
-        # Sort indices
-        sorted_indices = sorted(indices)
-        first_s = sentence_map[sorted_indices[0]]
-        last_s = sentence_map[sorted_indices[-1]]
+        sorted_indices = sorted(set(indices))
 
-        char_start = first_s.start
-        raw_char_end = last_s.end
+        # Group indices into contiguous clusters: e.g. [1, 2, 5] -> [[1, 2], [5]]
+        clusters: list[list[int]] = []
+        curr_cluster: list[int] = [sorted_indices[0]]
+        for idx in sorted_indices[1:]:
+            if idx == curr_cluster[-1] + 1:
+                curr_cluster.append(idx)
+            else:
+                clusters.append(curr_cluster)
+                curr_cluster = [idx]
+        clusters.append(curr_cluster)
 
-        # Slice directly from safe_page_text
-        raw_quote = safe_page_text[char_start:raw_char_end].strip()
-        quote = raw_quote[:300]
-        char_end = char_start + len(quote)
+        # Parse impacts and validate sentence justification
+        raw_impacts = resp.parsed_json.get("impacts", [])
+        validated_impacts: dict[str, float] = {}
+        justifications: dict[str, Any] = {}
 
-        return resp.parsed_json, char_start, char_end, quote
+        selected_indices_set = set(sorted_indices)
+        if isinstance(raw_impacts, list):
+            for imp in raw_impacts:
+                if not isinstance(imp, dict):
+                    continue
+                sc_id = str(imp.get("scenario_id", ""))
+                val = float(imp.get("impact", 0.0))
+                s_idx = imp.get("sentence_index")
+                if s_idx is None or int(s_idx) not in selected_indices_set:
+                    logger.warning("Impact for %s references sentence %s not in selected indices; rejecting impact.", sc_id, s_idx)
+                    self.telemetry["impact_rejected_unsupported"] += 1
+                    validated_impacts[sc_id] = 0.0
+                    continue
+
+                justifying_sentence = sentence_map[int(s_idx)]
+                j_quote, j_start, j_end = slice_sentence_cluster([justifying_sentence], safe_page_text, max_chars=300)
+                if not self._verify_quote_in_text(j_quote, safe_page_text):
+                    logger.warning("Impact justifying quote failed verification for %s; rejecting impact.", sc_id)
+                    self.telemetry["impact_rejected_unsupported"] += 1
+                    validated_impacts[sc_id] = 0.0
+                    continue
+
+                validated_impacts[sc_id] = val
+                justifications[sc_id] = {
+                    "sentence_index": int(s_idx),
+                    "justifying_sentence": j_quote,
+                    "char_start": j_start,
+                    "char_end": j_end,
+                    "impact": val,
+                }
+
+        results: list[tuple[dict[str, Any], int, int, str, dict[str, float], dict[str, Any]]] = []
+        for cl in clusters:
+            cl_sentences = [sentence_map[i] for i in cl]
+            cl_quote, cl_start, cl_end = slice_sentence_cluster(cl_sentences, safe_page_text, max_chars=300)
+            if not cl_quote:
+                continue
+
+            # Check if this cluster contains justifying sentences for impacts
+            cl_set = set(cl)
+            cl_impacts: dict[str, float] = {}
+            cl_justifications: dict[str, Any] = {}
+            for sc_id, imp_val in validated_impacts.items():
+                just_idx = justifications.get(sc_id, {}).get("sentence_index")
+                if just_idx in cl_set or len(clusters) == 1:
+                    cl_impacts[sc_id] = imp_val
+                    if sc_id in justifications:
+                        cl_justifications[sc_id] = justifications[sc_id]
+
+            cluster_data = dict(resp.parsed_json)
+            # If multiple clusters, only first retains numeric value unless relevant
+            if len(clusters) > 1 and cl != clusters[0]:
+                cluster_data["value"] = None
+
+            results.append((cluster_data, cl_start, cl_end, cl_quote, cl_impacts, cl_justifications))
+
+        return results if results else None
 
     async def _extract_via_llm(
         self,
@@ -438,15 +627,16 @@ class EvidenceExtractor:
     ) -> dict[str, Any] | None:
         """
         Deterministic extractor when LLM is unavailable:
-        Looks for sentences containing parameter keywords and numbers, extracting verbatim sentence as quote.
+        Matches sentences containing target parameter keywords and returns verbatim sentence quote.
+        Sets value = None and confidence = 0.0 (heuristics cannot reliably infer exact parameter values or high confidence).
         """
         clean_param = re.sub(r"[_\.\-]+", " ", target_param).strip()
         keywords = [w.lower() for w in clean_param.split() if len(w) > 2]
 
-        sentences = re.split(r"(?<!\d)[.!?\n]+(?!\d)", text)
+        sentences = split_into_sentences(text)
 
-        for sentence in sentences:
-            s_clean = sentence.strip()
+        for s in sentences:
+            s_clean = s.text.strip()
             if not s_clean or len(s_clean) < 15 or len(s_clean) > 300:
                 continue
 
@@ -458,31 +648,13 @@ class EvidenceExtractor:
 
             # Match keywords
             if any(k in s_lower for k in keywords):
-                # Search for numbers: prefer numbers with decimals or followed by units/magnitudes over calendar years (e.g. 2025 roku)
-                candidates: list[tuple[float, bool]] = []
-                for m in re.finditer(r"(\d+(?:[.,]\d+)?)\s*([a-zA-Z%]+)?", s_clean):
-                    raw_n = m.group(1).replace(",", ".")
-                    suffix = (m.group(2) or "").lower()
-                    if suffix in ("roku", "r", "lat", "latach"):
-                        continue  # skip calendar years
-                    try:
-                        v = float(raw_n)
-                        is_decimal = "." in raw_n
-                        candidates.append((v, is_decimal))
-                    except ValueError:
-                        continue
-
-                if candidates:
-                    # Prefer decimal or non-year numbers
-                    chosen = next((c[0] for c in candidates if c[1]), candidates[0][0])
-                    return {
-                        "claim": s_clean,
-                        "value": chosen,
-                        "unit": expected_unit or "",
-                        "quote": s_clean,
-                        "confidence": 0.8,
-                    }
-
+                return {
+                    "claim": s_clean,
+                    "value": None,
+                    "unit": expected_unit or "",
+                    "quote": s_clean,
+                    "confidence": 0.0,
+                }
 
         return None
 

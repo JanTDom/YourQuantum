@@ -41,6 +41,8 @@ class Evidence(BaseModel):
     target_param: str | None = None  # e.g., "option_a.cost" or "v_1"
     char_start: int | None = None
     char_end: int | None = None
+    impact_on_scenarios: dict[str, float] = Field(default_factory=dict)
+    impact_justification: dict[str, Any] = Field(default_factory=dict)
 
 
 class EvidenceConflict(BaseModel):
