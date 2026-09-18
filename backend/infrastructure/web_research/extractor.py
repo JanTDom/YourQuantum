@@ -183,6 +183,8 @@ class EvidenceExtractor:
             "web_invalid_sentence_index": 0,
             "web_too_many_sentences": 0,
             "impact_rejected_unsupported": 0,
+            "impacts_proposed": 0,
+            "impacts_accepted": 0,
         }
 
     async def extract_parameter_evidence(
@@ -506,6 +508,7 @@ class EvidenceExtractor:
                 sc_id = str(imp.get("scenario_id", ""))
                 val = float(imp.get("impact", 0.0))
                 s_idx = imp.get("sentence_index")
+                self.telemetry["impacts_proposed"] += 1
                 if s_idx is None or int(s_idx) not in selected_indices_set:
                     logger.warning("Impact for %s references sentence %s not in selected indices; rejecting impact.", sc_id, s_idx)
                     self.telemetry["impact_rejected_unsupported"] += 1
@@ -520,6 +523,7 @@ class EvidenceExtractor:
                     validated_impacts[sc_id] = 0.0
                     continue
 
+                self.telemetry["impacts_accepted"] += 1
                 validated_impacts[sc_id] = val
                 justifications[sc_id] = {
                     "sentence_index": int(s_idx),

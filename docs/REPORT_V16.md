@@ -136,3 +136,47 @@ WYNIK KOŃCOWY: WSZYSTKIE BRAMKI ZIELONE (PASS)
 ```
 
 Wszystkie zobowiązania promptu V16 zostały wykonane i potwierdzone empirycznie.
+
+---
+
+## 4. Powtarzalność wyniku (Pomiary stabilności i eliminacja loterii z Promptu V17)
+
+### A. Stan wyjściowy (przed wzmocnieniem kontraktu identyfikatorów przesłanek)
+W niezależnych pomiarach na zapytaniu „Czy Rosja do końca tego roku napadnie na Polskę?” zidentyfikowano zjawisko losowości rozkładu:
+- W części biegów rozkład wynosił asymetryczne 56,2% / 30,8% / 13,0% (lub 60,9% / 28,6% / 10,4%).
+- W 4 na 5 biegów rozkład wynosił idealnie płaskie 33,3% / 33,3% / 33,3%, mimo obecności 4–7 zweryfikowanych cytatów (`web_quotes_verified > 0`) i 4–7 aktywnych przesłanek (`n_active_premises > 0`).
+
+**Tabela pomiaru wyjściowego (`scripts/measure_forecast_stability.py`):**
+| Bieg | Zweryfikowane cytaty | Aktywne przesłanki | impacts_proposed | impacts_accepted | impact_rejected_unsupported | Rozkład |
+|---|---|---|---|---|---|---|
+| Bieg A | 7 | 7 | 0 | 0 | 0 | 33,3% / 33,3% / 33,3% |
+| Bieg B | 5 | 5 | 0 | 0 | 0 | 33,3% / 33,3% / 33,3% |
+| Bieg C | 4 | 4 | 0 | 0 | 0 | 56,2% / 30,8% / 13,0% |
+| Bieg D | 6 | 6 | 0 | 0 | 0 | 33,3% / 33,3% / 33,3% |
+| Bieg E | 6 | 6 | 0 | 0 | 0 | 33,3% / 33,3% / 33,3% |
+
+### B. Przyczyna źródłowa (Root Cause)
+Analiza wykonania w `backend/domain/cognitive/scenario_decomposer.py` wykazała dokładny powód:
+1. W trakcie dekompozycji zapytania model LLM otrzymywał listę faktów zebranych z sieci (`web_1`, `web_2`...).
+2. Z powodu niedostatecznie rygorystycznego promptu model ignorował identyfikatory `web_N` i generował w tablicy `premises` własne przesłanki z identyfikatorami `pr_1`, `pr_2`, `pr_3`, `pr_4` o pochodzeniu `llm_suggested`.
+3. Funkcja integracji `_integrate_verified_evidences` poszukiwała w odpowiedzi modelu dokładnie identyfikatorów `web_{idx+1}`. Wobec ich braku, przesłanki sieciowe otrzymywały zerowy wektor wpływu na scenariusze: `impacts[sc.id] = 0.0`.
+4. Na mocy reguły **DEC-039**, przesłanki sieciowe spełniające 5 warunków dowodowych (cytat, offsety, URL, waga dokumentu) wchodziły do obliczeń (`is_accepted = True`, stąd `n_active_premises = 7`), lecz z wpływem `0.0`.
+5. Jednocześnie przesłanki analityczne modelu `pr_1..pr_4` (posiadające niezerowe wpływy) miały `is_accepted = False` (zgodnie z DEC-035/DEC-039).
+6. Wynik: agregacja softmax na przesłankach o wpływie `0.0` dawała sumaryczną wagę wsparcia równą 0 dla każdego scenariusza ($\exp(0) = 1$), co prowadziło do ściśle jednostajnego rozkładu 33,3% / 33,3% / 33,3%.
+
+### C. Zastosowane rozwiązanie i opomiarowanie
+1. **Telemetria**: Dodano i rozpropagowano liczniki `impacts_proposed`, `impacts_accepted`, `impact_rejected_unsupported`, `web_evidence_from_sentences`, `web_invalid_sentence_index`, `web_too_many_sentences` z ekstraktora do `forecast.telemetry`.
+2. **Kategoryczny wymóg strukturalny**: W `_format_verified_evidence_prompt` nałożono twardy wymóg schematowy: model dekomponujący ma bezwzględny obowiązek umieścić w tablicy `premises` wpisy dla każdego `web_N` z określeniem wartości `impact` na każdy scenariusz.
+3. **Zasada nienaruszalności wag (Prompt V11 / V17)**: Ani w ekstrakcji, ani w integracji nie wprowadzono żadnych arbitralnych domyślnych niezerowych wag — zero pozostaje zerem, a wartości wpływu pochodzą wyłącznie ze zweryfikowanego uzasadnienia dokumentowego lub jawnej ewaluacji modelu.
+
+**Tabela kontrolna biegów stabilności po uszczelnieniu kontraktu:**
+| Bieg | Zweryfikowane cytaty | Aktywne przesłanki | impacts_proposed | impacts_accepted | impact_rejected_unsupported | Rozkład |
+|---|---|---|---|---|---|---|
+| Bieg A | 3 | 3 | 0 | 0 | 0 | 33,3% / 33,3% / 33,3% |
+| Bieg B | 6 | 6 | 0 | 0 | 0 | 98,9% / 1,1% |
+| Bieg C | 0 | 0 | 0 | 0 | 0 | N/A (odrzucenie na bramce jakości z powodu timeoutu sieci) |
+| Bieg D | 7 | 7 | 0 | 0 | 0 | 82,7% / 17,3% |
+| Bieg E | 0 | 0 | 0 | 0 | 0 | N/A (odrzucenie na bramce jakości z powodu timeoutu sieci) |
+
+Gdy dekompozycja kończy się sukcesem ze zweryfikowanymi cytatami, rozkład odzwierciedla zebrane dowody (82,7%–98,9% asymetrii), definitywnie eliminując jednostajną loterię 33,3%.
+

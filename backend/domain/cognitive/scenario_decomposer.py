@@ -354,9 +354,11 @@ def _format_verified_evidence_prompt(verified_evidences: list[Evidence] | None) 
         pub = ev.publisher or ev.source_title or ev.source_url
         lines.append(f"- ID: web_{idx+1}\n  Fakt: {ev.claim}\n  Cytat dosłowny ze strony: „{ev.quote}”\n  Wydawca / Źródło: {pub}")
     lines.append(
-        "UWAGA: Dla każdego z powyższych zweryfikowanych faktów (web_1, web_2...) określ wpływ "
-        "(impact_on_scenarios od -1.0 do +1.0) na poszczególne scenariusze. "
-        "Możesz też zaproponować dodatkowe przesłanki analityczne modelu (id: pr_1, pr_2...).\n"
+        "KATEGORYCZNY WYMÓG STRUKTURALNY DLA PREMISES:\n"
+        "W tablicy 'premises' MUSISZ umieścić wpisy dla KAŻDEGO z powyższych faktów, używając DOKŁADNIE ich identyfikatorów 'id': \"web_1\", \"web_2\" itd.\n"
+        "Dla każdego 'web_N' w tablicy 'impacts' MUSISZ podać wpływ ('scenario_id' i 'impact' od -1.0 do +1.0) na KAŻDY wygenerowany scenariusz.\n"
+        "Nie grupuj ich pod wspólną nazwą i nie pomijaj żadnego ID 'web_N'.\n"
+        "Dopiero po umieszczeniu wszystkich pozycji web_1, web_2... możesz dodać ewentualne przesłanki modelu (id: pr_1, pr_2...).\n"
     )
     return "\n".join(lines)
 

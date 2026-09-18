@@ -603,6 +603,9 @@ class ActiveInferenceOrchestrator:
             forecast.telemetry["web_evidence_from_sentences"] = getattr(extractor, "telemetry", {}).get("web_evidence_from_sentences", 0) if "extractor" in locals() else 0
             forecast.telemetry["web_invalid_sentence_index"] = getattr(extractor, "telemetry", {}).get("web_invalid_sentence_index", 0) if "extractor" in locals() else 0
             forecast.telemetry["web_too_many_sentences"] = getattr(extractor, "telemetry", {}).get("web_too_many_sentences", 0) if "extractor" in locals() else 0
+            forecast.telemetry["impact_rejected_unsupported"] = getattr(extractor, "telemetry", {}).get("impact_rejected_unsupported", 0) if "extractor" in locals() else 0
+            forecast.telemetry["impacts_proposed"] = getattr(extractor, "telemetry", {}).get("impacts_proposed", 0) if "extractor" in locals() else 0
+            forecast.telemetry["impacts_accepted"] = getattr(extractor, "telemetry", {}).get("impacts_accepted", 0) if "extractor" in locals() else 0
 
             if len(forecast.scenarios) >= 2 and len(forecast.evidence_premises) > 0:
                 formalization = FormalizationResult(

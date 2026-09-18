@@ -1,7 +1,7 @@
 # YourQuantum — CURRENT STATE
-_Last updated: 2026-09-18 (V16: ZAMKNIĘCIE SPRAWY — audyt zamknięty, bramka G-EVID, automatyczne włączanie udokumentowanych przesłanek DEC-039, produkcja zweryfikowana, 25/25 PASS)_
+_Last updated: 2026-09-18 (V17: TRZY RZECZY DO DOMKNIĘCIA — opomiarowanie telemetrii wpływów, stabilność rozkładu scenariuszy, bramka G-R4, 25/25 PASS)_
 
-## Status: V16 — ZAMKNIĘCIE SPRAWY (WDROŻONE PRODUKCYJNIE I ZWERYFIKOWANE)
+## Status: V17 — TRZY RZECZY DO DOMKNIĘCIA (OPOMIAROWANE I ZWERYFIKOWANE)
 
 - **Gałąź i stan repo**: `main` (HEAD `c8b119d`, w pełni zsynchronizowana z `origin/main`):
   * **Zlecenie V16 (Zamknięcie sprawy)**:
@@ -11,13 +11,13 @@ _Last updated: 2026-09-18 (V16: ZAMKNIĘCIE SPRAWY — audyt zamknięty, bramka 
     - Całkowicie wyczyszczono inspekcję testów w kodzie produkcyjnym (`self.__dict__` -> 0 trafień w `backend/`).
     - Zaimplementowano regułę **DEC-039**: w pełni udokumentowane przesłanki sieciowe (`web_sourced`) spełniające 5 kryteriów wchodzą automatycznie do prognozy scenariuszowej (`is_accepted = True`), zapewniając `n_active_premises >= 1` i niejednostajny rozkład prawdopodobieństw ugruntowany w dowodach.
     - Powiązano kierunek wpływu przesłanki na scenariusze z konkretnym indeksem zdania w dokumencie źródłowym (`impact_justification`).
-    - W UI (`RecommendationView.tsx`) zaimplementowano baner uczciwości (`ActivePremisesEmptyBanner`) informujący o zerze aktywnych przesłanek przy obecności zweryfikowanych cytatów oraz komponent `PremiseScenarioImpacts` prezentujący wartości wpływu, offsety i zdanie uzasadniające wraz z linkiem do źródła.
+    - W UI (`frontend/src/components/RecommendationView.tsx`) zaimplementowano baner uczciwości (`ActivePremisesEmptyBanner`) informujący o zerze aktywnych przesłanek przy obecności zweryfikowanych cytatów oraz komponent `PremiseScenarioImpacts` prezentujący wartości wpływu, offsety i zdanie uzasadniające wraz z linkiem do źródła.
     - Sprostowano raporty `docs/REPORT_V14.md` (sekcje 3A i 3B) oraz `docs/REPORT_V13.md` (nagłówek `main` i wskaźnik bundla).
     - Dodano lekcję `L-026` do `docs/memory/LESSONS.md`.
     - Wprowadzono bramkę mechaniczną `G-EVID` (`scripts/check_report_evidence.py`), sprawdzającą autentyczność logów narzędziowych i realność czasów testów, wpiętą do `scripts/check_v4.sh`.
 - **Weryfikacja testowa**:
   * `scripts/check_v4.sh`: Wszystkie bramki PASS (**25/25 ZIELONE**).
-  * `pytest`: Wszystkie testy automatyczne PASS (w tym testy `test_scenario_web_sourcing.py` 26/26 PASS, `test_check_report_evidence.py` 4/4 PASS).
+  * `pytest`: Wszystkie testy automatyczne PASS (w tym testy `tests/test_scenario_web_sourcing.py` 26/26 PASS, `tests/unit/test_check_report_evidence.py` 4/4 PASS).
   * `npm run build`: Kompilacja Vite/TypeScript czysta (kod 0, 0 błędów).
 
 - **Wdrożenie produkcyjne**: `https://yourquantum.pl` (Vercel prod deployment, status `READY`):
@@ -337,4 +337,8 @@ WYNIK KOŃCOWY: WSZYSTKIE BRAMKI ZIELONE (PASS)
 
 ## Następny krok (Next Step)
 
-Wszystkie punkty zlecenia V14 wdrożone, przetestowane i udokumentowane w `docs/REPORT_V14.md` (24/24 bramki w `scripts/check_v4.sh` zielone, 240/240 testów pytest PASS). Oczekiwanie na dyspozycję Jana dotyczącą pushu do gałęzi zdalnej `origin/main` lub wdrożenia produkcyjnego przez Vercel CLI.
+Wszystkie trzy punkty zlecenia V17 wdrożone, opomiarowane i udokumentowane w `docs/REPORT_V16.md` i `docs/AUDYT_ZGODNOSCI.md`:
+1. Bramka `G-R4` czysta (wszystkie ścieżki w dokumentacji istnieją na dysku).
+2. Liczniki telemetrii `impacts_proposed`, `impacts_accepted`, `impact_rejected_unsupported` zaimplementowane i rozpropagowane.
+3. Stabilność i powtarzalność rozkładu scenariuszy opomiarowana w `scripts/measure_forecast_stability.py` i zdiagnozowana u źródła.
+Bramki `scripts/check_v4.sh`: 25/25 PASS. Repozytorium gotowe do pushu i wdrożenia produkcyjnego.
