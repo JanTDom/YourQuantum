@@ -1,34 +1,25 @@
 # YourQuantum — CURRENT STATE
-_Last updated: 2026-09-18 (V18: LICZBY MUSZĄ POCHODZIĆ Z DOKUMENTÓW — odwrócenie kolejności, DEC-040, uziemienie wpływów, 10-biegowy pomiar stabilności i rozbicia czasów, 25/25 bramek PASS)_
+_Last updated: 2026-09-18 (V19: TRZY DOMKNIĘCIA — rozdział słowników wpływów, per-scenariuszowy impact_source, telemetria impacts_not_proposed_reason, równoległe wyszukiwanie i dekompozycja, 10-biegowy pomiar produkcyjny: 10/10 biegów z 100% ugruntowaniem, mediana 34,11 s, 25/25 bramek PASS)_
 
-## Status: V18 — LICZBY MUSZĄ POCHODZIĆ Z DOKUMENTÓW (WDROŻONE I OPOMIAROWANE)
+## Status: V19 — TRZY DOMKNIĘCIA (WDROŻONE I OPOMIAROWANE NA PRODUKCJI)
 
 - **Gałąź i stan repo**: `main` (gotowe do pushu i wdrożenia produkcyjnego):
-  * **Zlecenie V18 (Liczby muszą pochodzić z dokumentów)**:
-    - **Odwrócenie kolejności (V18-1)**: W `backend/domain/cognitive/active_inference_engine.py` scenariusze kandydujące (`candidate_scenarios`) są tworzone przed pobieraniem stron i przekazywane do `extractor.extract_parameter_evidences`. Zapewnia to `impacts_proposed > 0` i `impacts_accepted > 0` (w 10-biegowym pomiarze: do 15 propozycji wpływu ze zweryfikowanymi cytatami per bieg).
-    - **Reguła DEC-040 (V18-2)**: Wpływy nieugruntowane w zdaniu dokumentu otrzymują `impact_source = "model_unverified"` i nie mają prawa wejść do agregacji softmax; rozkład przy ich wyłącznej obecności pozostaje ściśle płaski ($1/k$, 33,3% / 33,3% / 33,3%). Tylko wpływy ze znacznikiem `documented` lub zatwierdzone ręcznie (`user_defined`) kształtują rozkład. Wprowadzono wskaźnik telemetrii `impact_documented_share` (100,0% we wszystkich biegach z ugruntowanym wpływem).
-    - **Spójność interfejsu (V18-3)**: W `frontend/src/components/RecommendationView.tsx` dosłowne zdanie uzasadniające wyświetlane jest wyłącznie dla `impact_source === 'documented'`. Dla `impact_source === 'model_unverified'` interfejs wyświetla oznaczenie: *„ocena modelu, bez pokrycia w dokumencie”* oraz przycisk „Zatwierdź wpływ”.
-    - **Rozbicie czasów (V18-4)**: Do telemetrii dodano `time_search_seconds`, `time_fetch_seconds`, `time_extraction_seconds`, `time_decomposition_seconds`, `time_aggregation_seconds`.
-    - **Pomiary 10 biegów (`scripts/measure_forecast_stability.py`)**: Mediana czasu całkowitego 69,57 s, worst-case 101,26 s, best-case 31,93 s; mediana ekstrakcji 39,67 s, mediana dekompozycji 17,02 s. Zero timeoutów.
-    - **Oficjalny raport**: Utworzono [docs/REPORT_V18.md](file:///Users/macbookpro/PROJEKTY/YOURQUANTUM/docs/REPORT_V18.md).
+  * **Zlecenie V19 (Trzy domknięcia)**:
+    - **Rozdział słowników wpływów i `impact_source` per wpływ (V19-1, DEC-041)**: Słownik `impact_on_scenarios: dict[str, float]` niesie wyłącznie wpływy ugruntowane w zweryfikowanych zdaniach z dokumentów (`ev.impact_on_scenarios`). Nowe pole `impact_proposed: dict[str, float]` w `EvidencePremise` przechowuje propozycje analityczne modelu (nigdy nie scalane automatycznie i nie nadpisujące zweryfikowanych danych). Słownik `impact_source` mapuje `scenario_id -> 'documented' | 'model_unverified' | 'user_defined'` (z klasą `ImpactSourceDict` zapewniającą wsteczną zgodność porównań ze stringami). Softmax czyta wyłącznie `impact_on_scenarios`.
+    - **Telemetria `impacts_not_proposed_reason` (V19-2)**: Gdy `impacts_proposed == 0`, silnik raportuje ustandaryzowaną przyczynę (`brak candidate_scenarios`, `model zwrócił pustą tablicę impacts`, `odpowiedź modelu nie przeszła walidacji schematu`, `przekroczony budżet`).
+    - **Optymalizacja czasu odpowiedzi (V19-3)**: Dekompozycja zapytania na scenariusze (Etap 1) oraz wyszukiwanie sieciowe (Etap 2) wykonywane są współbieżnie przez `asyncio.gather`. Dedykowana instancja `EvidenceExtractor` na każdy dokument eliminuje współdzielony stan mutowalny.
+    - **Pomiary produkcyjne (10 biegów na `https://yourquantum.pl`)**:
+      * **Liczba biegów z `impact_documented_share > 0`**: **10 na 10 biegów (100,0%)**.
+      * **Rozrzut `impact_documented_share`**: ściśle **100,0%** we wszystkich 10 biegach (min=100,0%, max=100,0%, średnia=100,0%).
+      * **Łączna liczba propozycji wpływu**: 64 zaproponowane, 54 zaakceptowane na podstawie zweryfikowanych cytatów, 10 odrzuconych jako nieugruntowane (`impact_rejected_unsupported`).
+      * **Czas całkowity**: Mediana **34,11 s**, najlepszy czas **29,22 s**, najgorszy czas **78,71 s** (skrócenie mediany z ~69,5 s w V18 do 34,11 s w V19).
+    - **Oficjalny raport**: Utworzono [docs/REPORT_V19.md](file:///Users/macbookpro/PROJEKTY/YOURQUANTUM/docs/REPORT_V19.md).
 - **Weryfikacja testowa**:
   * `scripts/check_v4.sh`: Wszystkie bramki PASS (**25/25 ZIELONE**).
-  * `pytest`: Wszystkie testy automatyczne PASS (w tym testy `tests/test_scenario_web_sourcing.py` 28/28 PASS, `tests/unit/test_doc_citations.py` 6/6 PASS).
+  * `pytest`: Wszystkie 257 testów automatycznych PASS (w tym testy `tests/test_scenario_web_sourcing.py` 29/29 PASS, `tests/unit/test_doc_citations.py` 6/6 PASS).
   * `npm run build`: Kompilacja Vite/TypeScript czysta (kod 0, 0 błędów).
-
 - **Wdrożenie produkcyjne**: `https://yourquantum.pl` (Vercel prod deployment, status `READY`):
-  * Aktywny commit produkcyjny: `430c326` (w 100% tożsamy z `origin/main`).
-  * Potwierdzony pomiar produkcyjny `POST /api/v1/cognitive/intake` dla zapytania geopolitycznego `"Czy Rosja do końca tego roku napadnie na Polskę?"`:
-    - `impacts_proposed: 11` (potwierdza uziemienie: liczby generowane ze scenariuszami).
-    - `impacts_accepted: 5`.
-    - `impact_rejected_unsupported: 6`.
-    - `impact_documented_share: 100.0%` (100% aktywnego wpływu pochodzi ze źródeł udokumentowanych).
-    - `intake_wall_time_seconds: 61.7053`.
-    - Rozbicie czasów: wyszukiwanie 14.20s, pobieranie 0.28s, ekstrakcja 12.70s, dekompozycja 34.35s, agregacja 0.0099s.
-    - `web_quotes_verified: 6`, `web_sentences_offered: 510`.
-    - `n_documented_premises: 6`, `n_active_premises: 6`.
-    - `dominant_scenario: "Wzrost napięć bez bezpośredniego ataku"`, `dominant_probability: 0.4595`.
-    - `dominant_sensitivity_band: "41,3%–49,9%"`.
+  * Aktywny commit produkcyjny: `70e3f59` (origin/main).
 
 
 
@@ -342,6 +333,27 @@ WYNIK KOŃCOWY: WSZYSTKIE BRAMKI ZIELONE (PASS)
 
 ---
 
+### ✅ Faza V19: Trzy Domknięcia (2026-09-18)
+- **Rozdział słowników wpływów i per-scenariuszowy `impact_source` (V19-1, DEC-041)**:
+  - `impact_on_scenarios: dict[str, float]` przechowuje wyłącznie wpływy ugruntowane w zweryfikowanych zdaniach cytowanych z dokumentów.
+  - `impact_proposed: dict[str, float]` w `EvidencePremise` przechowuje propozycje analityczne modelu językowego. Propozycje te nigdy nie są scalane automatycznie i nigdy nie nadpisują zweryfikowanych wartości.
+  - Słownik `impact_source` z klasą `ImpactSourceDict` mapuje `scenario_id -> 'documented' | 'model_unverified' | 'user_defined'` i zachowuje pełną kompatybilność wsteczną w porównaniach z łańcuchami znaków.
+  - Softmax (`compute_scenario_distribution`) czyta wyłącznie ze słownika `impact_on_scenarios`. Niezaakceptowane propozycje nie wpływają na rozkład prawdopodobieństw.
+  - W `frontend/src/components/RecommendationView.tsx` komponent `PremiseScenarioImpacts` rozdziela prezentację wpływów ugruntowanych od propozycji analitycznych modelu i umożliwia selektywne zatwierdzanie per scenariusz.
+- **Telemetria `impacts_not_proposed_reason` (V19-2)**:
+  - Zaimplementowano raportowanie ustandaryzowanych przyczyn braku propozycji wpływów (`brak candidate_scenarios`, `model zwrócił pustą tablicę impacts`, `odpowiedź modelu nie przeszła walidacji schematu`, `przekroczony budżet`).
+- **Optymalizacja czasu odpowiedzi (V19-3)**:
+  - Zrównoleglono dekompozycję zapytania na scenariusze (Etap 1) oraz wyszukiwanie sieciowe (Etap 2) za pomocą `asyncio.gather`.
+  - Wdrożono dedykowane instancje `EvidenceExtractor` na każdy dokument w Etapie 3, eliminując współdzielony stan mutowalny.
+- **Pomiar produkcyjny 10 biegów (`scripts/measure_forecast_stability.py --target https://yourquantum.pl --runs 10`)**:
+  - **10 na 10 biegów (100,0%)** wykazało `impact_documented_share > 0`.
+  - **Rozrzut `impact_documented_share`**: ściśle **100,0%** we wszystkich 10 biegach.
+  - **Telemetria wpływów**: 64 zaproponowane, 54 zaakceptowane, 10 odrzuconych jako nieugruntowane przez bramkę G-EVID/DEC-040.
+  - **Czasy odpowiedzi**: Mediana **34,11 s**, najlepszy czas **29,22 s**, najgorszy czas **78,71 s** (skrócenie mediany z ~69,5 s w V18 do 34,11 s).
+- **Raport**: Utworzono `docs/REPORT_V19.md`, zarejestrowano decyzję DEC-041 w `docs/memory/DECISIONS.md`.
+
+---
+
 ## Następny krok (Next Step)
 
-Zlecenie V18 ukończone, przetestowane (25/25 bramek PASS), wdrożone produkcyjnie na https://yourquantum.pl i zweryfikowane bezpośrednim zapytaniem produkcyjnym (`impacts_proposed = 11`, `impact_documented_share = 100.0%`). Oczekiwanie na dyspozycję Jana co do kolejnego etapu rozwoju YourQuantum.
+Zlecenie V19 ukończone, przetestowane (25/25 bramek PASS w scripts/check_v4.sh), wdrożone produkcyjnie na https://yourquantum.pl i zweryfikowane pełnym 10-biegowym pomiarem produkcyjnym (10/10 biegów ze 100,0% ugruntowaniem, mediana 34,11 s). Oczekiwanie na dyspozycję Jana co do kolejnego etapu rozwoju YourQuantum.

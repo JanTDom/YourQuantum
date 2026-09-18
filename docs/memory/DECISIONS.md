@@ -699,5 +699,29 @@ W audycie Promptu V17 i V18 stwierdzono, że we wszystkich wcześniejszych biega
 5. **Telemetria `impact_documented_share` (V18-2)**: Do telemetrii prognozy dodano wskaźnik procentowego udziału wpływu udokumentowanego w łącznym module wpływów aktywnych przesłanek:
    $$\text{impact\_documented\_share} = \frac{\sum_{\text{doc}} |I(s, p)|}{\sum_{\text{total}} |I(s, p)|} \times 100\%$$
 
+---
+
+## DEC-041: Rozdział słowników wpływów, per-scenariuszowy impact_source i równoległa dekompozycja zapytania z wyszukiwaniem
+
+**Data:** 2026-09-18  
+**Autor:** Antigravity (Prompt V19, zatwierdzone przez Jana Domaniewskiego)  
+**Kontekst:** Weryfikacja audytu V18 wykazała usterkę poprawności w `backend/domain/cognitive/scenario_decomposer.py`: ugruntowany wpływ i propozycja modelu trafiały do tego samego słownika `impact_on_scenarios`. Ponadto telemetria nie wyjaśniała przyczyny braku propozycji (`impacts_proposed == 0`), a sekwencyjne wykonywanie dekompozycji i wyszukiwania niepotrzebnie wydłużało czas odpowiedzi.
+
+**Decyzja:**
+1. **Rozdział słowników `impact_on_scenarios` i `impact_proposed` (V19-1)**:
+   - Słownik `impact_on_scenarios: dict[str, float]` w `EvidencePremise` przechowuje **wyłącznie** wpływy ugruntowane w zweryfikowanych zdaniach z dokumentów (`ev.impact_on_scenarios`).
+   - Nowe pole `impact_proposed: dict[str, float]` przechowuje propozycje analityczne dekomponującego modelu językowego. Nigdy nie są one automatycznie scalane z ugruntowanymi wpływami i nigdy nie nadpisują zweryfikowanych wartości.
+2. **Słownik `impact_source` per scenariusz (V19-1)**:
+   - Pole `impact_source` stało się słownikiem `ImpactSourceDict` mapującym `scenario_id -> 'documented' | 'model_unverified' | 'user_defined'`.
+   - Klasa `ImpactSourceDict` zachowuje kompatybilność wsteczną w porównaniach równościowych ze stringami (`impact_source == 'documented'`), a metoda pomocnicza `get_impact_source(scenario_id: str) -> str` zwraca precyzyjne źródło dla zadanego scenariusza.
+3. **Izolacja matematyczna w softmax (V19-1)**:
+   - Funkcja `compute_scenario_distribution` (`backend/domain/scenario_weighting.py`) czyta wyłącznie `impact_on_scenarios`.
+   - Propozycje z `impact_proposed` nie mają żadnego wpływu na rozkład prawdopodobieństw, dopóki decydent nie dokona jawnego zatwierdzenia propozycji (co przenosi wpływ do `impact_on_scenarios` ze statusem `impact_source = 'user_defined'`).
+4. **Telemetria `impacts_not_proposed_reason` (V19-2)**:
+   - Gdy `impacts_proposed == 0`, silnik raportuje jedną z czterech standaryzowanych przyczyn: `"brak candidate_scenarios"`, `"model zwrócił pustą tablicę impacts"`, `"odpowiedź modelu nie przeszła walidacji schematu"`, `"przekroczony budżet"`.
+5. **Współbieżność Etapu 1 i 2 (V19-3)**:
+   - Dekompozycja zapytania na scenariusze kandydujące (Etap 1) oraz wyszukiwanie w sieci (Etap 2) wykonywane są równolegle przez `asyncio.gather`, skracając czas odpowiedzi na produkcji do mediany 34,11 s bez obniżania limitów czasu ani liczby stron.
+
+
 
 
