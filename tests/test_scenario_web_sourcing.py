@@ -163,8 +163,8 @@ def test_web_sourced_premise_with_model_impacts_preserves_model_numbers():
         for sc in dist_unaccepted.scenarios:
             assert pytest.approx(sc.probability, abs=1e-3) == 1.0 / len(dist_unaccepted.scenarios)
 
-        # After acceptance, the model-provided impact shifts probability
-        accepted_premises = [p.model_copy(update={"is_accepted": True}) for p in forecast.evidence_premises]
+        # After user acceptance, the model-provided impact shifts probability (DEC-040: user approval sets impact_source to user_defined)
+        accepted_premises = [p.model_copy(update={"is_accepted": True, "impact_source": "user_defined"}) for p in forecast.evidence_premises]
         dist_accepted = compute_scenario_distribution(
             query=forecast.query,
             scenarios=[sc.model_copy() for sc in forecast.scenarios],
@@ -1075,9 +1075,99 @@ def test_v16_dec_039_documented_premises_automatically_accepted():
         p_sc2 = next(s.probability for s in forecast.scenarios if s.id == "sc_2")
         assert p_sc1 != p_sc2, f"Expected non-uniform distribution, got p(sc_1)={p_sc1}, p(sc_2)={p_sc2}"
         assert p_sc2 > p_sc1, "Brak ataku should have higher probability due to positive impact"
+        assert wp.impact_source == "documented"
 
     asyncio.run(_run())
 
 
+def test_v18_model_unverified_impact_does_not_shift_distribution():
+    """
+    Prompt V18 §2: Impacts proposed without a verified sentence from a document
+    must NOT enter softmax aggregation (impact_source: 'model_unverified').
+    The distribution MUST remain flat/uniform (e.g. 33.3% / 33.3% / 33.3%).
+    Only 'documented' or 'user_defined' impacts shape the distribution.
+    """
+    from backend.domain.scenario_weighting import EvidencePremise, ScenarioOutcome, compute_scenario_distribution
+
+    scenarios = [
+        ScenarioOutcome(id="sc_1", title="Scenariusz A", description="", risk_level="LOW"),
+        ScenarioOutcome(id="sc_2", title="Scenariusz B", description="", risk_level="MEDIUM"),
+        ScenarioOutcome(id="sc_3", title="Scenariusz C", description="", risk_level="HIGH"),
+    ]
+
+    # Premise with model_unverified impacts
+    premise_unverified = EvidencePremise(
+        id="prem_unverified",
+        name="Przesłanka modelowa",
+        description="Twierdzenie analityczne bez ugruntowania w źródle",
+        source_ref="model_inference",
+        provenance="llm_suggested",
+        impact_source="model_unverified",
+        is_accepted=True,  # Even if marked accepted, unverified impact must NOT shift distribution
+        impact_on_scenarios={"sc_1": 0.9, "sc_2": -0.5, "sc_3": -0.4},
+    )
+
+    dist_unverified = compute_scenario_distribution(
+        query="Test V18 unverified",
+        scenarios=[s.model_copy() for s in scenarios],
+        premises=[premise_unverified],
+    )
+
+    # Must be perfectly flat 1/3 each
+    for sc in dist_unverified.scenarios:
+        assert pytest.approx(sc.probability, abs=1e-3) == 1.0 / 3.0
+    assert dist_unverified.telemetry.get("impact_documented_share") == 0.0
+
+    # Now with documented premise
+    premise_documented = EvidencePremise(
+        id="prem_documented",
+        name="Przesłanka udokumentowana",
+        description="Fakt ugruntowany w dokumencie źródłowym",
+        source_ref="https://example.com/doc",
+        provenance="web_sourced",
+        impact_source="documented",
+        is_accepted=True,
+        impact_on_scenarios={"sc_1": 0.9, "sc_2": -0.5, "sc_3": -0.4},
+    )
+
+    dist_documented = compute_scenario_distribution(
+        query="Test V18 documented",
+        scenarios=[s.model_copy() for s in scenarios],
+        premises=[premise_documented],
+    )
+
+    p_sc1 = next(s.probability for s in dist_documented.scenarios if s.id == "sc_1")
+    p_sc2 = next(s.probability for s in dist_documented.scenarios if s.id == "sc_2")
+    assert p_sc1 > p_sc2
+    assert pytest.approx(dist_documented.telemetry.get("impact_documented_share", 0.0), abs=1e-2) == 100.0
 
 
+def test_v18_justifying_sentence_only_for_documented_impacts():
+    """
+    Prompt V18 §3: Only documented impacts carry verified justifying sentences.
+    Model unverified impacts have impact_source == 'model_unverified'.
+    """
+    from backend.domain.scenario_weighting import EvidencePremise
+
+    prem_unverified = EvidencePremise(
+        id="p1",
+        name="Przesłanka 1",
+        description="Ocena modelu bez źródła",
+        provenance="llm_suggested",
+        impact_source="model_unverified",
+        impact_on_scenarios={"sc_1": 0.5},
+    )
+    assert prem_unverified.impact_source == "model_unverified"
+    assert not prem_unverified.impact_justification
+
+    prem_documented = EvidencePremise(
+        id="p2",
+        name="Przesłanka 2",
+        description="Fakt z cytatu",
+        provenance="web_sourced",
+        impact_source="documented",
+        impact_on_scenarios={"sc_1": 0.5},
+        impact_justification={"sc_1": {"justifying_sentence": "Polska wzmacnia granicę wschodnią."}},
+    )
+    assert prem_documented.impact_source == "documented"
+    assert prem_documented.impact_justification["sc_1"]["justifying_sentence"] == "Polska wzmacnia granicę wschodnią."

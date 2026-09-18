@@ -96,6 +96,14 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
     )
   }
 
+  const handleAcceptPremiseImpact = (premiseId: string) => {
+    setScenarioPremises((prev) =>
+      prev.map((p) =>
+        p.id === premiseId ? { ...p, is_accepted: true, impact_source: 'user_defined' } : p
+      )
+    )
+  }
+
   useEffect(() => {
     if (forecast?.evidence_premises) {
       setScenarioPremises(forecast.evidence_premises)
@@ -111,7 +119,9 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
     for (const sc of forecast.scenarios) {
       let s = 0.0
       for (const p of activePremises) {
-        const imp = p.impact_on_scenarios[sc.id] ?? 0.0
+        // DEC-040: Unverified model impacts do NOT shape distribution unless user explicitly approved
+        const isImpactActive = p.impact_source === 'documented' || p.impact_source === 'user_defined' || p.provenance === 'user_supplied'
+        const imp = isImpactActive ? (p.impact_on_scenarios[sc.id] ?? 0.0) : 0.0
         s += imp * p.weight * p.confidence
       }
       scores[sc.id] = s
@@ -843,7 +853,11 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                           </p>
                         )}
                         {isWeb && <WebEvidenceNotice sourceRef={premise.source_ref} weightBreakdown={premise.weight_breakdown} weightJustification={premise.weight_justification} />}
-                        <PremiseScenarioImpacts premise={premise} scenarios={liveForecast.scenarios} />
+                        <PremiseScenarioImpacts
+                          premise={premise}
+                          scenarios={liveForecast.scenarios}
+                          onAcceptImpact={() => handleAcceptPremiseImpact(premise.id)}
+                        />
 
                         {/* Weight Slider */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
@@ -2370,13 +2384,17 @@ function ActivePremisesEmptyBanner({
 function PremiseScenarioImpacts({
   premise,
   scenarios,
+  onAcceptImpact,
 }: {
   premise: EvidencePremise
   scenarios: ScenarioOutcome[]
+  onAcceptImpact?: () => void
 }) {
   if (!premise.impact_on_scenarios || Object.keys(premise.impact_on_scenarios).length === 0) {
     return null
   }
+  const isDocumented = premise.impact_source === 'documented'
+
   return (
     <div style={{
       marginTop: '0.6rem',
@@ -2386,8 +2404,17 @@ function PremiseScenarioImpacts({
       border: '1px solid oklch(20% 0.02 250)',
       fontSize: '0.75rem',
     }}>
-      <div style={{ fontWeight: 700, color: 'oklch(75% 0.12 80)', marginBottom: '0.35rem' }}>
-        Wpływ na scenariusze i uziemienie w tekście:
+      <div style={{ fontWeight: 700, color: 'oklch(75% 0.12 80)', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span>Wpływ na scenariusze i uziemienie w tekście:</span>
+        {premise.impact_source && (
+          <span style={{
+            fontSize: '0.6875rem',
+            fontWeight: 600,
+            color: isDocumented ? 'oklch(80% 0.15 140)' : 'oklch(75% 0.15 60)',
+          }}>
+            {isDocumented ? '✓ wpływ udokumentowany' : '⚠ propozycja modelu'}
+          </span>
+        )}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
         {Object.entries(premise.impact_on_scenarios).map(([scId, impVal]) => {
@@ -2412,12 +2439,12 @@ function PremiseScenarioImpacts({
                 }}>
                   {isPositive ? `+${impVal.toFixed(2)}` : impVal.toFixed(2)}
                 </span>
-                {charStart !== undefined && charEnd !== undefined && (
+                {isDocumented && charStart !== undefined && charEnd !== undefined && (
                   <span style={{ fontSize: '0.6875rem', color: 'oklch(50% 0.02 250)' }}>
                     (znaki: {charStart}–{charEnd})
                   </span>
                 )}
-                {premise.source_ref && premise.source_ref.startsWith('http') && (
+                {isDocumented && premise.source_ref && premise.source_ref.startsWith('http') && (
                   <a
                     href={premise.source_ref}
                     target="_blank"
@@ -2428,7 +2455,7 @@ function PremiseScenarioImpacts({
                   </a>
                 )}
               </div>
-              {justSentence && (
+              {isDocumented && justSentence ? (
                 <div style={{
                   fontSize: '0.6875rem',
                   color: 'oklch(70% 0.03 250)',
@@ -2438,11 +2465,53 @@ function PremiseScenarioImpacts({
                 }}>
                   „{justSentence}”
                 </div>
+              ) : (
+                <div style={{
+                  fontSize: '0.6875rem',
+                  color: 'oklch(60% 0.04 40)',
+                  fontStyle: 'italic',
+                  paddingLeft: '0.5rem',
+                  borderLeft: '2px solid oklch(25% 0.02 250)',
+                }}>
+                  ocena modelu, bez pokrycia w dokumencie
+                </div>
               )}
             </div>
           )
         })}
       </div>
+      {premise.impact_source === 'model_unverified' && onAcceptImpact && (
+        <div style={{
+          marginTop: '0.5rem',
+          padding: '0.35rem 0.6rem',
+          background: 'oklch(15% 0.02 50)',
+          borderRadius: '4px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '0.5rem',
+        }}>
+          <span style={{ fontSize: '0.6875rem', color: 'oklch(75% 0.1 60)' }}>
+            Liczby wpływu nie posiadają uzasadnienia w cytacie.
+          </span>
+          <button
+            type="button"
+            onClick={onAcceptImpact}
+            style={{
+              fontSize: '0.6875rem',
+              fontWeight: 600,
+              padding: '0.2rem 0.6rem',
+              borderRadius: '4px',
+              background: 'oklch(25% 0.06 80)',
+              color: 'oklch(90% 0.08 80)',
+              border: '1px solid oklch(40% 0.1 80)',
+              cursor: 'pointer',
+            }}
+          >
+            Zatwierdź wpływ
+          </button>
+        </div>
+      )}
     </div>
   )
 }

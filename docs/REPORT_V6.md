@@ -94,35 +94,35 @@ WYNIK KOŃCOWY: WSZYSTKIE BRAMKI ZIELONE (PASS)
 **Errata (2026-09-14):** Pierwotna wersja niniejszej sekcji zawierała opis interfejsu niezgodny z rzeczywistym kodem źródłowym (odtworzone z pamięci i niesprawdzone u źródła cytaty tekstów UI, nieistniejący w kodzie baner ostrzegawczy, zmyślone nazwy funkcji pomocniczych) oraz błędnie określała metodę obliczeniową jako „bayesowską”. Poniższy opis został całkowicie przepisany po niezależnej weryfikacji z 2026-09-14 i opiera się wyłącznie na dosłownych cytatach oraz faktycznie istniejącym kodzie (`frontend/src/components/RecommendationView.tsx` oraz `backend/domain/scenario_weighting.py`).
 
 ### Warunek początkowy
-Gdy użytkownik otrzymuje prognozę z dekompozycji LLM, wszystkie przesłanki mają status `provenance === 'llm_suggested'` oraz `is_accepted = false` (`scenario_decomposer.py`, linia 211). W hooku `liveForecast = useMemo(...)` (`RecommendationView.tsx`, linie 105–171) aktywne przesłanki są filtrowane warunkiem `p.provenance !== 'llm_suggested' || p.is_accepted` (linia 107). Przy braku zatwierdzonych przesłanek ich liczba wynosi zero (`liveForecast.activeCount === 0`, linie 107, 164).
+Gdy użytkownik otrzymuje prognozę z dekompozycji LLM, wszystkie przesłanki mają status `provenance === 'llm_suggested'` oraz `is_accepted = false` (`scenario_decomposer.py`, linia 215). W hooku `liveForecast = useMemo(...)` (`RecommendationView.tsx`, linie 105–175) aktywne przesłanki są filtrowane warunkiem `p.provenance !== 'llm_suggested' || p.is_accepted` (linia 115). Przy braku zatwierdzonych przesłanek ich liczba wynosi zero (`liveForecast.activeCount === 0`, linie 115, 175).
 
 ### Co widzi użytkownik w stanie zerowym (`liveForecast.activeCount === 0`):
-1. **Nagłówek główny widoku `h1`** (`RecommendationView.tsx`, linie 421–423):
+1. **Nagłówek główny widoku `h1`** (`RecommendationView.tsx`, linie 421–435):
    Wyświetla dosłowny tekst:
    `Rozkład równomierny – nie zatwierdzono jeszcze żadnej przesłanki`
    (zamiast `forecast.briefing?.headline || Ocena scenariuszy: ${forecast.query}`).
-2. **Nagłówek karty podsumowania wykonawczego `h3`** (`RecommendationView.tsx`, linie 458–460):
+2. **Nagłówek karty podsumowania wykonawczego `h3`** (`RecommendationView.tsx`, linie 467–471):
    Wyświetla dosłowny tekst:
    `Rozkład równomierny – nie zatwierdzono jeszcze żadnej przesłanki`
    (zamiast `Wnioski w pigułce (diagnoza strategiczna)`).
-3. **Treść akapitu podsumowania wykonawczego `p`** (`RecommendationView.tsx`, linie 489–492):
+3. **Treść akapitu podsumowania wykonawczego `p`** (`RecommendationView.tsx`, linie 489–500):
    Wyświetla dosłowny tekst:
    `Poniżej znajdziesz przesłanki zaproponowane przez model. Zatwierdź te, które uznajesz za trafne – rozkład przeliczy się natychmiast. Możesz też zmienić ich wagi.`
    (zamiast `forecast.briefing?.executive_summary`).
-4. **Przedział wrażliwości wariantu wiodącego w karcie podsumowania** (`RecommendationView.tsx`, linie 465–485):
-   Element warunkowany wyrażeniem `{liveForecast.activeCount > 0 && (...)}` (linia 465). W stanie zerowym jest całkowicie ukryty.
+4. **Przedział wrażliwości wariantu wiodącego w karcie podsumowania** (`RecommendationView.tsx`, linie 475–495):
+   Element warunkowany wyrażeniem `{liveForecast.activeCount > 0 && (...)}` (linia 475). W stanie zerowym jest całkowicie ukryty.
 5. **Wykres prawdopodobieństwa i karty scenariuszy (Sekcja 2)** (`RecommendationView.tsx`, linie 497–720):
    - Wszystkie scenariusze mają równe prawdopodobieństwo bazowe (\(1/k\), gdzie \(k\) to liczba scenariuszy).
-   - Plakietka `★ Dominujący kierunek` (linia 616): zmienna `isDominant` pozostaje prawdziwa dla pierwszego elementu posortowanej tablicy, lecz flaga wyświetlania `showDominant = isDominant && hasActivePremises` (linia 584) przyjmuje wartość `false`, ponieważ `hasActivePremises = liveForecast.activeCount > 0` (linia 583). W efekcie plakietka nie jest renderowana, a karta nie otrzymuje złotego obrysu wariantu dominującego.
-   - Podpis pod wartością procentową scenariusza (`RecommendationView.tsx`, linie 661–664):
-     warunek `hasActivePremises ? ... : 'Rozkład równomierny (równe prawdopodobieństwo bazowe)'` (linia 663) wyświetla dosłowny tekst:
+   - Plakietka `★ Dominujący kierunek` (linia 626): zmienna `isDominant` pozostaje prawdziwa dla pierwszego elementu posortowanej tablicy, lecz flaga wyświetlania `showDominant = isDominant && hasActivePremises` (linia 594) przyjmuje wartość `false`, ponieważ `hasActivePremises = liveForecast.activeCount > 0` (linia 593). W efekcie plakietka nie jest renderowana, a karta nie otrzymuje złotego obrysu wariantu dominującego.
+   - Podpis pod wartością procentową scenariusza (`RecommendationView.tsx`, linie 661–675):
+     warunek `hasActivePremises ? ... : 'Rozkład równomierny (równe prawdopodobieństwo bazowe)'` (linia 670) wyświetla dosłowny tekst:
      `Rozkład równomierny (równe prawdopodobieństwo bazowe)`. Pasmo wrażliwości \(\beta\) jest ukryte.
 6. **Panel zarządzania przesłankami (Sekcja 3)** (`RecommendationView.tsx`, linie 722–872):
-   - Licznik umieszczony obok przycisków akcji (`RecommendationView.tsx`, linia 771):
+   - Licznik umieszczony obok przycisków akcji (`RecommendationView.tsx`, linia 781):
      `Zatwierdzone: {liveForecast.activeCount} z {liveForecast.totalCount}` (np. `Zatwierdzone: 0 z 4`).
    - Przyciski masowych akcji dla przesłanek LLM:
-     - Przycisk o `id="btn-accept-all-llm-premises"` (`RecommendationView.tsx`, linie 735–750) z tekstem `Zatwierdź wszystkie propozycje modelu` (wywołuje `handleAcceptAllLlm`).
-     - Przycisk o `id="btn-reject-all-llm-premises"` (`RecommendationView.tsx`, linie 751–768) z tekstem `Odznacz wszystkie` (wywołuje `handleRejectAllLlm`).
+     - Przycisk o `id="btn-accept-all-llm-premises"` (`RecommendationView.tsx`, linie 745–760) z tekstem `Zatwierdź wszystkie propozycje modelu` (wywołuje `handleAcceptAllLlm`).
+     - Przycisk o `id="btn-reject-all-llm-premises"` (`RecommendationView.tsx`, linie 761–778) z tekstem `Odznacz wszystkie` (wywołuje `handleRejectAllLlm`).
    - Karty przesłanek o pochodzeniu `llm_suggested` (`RecommendationView.tsx`, linie 776–870):
      - Etykieta pochodzenia (`RecommendationView.tsx`, linia 810): `🤖 Sugestia AI`.
      - Przełącznik akceptacji (`RecommendationView.tsx`, linie 816–832) wywołujący `handleTogglePremiseAccepted(premise.id)` z aktywnym przyciskiem o etykiecie stanu:
@@ -132,21 +132,21 @@ Gdy użytkownik otrzymuje prognozę z dekompozycji LLM, wszystkie przesłanki ma
    - Warunek renderowania: `{liveForecast.activeCount > 0 && (...)}` (linia 875). Przy zerze aktywnych przesłanek cała sekcja 4 jest w całości ukryta. Nie zastępuje jej żaden osobny panel informacyjny.
 
 ### Co się dzieje po kliknięciu „Zatwierdź wszystkie propozycje modelu”:
-1. Kliknięcie przycisku `Zatwierdź wszystkie propozycje modelu` (linia 749) wywołuje funkcję `handleAcceptAllLlm` (`RecommendationView.tsx`, linie 83–89).
+1. Kliknięcie przycisku `Zatwierdź wszystkie propozycje modelu` (linia 759) wywołuje funkcję `handleAcceptAllLlm` (`RecommendationView.tsx`, linie 83–89).
 2. Funkcja `handleAcceptAllLlm` mapuje tablicę `scenarioPremises`, ustawiając `is_accepted: true` wyłącznie dla przesłanek o `provenance === 'llm_suggested'` (linie 85–87). Przesłanki o innym pochodzeniu pozostają nienaruszone.
-3. Zmiana stanu w React wyzwala ponowne przeliczenie hooka `liveForecast = useMemo(...)` (`RecommendationView.tsx`, linie 105–171).
-4. `liveForecast.activeCount` rośnie do liczby aktywnych przesłanek, a licznik (linia 771) aktualizuje się np. do `Zatwierdzone: 4 z 4`.
+3. Zmiana stanu w React wyzwala ponowne przeliczenie hooka `liveForecast = useMemo(...)` (`RecommendationView.tsx`, linie 105–175).
+4. `liveForecast.activeCount` rośnie do liczby aktywnych przesłanek, a licznik (linia 781) aktualizuje się np. do `Zatwierdzone: 4 z 4`.
 5. Hook `liveForecast` oblicza sumaryczne oceny scenariuszy (\(s_j = \sum_p \text{impact}_{p,j} \cdot \text{weight}_p \cdot \text{confidence}_p\)) i wyznacza prawdopodobieństwa funkcją `computeDist` (`RecommendationView.tsx`, linie 120–135) z parametrem `scenarioBeta`.
 6. Wykres prezentuje zróżnicowane prawdopodobieństwa wyliczone ważonym softmaxem zamiast rozkładu równomiernego.
-7. Nagłówek główny `h1` (linia 421) oraz nagłówek karty `h3` (linia 458) i akapit `p` (linia 489) przełączają się ze stanu zerowego na standardowe teksty prognozy: `forecast.briefing?.headline`, `Wnioski w pigułce (diagnoza strategiczna)` oraz `forecast.briefing?.executive_summary`.
-8. Dla scenariusza o najwyższym prawdopodobieństwie ewaluuje się `showDominant = isDominant && hasActivePremises = true` (linia 584), co wyświetla plakietkę `★ Dominujący kierunek` (linia 616) oraz złote wyróżnienie karty scenariusza.
-9. Podpis pod prawdopodobieństwem scenariusza (linie 661–664) przełącza się z tekstu o rozkładzie równomiernym na:
+7. Nagłówek główny `h1` (linia 421) oraz nagłówek karty `h3` (linia 467) i akapit `p` (linia 489) przełączają się ze stanu zerowego na standardowe teksty prognozy: `forecast.briefing?.headline`, `Wnioski w pigułce (diagnoza strategiczna)` oraz `forecast.briefing?.executive_summary`.
+8. Dla scenariusza o najwyższym prawdopodobieństwie ewaluuje się `showDominant = isDominant && hasActivePremises` (linia 594), co wyświetla plakietkę `★ Dominujący kierunek` (linia 626) oraz złote wyróżnienie karty scenariusza.
+9. Podpis pod prawdopodobieństwem scenariusza (linie 661–675) przełącza się z tekstu o rozkładzie równomiernym na:
    `${verbalChance} · Pasmo wrażliwości: ${scMin}%–${scMax}%`.
 10. Odsłania się sekcja 4 (linia 875), prezentując pełną analityczną analizę punktów zwrotnych (marginesy bezpieczeństwa, progi zmiany decyzji dla każdej przesłanki).
 11. W karcie podsumowania odsłania się przedział wrażliwości wariantu wiodącego (linie 465–485) dla pasma \(\beta \in \{0.5, 1.0, 2.0, 3.0\}\).
 
 ### Metoda obliczeniowa
-Metoda zastosowana w silniku to **ważona agregacja przesłanek z rozkładem softmax (Gibbsa)**, oznaczona w telemetrii jako `method: "weighted_softmax_aggregation"` (`backend/domain/scenario_weighting.py`, linia 438; `backend/domain/cognitive/scenario_decomposer.py`, linia 252). Prawdopodobieństwo scenariusza \(j\) dane jest wzorem:
+Metoda zastosowana w silniku to **ważona agregacja przesłanek z rozkładem softmax (Gibbsa)**, oznaczona w telemetrii jako `method: "weighted_softmax_aggregation"` (`backend/domain/scenario_weighting.py`, linia 462; `backend/domain/cognitive/scenario_decomposer.py`, linia 258). Prawdopodobieństwo scenariusza \(j\) dane jest wzorem:
 \[
 P(S_j) = \frac{\exp(\beta \cdot (s_j - \max_k s_k))}{\sum_m \exp(\beta \cdot (s_m - \max_k s_k))}
 \]

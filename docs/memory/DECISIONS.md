@@ -678,5 +678,26 @@ W wersjach V11–V15 wszystkie przesłanki sieciowe (`provenance == "web_sourced
 3. **Uzasadnienie wpływu**: Wpływ przesłanki na scenariusze (`impact_on_scenarios`) musi być powiązany z konkretnym indeksem zdania w dokumencie (`impact_justification`), co zapobiega zmyślaniu kierunku asocjacji przez model.
 4. **Telemetria**: Dodano metryki telemetrii `n_documented_premises` oraz `n_premises_rejected_as_undocumented`. Gdy w pełni udokumentowane przesłanki są obecne, wchodzą one bezpośrednio do agregacji probabilistycznej `compute_scenario_distribution`, dając `n_active_premises >= 1` i niejednostajny, ugruntowany dowodowo rozkład prawdopodobieństw.
 
+---
+
+## DEC-040 — Rozdział wpływu udokumentowanego od proponowanego i zakaz kształtowania rozkładu przez model_unverified
+
+**Date:** 2026-09-18
+**Status:** ACTIVE
+
+**Kontekst:**
+W audycie Promptu V17 i V18 stwierdzono, że we wszystkich wcześniejszych biegach silnika `impacts_proposed = 0` z powodu braku przekazywania listy `candidate_scenarios` do ekstraktora (`EvidenceExtractor`). W konsekwencji ekstraktor nie generował liczb wpływu ze zweryfikowanym cytatem, a jedyne liczby wpływu pochodziły z drugiego wywołania modelu (dekompozytora), które nie posiadało uzasadnienia w konkretnym zdaniu dokumentu ani weryfikacji przez `_verify_quote_in_text`. Mimo to, po wdrożeniu DEC-039 liczby te wchodziły do obliczeń softmax, kształtując asymetrię rozkładu na podstawie niezweryfikowanych domysłów modelu.
+
+**Decyzja:**
+1. **Dekompozycja wstępna przed pobieraniem stron (V18-1)**: Silnik generuje scenariusze kandydujące (`candidate_scenarios`) bezpośrednio z pytania użytkownika przed pobraniem stron, a następnie przekazuje je do `extractor.extract_parameter_evidences`. Ekstraktor wymaga wskazania `sentence_index` uzasadniającego wpływ na poszczególne scenariusze i weryfikuje cytat zdania funkcją `_verify_quote_in_text`.
+2. **Kategoryczny zakaz kształtowania rozkładu przez niezweryfikowany wpływ (V18-2)**:
+   - Wpływy pochodzące z propozycji modelu bez zweryfikowanego zdania z dokumentu otrzymują status `impact_source = "model_unverified"`.
+   - W funkcji `compute_scenario_distribution` (`backend/domain/scenario_weighting.py`) wpływy z `impact_source == "model_unverified"` są traktowane jako `0.0` (nie wchodzą do sumy `support_scores`), dopóki użytkownik jawnie nie zatwierdzi ich w interfejsie (`impact_source = "user_defined"`).
+   - Wpływy ze zweryfikowanym zdaniem uzasadniającym otrzymują status `impact_source = "documented"` i wchodzą do rozkładu automatycznie.
+3. **Płaski rozkład jako prawidłowa odpowiedź**: Gdy brak udokumentowanych wpływów (wszystkie aktywne przesłanki mają wpływ zerowy lub niezweryfikowany), rozkład prawdopodobieństw pozostaje ściśle płaski (jednostajny, $1/k$). Niedopuszczalne jest wymuszanie asymetrii na niezweryfikowanych liczbach.
+4. **Zdanie pod liczbą w interfejsie (V18-3)**: W UI (`frontend/src/components/RecommendationView.tsx`) dosłowne zdanie uzasadniające wyświetlane jest wyłącznie dla `impact_source == "documented"`. Dla `model_unverified` interfejs wyświetla jawne ostrzeżenie: *„ocena modelu, bez pokrycia w dokumencie”* oraz przycisk umożliwiający decydentowi świadome zatwierdzenie propozycji.
+5. **Telemetria `impact_documented_share` (V18-2)**: Do telemetrii prognozy dodano wskaźnik procentowego udziału wpływu udokumentowanego w łącznym module wpływów aktywnych przesłanek:
+   $$\text{impact\_documented\_share} = \frac{\sum_{\text{doc}} |I(s, p)|}{\sum_{\text{total}} |I(s, p)|} \times 100\%$$
+
 
 

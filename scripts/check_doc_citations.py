@@ -24,6 +24,7 @@ CHECKED_DOCS: List[str] = [
     "docs/REPORT_V12.md",
     "docs/REPORT_V13.md",
     "docs/REPORT_V14.md",
+    "docs/REPORT_V18.md",
 ]
 
 # Ignorowane katalogi przy indeksowaniu plików

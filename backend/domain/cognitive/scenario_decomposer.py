@@ -107,6 +107,8 @@ async def decompose_scenario_query_async(
     web_snippets: list[str] | None = None,
     verified_evidences: list[Evidence] | None = None,
     gateway: LLMGateway | None = None,
+    candidate_scenarios: list[ScenarioOutcome] | None = None,
+    candidate_premises: list[EvidencePremise] | None = None,
 ) -> tuple[DecisionCase, ScenarioForecast]:
     """
     Decomposes a scenario forecasting dilemma into distinct scenarios and evidence indicators,
@@ -117,8 +119,8 @@ async def decompose_scenario_query_async(
     gw = gateway or LLMGateway()
     snippets_text = "\n".join(web_snippets) if web_snippets else "Brak bezpośrednich wyników wyszukiwania."
 
-    scenarios: list[ScenarioOutcome] = []
-    premises: list[EvidencePremise] = []
+    scenarios: list[ScenarioOutcome] = [sc.model_copy() for sc in candidate_scenarios] if candidate_scenarios else []
+    premises: list[EvidencePremise] = [p.model_copy() for p in candidate_premises] if candidate_premises else []
     domain = "Analiza scenariuszowa i badanie ryzyka"
 
     # Horyzont czasowy z pytania (DEC-034). Jeżeli użytkownik go podał, scenariusze
@@ -141,7 +143,7 @@ async def decompose_scenario_query_async(
     else:
         horizon_instruction = ""
 
-    if gw.is_available:
+    if gw.is_available and len(scenarios) < 2:
         sys_inst = (
             "Jesteś precyzyjnym analitykiem metodologii scenariuszowej i probabilistyki w YourQuantum. "
             "Użytkownik zadaje pytanie o scenariusze rozwoju sytuacji lub ryzyko zdarzeń w przyszłości. "
@@ -211,6 +213,7 @@ async def decompose_scenario_query_async(
                         provenance="llm_suggested",
                         source_ref=str(pr_data.get("source", "propozycja modelu")),
                         is_accepted=False,
+                        impact_source="model_unverified",
                     ))
         except Exception as exc:
             logger.warning("LLM scenario decomposition failed: %s", exc)
@@ -431,13 +434,27 @@ def _integrate_verified_evidences(
             premise_accepted = False
             n_rejected_undoc += 1
 
-        if not has_model_impacts:
+        # Check whether impacts are documented with verified justifications (DEC-040)
+        has_documented_impacts = False
+        if ev.impact_justification:
+            for sc_id, just_data in ev.impact_justification.items():
+                if isinstance(just_data, dict) and just_data.get("justifying_sentence"):
+                    has_documented_impacts = True
+                    break
+
+        if has_documented_impacts:
+            impact_source_val = "documented"
+            desc_impact_text = "Wpływ na scenariusze został udokumentowany i zweryfikowany w tekście źródłowym."
+            source_ref_val = str(ev.source_url) if ev.source_url else None
+        elif has_model_impacts:
+            impact_source_val = "model_unverified"
+            desc_impact_text = "Liczbowy wpływ na scenariusze jest propozycją analityczną modelu i wymaga zatwierdzenia przez decydenta."
+            source_ref_val = str(ev.source_url) if ev.source_url else None
+        else:
+            impact_source_val = "model_unverified"
             unspecified_impacts_count += 1
             desc_impact_text = "Wpływ na scenariusze nie został określony; przesłanka nie przeważa rozkładu, dopóki nie nadasz jej wag ręcznie."
             source_ref_val = f"{ev.source_url} [wpływy: nieokreślone]" if ev.source_url else "[wpływy: nieokreślone]"
-        else:
-            desc_impact_text = "Liczbowy wpływ na scenariusze jest propozycją analityczną modelu i wymaga zatwierdzenia przez decydenta."
-            source_ref_val = str(ev.source_url) if ev.source_url else None
 
         web_premises.append(EvidencePremise(
             id=web_id,
@@ -455,6 +472,7 @@ def _integrate_verified_evidences(
             source_ref=source_ref_val,
             is_accepted=premise_accepted,
             impact_justification=dict(ev.impact_justification) if ev.impact_justification else {},
+            impact_source=impact_source_val,
         ))
 
     clean_llm = [p for p in premises if not p.id.startswith("web_")]

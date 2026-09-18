@@ -54,28 +54,34 @@ async def run_single(engine: ActiveInferenceOrchestrator, run_id: str, query: st
         "impacts_proposed": telemetry.get("impacts_proposed", 0),
         "impacts_accepted": telemetry.get("impacts_accepted", 0),
         "impact_rejected_unsupported": telemetry.get("impact_rejected_unsupported", 0),
+        "impact_documented_share": telemetry.get("impact_documented_share", 0.0),
         "distribution": dist_str,
         "dominant_scenario": forecast_data.get("dominant_scenario_id", ""),
         "dominant_prob": telemetry.get("dominant_probability", 0),
         "wall_time": telemetry.get("intake_wall_time_seconds", 0.0),
+        "time_search": telemetry.get("time_search_seconds", 0.0),
+        "time_fetch": telemetry.get("time_fetch_seconds", 0.0),
+        "time_extraction": telemetry.get("time_extraction_seconds", 0.0),
+        "time_decomposition": telemetry.get("time_decomposition_seconds", 0.0),
+        "time_aggregation": telemetry.get("time_aggregation_seconds", 0.0),
     }
 
 
 async def main():
     query = "Czy Rosja do końca tego roku napadnie na Polskę?"
-    print(f"Rozpoczynam pomiar stabilności (5 biegów) dla zapytania: {query}")
+    print(f"Rozpoczynam pomiar stabilności (10 biegów) dla zapytania: {query}")
     
     adapter = GeminiCognitiveAdapter()
     engine = ActiveInferenceOrchestrator(reasoning_port=adapter)
     results = []
     
-    for i in range(1, 6):
-        run_name = f"Bieg {chr(64 + i)}"  # A, B, C, D, E
+    for i in range(1, 11):
+        run_name = f"Bieg {chr(64 + i)}"  # A, B, C, D, E, F, G, H, I, J
         print(f"\n>>> Wykonuję {run_name}...")
         try:
             r = await run_single(engine, run_name, query)
             results.append(r)
-            print(f"    Wynik: cytaty={r['quotes_verified']}, aktywne={r['active_premises']}, proposed={r['impacts_proposed']}, accepted={r['impacts_accepted']}, odrzucone={r['impact_rejected_unsupported']}, rozkład={r['distribution']}")
+            print(f"    Wynik: cytaty={r['quotes_verified']}, aktywne={r['active_premises']}, proposed={r['impacts_proposed']}, accepted={r['impacts_accepted']}, doc_share={r['impact_documented_share']}%, czas={r['wall_time']}s, rozkład={r['distribution']}")
         except Exception as e:
             logger.error("Błąd w %s: %s", run_name, e, exc_info=True)
             results.append({
@@ -86,19 +92,55 @@ async def main():
                 "impacts_proposed": 0,
                 "impacts_accepted": 0,
                 "impact_rejected_unsupported": 0,
+                "impact_documented_share": 0.0,
                 "distribution": f"BŁĄD: {e}",
                 "dominant_prob": 0,
-                "wall_time": 0,
+                "wall_time": 0.0,
+                "time_search": 0.0,
+                "time_fetch": 0.0,
+                "time_extraction": 0.0,
+                "time_decomposition": 0.0,
+                "time_aggregation": 0.0,
             })
 
-    print("\n" + "=" * 90)
-    print("TABELA WYNIKÓW POMIARU STABILNOŚCI:")
-    print("=" * 90)
-    print("| Bieg | Zweryfikowane cytaty | Aktywne przesłanki | impacts_proposed | impacts_accepted | impact_rejected_unsupported | Rozkład |")
-    print("|------|----------------------|--------------------|------------------|------------------|-----------------------------|---------|")
+    print("\n" + "=" * 110)
+    print("TABELA WYNIKÓW POMIARU STABILNOŚCI (10 BIEGÓW):")
+    print("=" * 110)
+    print("| Bieg | Zweryfikowane cytaty | Aktywne przesłanki | impacts_proposed | impacts_accepted | impact_rejected_unsupported | impact_documented_share | Czas całkowity | Rozkład |")
+    print("|------|----------------------|--------------------|------------------|------------------|-----------------------------|-------------------------|----------------|---------|")
     for r in results:
-        print(f"| {r['run']} | {r['quotes_verified']} | {r['active_premises']} | {r['impacts_proposed']} | {r['impacts_accepted']} | {r['impact_rejected_unsupported']} | {r['distribution']} |")
-    print("=" * 90)
+        doc_share_str = f"{r['impact_documented_share']:.1f}%".replace(".", ",")
+        wall_str = f"{r['wall_time']:.2f} s".replace(".", ",")
+        print(f"| {r['run']} | {r['quotes_verified']} | {r['active_premises']} | {r['impacts_proposed']} | {r['impacts_accepted']} | {r['impact_rejected_unsupported']} | {doc_share_str} | {wall_str} | {r['distribution']} |")
+    print("=" * 110)
+
+    print("\n" + "=" * 110)
+    print("ROZBICIE CZASU WYKONANIA (TIMING BREAKDOWN):")
+    print("=" * 110)
+    print("| Bieg | Wyszukiwanie (s) | Pobieranie (s) | Ekstrakcja (s) | Dekompozycja (s) | Agregacja (s) | Całkowity wall time (s) |")
+    print("|------|------------------|----------------|----------------|------------------|---------------|--------------------------|")
+    for r in results:
+        print(f"| {r['run']} | {r['time_search']:.2f} | {r['time_fetch']:.2f} | {r['time_extraction']:.2f} | {r['time_decomposition']:.2f} | {r['time_aggregation']:.4f} | {r['wall_time']:.2f} |")
+    print("=" * 110)
+
+    # Statistics
+    valid_times = [r['wall_time'] for r in results if r['wall_time'] > 0]
+    if valid_times:
+        import statistics
+        med_wall = statistics.median(valid_times)
+        worst_wall = max(valid_times)
+        best_wall = min(valid_times)
+        print(f"\nSTATYSTYKI CZASU CAŁKOWITEGO ({len(valid_times)} udanych biegów):")
+        print(f"- Mediana czasu całkowitego: {med_wall:.2f} s")
+        print(f"- Najgorszy przypadek (worst-case): {worst_wall:.2f} s")
+        print(f"- Najlepszy przypadek (best-case): {best_wall:.2f} s")
+
+    valid_extract = [r['time_extraction'] for r in results if r['time_extraction'] > 0]
+    valid_decomp = [r['time_decomposition'] for r in results if r['time_decomposition'] > 0]
+    if valid_extract and valid_decomp:
+        import statistics
+        print(f"- Mediana ekstrakcji dowodów: {statistics.median(valid_extract):.2f} s")
+        print(f"- Mediana dekompozycji scenariuszy: {statistics.median(valid_decomp):.2f} s")
 
 
 if __name__ == "__main__":

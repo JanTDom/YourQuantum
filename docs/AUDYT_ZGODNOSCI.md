@@ -495,8 +495,12 @@ Wszystkie odstępstwa i niewykonane polecenia zidentyfikowane w niniejszym audyc
 6. **V15-2 (Uzasadnienie wpływu)**: Zamknięte. Model wskazuje indeks zdania ze zbioru cytatu w strukturze `impact_justification`.
 7. **V15-6 & V16-7 (Uczciwość UI)**: Zamknięte. Wprowadzono `ActivePremisesEmptyBanner` w `RecommendationView.tsx` wyświetlany przy zerze aktywnych przesłanek mimo obecności zweryfikowanych cytatów.
 8. **V15-7 & Reguła 4 (Usunięcie self.__dict__)**: Zamknięte. Usunięto inspekcję testów z `extractor.py` (`grep -rn "self.__dict__" backend/` zwraca 0 trafień).
-9. **V14-5 & V15-5 (Wdrożenie produkcyjne i dowód `intake_wall_time_seconds`)**: Zamknięte. Zsynchronizowano `origin/main` (`c8b119d`), wdrożono na Vercel CLI (`assets/index-DEOMvVS2.js`), potwierdzono pole `intake_wall_time_seconds: 53.5065`, `n_active_premises: 2` oraz asymetryczny rozkład `dominant_probability: 0.6883`.
-10. **V17-1 & V17-3 (Powtarzalność wyniku i telemetria odrzuconych wpływów)**: W trakcie audytu V16 rozkład w pojedynczym biegu był asymetryczny (68,8% / 31,2%), jednak wielokrotne uruchomienia ujawniły loterię: w 4 na 5 biegów rozkład wynosił 33,3% / 33,3% / 33,3% z powodu pomijania identyfikatorów `web_N` przez model dekomponujący (co zerowało wpływy przesłanek sieciowych). Zostało to zdiagnozowane empirycznie i rozwiązane w Prompt V17 przez wzmocnienie kontraktu strukturalnego w `scenario_decomposer.py` oraz dodanie liczników `impacts_proposed`, `impacts_accepted` i `impact_rejected_unsupported` do telemetrii.
+10. **V17-1, V17-3 & V18 (Rozkład prawdopodobieństwa, uziemienie wpływów i eliminacja loterii)**: **ZAMKNIĘTA (ZWERYFIKOWANA W V18)**.
+   - Odwrócono kolejność w silniku: `candidate_scenarios` są tworzone przed pobieraniem stron i przekazywane do `extractor.extract_parameter_evidences`. W 10-biegowym pomiarze `scripts/measure_forecast_stability.py` potwierdzono: `impacts_proposed` wynosi od 3 do 15 (zamiast dotychczasowego 0).
+   - Zaimplementowano regułę **DEC-040**: wpływy bez ugruntowania w zdaniu dokumentu otrzymują `impact_source: "model_unverified"` i nie mają prawa wejść do agregacji softmax; rozkład przy ich obecności pozostaje ściśle płaski (1/k).
+   - Wpływy ze zweryfikowanym cytatem otrzymują `impact_source: "documented"`, a wskaźnik `impact_documented_share` wynosi 100,0% we wszystkich biegach z ugruntowanym wpływem.
+   - Pomiary 10 biegów potwierdziły medianę czasu całkowitego 69,57 s (zero timeoutów).
+   - Pełne dowody i tabele pomiarów zarejestrowano w [docs/REPORT_V18.md](file:///Users/macbookpro/PROJEKTY/YOURQUANTUM/docs/REPORT_V18.md).
 
-Szczegółowy opis techniczny i dowody pomiarowe znajdują się w [docs/REPORT_V16.md](file:///Users/macbookpro/PROJEKTY/YOURQUANTUM/docs/REPORT_V16.md).
+Szczegółowy opis techniczny i dowody pomiarowe znajdują się w [docs/REPORT_V16.md](file:///Users/macbookpro/PROJEKTY/YOURQUANTUM/docs/REPORT_V16.md) oraz [docs/REPORT_V18.md](file:///Users/macbookpro/PROJEKTY/YOURQUANTUM/docs/REPORT_V18.md).
 

@@ -191,6 +191,7 @@ class EvidencePremise(BaseModel):
     source_ref: str | None = None
     is_accepted: bool = True  # If provenance == "llm_suggested", must be explicitly accepted to count
     impact_justification: dict[str, Any] = Field(default_factory=dict)
+    impact_source: Literal["documented", "model_unverified", "user_defined"] = "documented"
 
 
 class TippingPointItem(BaseModel):
@@ -244,8 +245,9 @@ def compute_tipping_points(
     text_summaries: list[str] = []
 
     for p in active_premises:
-        impact_dom = p.impact_on_scenarios.get(dominant.id, 0.0)
-        impact_run = p.impact_on_scenarios.get(runner_up.id, 0.0)
+        is_impact_active = (p.impact_source in ("documented", "user_defined") or p.provenance == "user_supplied")
+        impact_dom = p.impact_on_scenarios.get(dominant.id, 0.0) if is_impact_active else 0.0
+        impact_run = p.impact_on_scenarios.get(runner_up.id, 0.0) if is_impact_active else 0.0
         net_coupling = p.confidence * (impact_dom - impact_run)
 
         if abs(net_coupling) < 1e-6:
@@ -344,12 +346,16 @@ def compute_scenario_distribution(
 
     # 1. Compute support evidence score for each scenario
     # S(s_i) = sum_{p in active} (weight * confidence * impact)
+    # DEC-040: Only documented or user-defined impacts enter softmax calculation.
+    # Impacts with impact_source == "model_unverified" do NOT shape the distribution (effective impact is 0.0).
     support_scores: dict[str, float] = {}
     for sc in scenarios:
         s_val = 0.0
         for p in active_premises:
-            impact = p.impact_on_scenarios.get(sc.id, 0.0)
-            s_val += (impact * p.weight * p.confidence)
+            is_impact_active = (p.impact_source in ("documented", "user_defined") or p.provenance == "user_supplied")
+            if is_impact_active:
+                impact = p.impact_on_scenarios.get(sc.id, 0.0)
+                s_val += (impact * p.weight * p.confidence)
         support_scores[sc.id] = s_val
         sc.evidence_score = round(s_val, 4)
 
@@ -435,6 +441,23 @@ def compute_scenario_distribution(
         tipping_points=tipping_points_text,
     )
 
+    # Calculate impact_documented_share (DEC-040)
+    total_active_impact_magnitude = sum(
+        abs(p.impact_on_scenarios.get(sc.id, 0.0))
+        for p in active_premises
+        for sc in scenarios
+    )
+    documented_active_impact_magnitude = sum(
+        abs(p.impact_on_scenarios.get(sc.id, 0.0))
+        for p in active_premises
+        if p.impact_source == "documented"
+        for sc in scenarios
+    )
+    if total_active_impact_magnitude > 0:
+        impact_documented_share = round((documented_active_impact_magnitude / total_active_impact_magnitude) * 100.0, 2)
+    else:
+        impact_documented_share = 0.0
+
     telemetry = {
         "method": "weighted_softmax_aggregation",
         "beta": beta,
@@ -444,6 +467,7 @@ def compute_scenario_distribution(
         "dominant_scenario": dominant_scenario.title,
         "dominant_probability": dominant_scenario.probability,
         "dominant_sensitivity_band": band_str,
+        "impact_documented_share": impact_documented_share,
         "solve_time_seconds": round(time.monotonic() - start_time, 4),
     }
 

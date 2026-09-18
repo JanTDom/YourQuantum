@@ -1,34 +1,20 @@
 # YourQuantum — CURRENT STATE
-_Last updated: 2026-09-18 (V17: TRZY RZECZY DO DOMKNIĘCIA — opomiarowanie telemetrii wpływów, stabilność rozkładu scenariuszy, bramka G-R4, 25/25 PASS)_
+_Last updated: 2026-09-18 (V18: LICZBY MUSZĄ POCHODZIĆ Z DOKUMENTÓW — odwrócenie kolejności, DEC-040, uziemienie wpływów, 10-biegowy pomiar stabilności i rozbicia czasów, 25/25 bramek PASS)_
 
-## Status: V17 — TRZY RZECZY DO DOMKNIĘCIA (OPOMIAROWANE I ZWERYFIKOWANE)
+## Status: V18 — LICZBY MUSZĄ POCHODZIĆ Z DOKUMENTÓW (WDROŻONE I OPOMIAROWANE)
 
-- **Gałąź i stan repo**: `main` (HEAD `c8b119d`, w pełni zsynchronizowana z `origin/main`):
-  * **Zlecenie V16 (Zamknięcie sprawy)**:
-    - Zrealizowano 16/16 punktów specyfikacji technicznej i formalnej bez żadnych odstępstw.
-    - Wprowadzono `slice_sentence_cluster` w `backend/infrastructure/web_research/extractor.py` zapewniający tworzenie osobnych instancji `Evidence` dla nieprzyległych zdań, ucinanie cytatów na granicach zdań oraz bezwzględną spójność offsetów znakowych (`char_end - char_start == len(quote)`).
-    - Zabezpieczono heurystyki w `_extract_via_deterministic_heuristics`: zwracają `value = None` oraz `confidence = 0.0` (zero zmyślonych liczb).
-    - Całkowicie wyczyszczono inspekcję testów w kodzie produkcyjnym (`self.__dict__` -> 0 trafień w `backend/`).
-    - Zaimplementowano regułę **DEC-039**: w pełni udokumentowane przesłanki sieciowe (`web_sourced`) spełniające 5 kryteriów wchodzą automatycznie do prognozy scenariuszowej (`is_accepted = True`), zapewniając `n_active_premises >= 1` i niejednostajny rozkład prawdopodobieństw ugruntowany w dowodach.
-    - Powiązano kierunek wpływu przesłanki na scenariusze z konkretnym indeksem zdania w dokumencie źródłowym (`impact_justification`).
-    - W UI (`frontend/src/components/RecommendationView.tsx`) zaimplementowano baner uczciwości (`ActivePremisesEmptyBanner`) informujący o zerze aktywnych przesłanek przy obecności zweryfikowanych cytatów oraz komponent `PremiseScenarioImpacts` prezentujący wartości wpływu, offsety i zdanie uzasadniające wraz z linkiem do źródła.
-    - Sprostowano raporty `docs/REPORT_V14.md` (sekcje 3A i 3B) oraz `docs/REPORT_V13.md` (nagłówek `main` i wskaźnik bundla).
-    - Dodano lekcję `L-026` do `docs/memory/LESSONS.md`.
-    - Wprowadzono bramkę mechaniczną `G-EVID` (`scripts/check_report_evidence.py`), sprawdzającą autentyczność logów narzędziowych i realność czasów testów, wpiętą do `scripts/check_v4.sh`.
+- **Gałąź i stan repo**: `main` (gotowe do pushu i wdrożenia produkcyjnego):
+  * **Zlecenie V18 (Liczby muszą pochodzić z dokumentów)**:
+    - **Odwrócenie kolejności (V18-1)**: W `backend/domain/cognitive/active_inference_engine.py` scenariusze kandydujące (`candidate_scenarios`) są tworzone przed pobieraniem stron i przekazywane do `extractor.extract_parameter_evidences`. Zapewnia to `impacts_proposed > 0` i `impacts_accepted > 0` (w 10-biegowym pomiarze: do 15 propozycji wpływu ze zweryfikowanymi cytatami per bieg).
+    - **Reguła DEC-040 (V18-2)**: Wpływy nieugruntowane w zdaniu dokumentu otrzymują `impact_source = "model_unverified"` i nie mają prawa wejść do agregacji softmax; rozkład przy ich wyłącznej obecności pozostaje ściśle płaski ($1/k$, 33,3% / 33,3% / 33,3%). Tylko wpływy ze znacznikiem `documented` lub zatwierdzone ręcznie (`user_defined`) kształtują rozkład. Wprowadzono wskaźnik telemetrii `impact_documented_share` (100,0% we wszystkich biegach z ugruntowanym wpływem).
+    - **Spójność interfejsu (V18-3)**: W `frontend/src/components/RecommendationView.tsx` dosłowne zdanie uzasadniające wyświetlane jest wyłącznie dla `impact_source === 'documented'`. Dla `impact_source === 'model_unverified'` interfejs wyświetla oznaczenie: *„ocena modelu, bez pokrycia w dokumencie”* oraz przycisk „Zatwierdź wpływ”.
+    - **Rozbicie czasów (V18-4)**: Do telemetrii dodano `time_search_seconds`, `time_fetch_seconds`, `time_extraction_seconds`, `time_decomposition_seconds`, `time_aggregation_seconds`.
+    - **Pomiary 10 biegów (`scripts/measure_forecast_stability.py`)**: Mediana czasu całkowitego 69,57 s, worst-case 101,26 s, best-case 31,93 s; mediana ekstrakcji 39,67 s, mediana dekompozycji 17,02 s. Zero timeoutów.
+    - **Oficjalny raport**: Utworzono [docs/REPORT_V18.md](file:///Users/macbookpro/PROJEKTY/YOURQUANTUM/docs/REPORT_V18.md).
 - **Weryfikacja testowa**:
   * `scripts/check_v4.sh`: Wszystkie bramki PASS (**25/25 ZIELONE**).
-  * `pytest`: Wszystkie testy automatyczne PASS (w tym testy `tests/test_scenario_web_sourcing.py` 26/26 PASS, `tests/unit/test_check_report_evidence.py` 4/4 PASS).
+  * `pytest`: Wszystkie testy automatyczne PASS (w tym testy `tests/test_scenario_web_sourcing.py` 28/28 PASS, `tests/unit/test_doc_citations.py` 6/6 PASS).
   * `npm run build`: Kompilacja Vite/TypeScript czysta (kod 0, 0 błędów).
-
-- **Wdrożenie produkcyjne**: `https://yourquantum.pl` (Vercel prod deployment, status `READY`):
-  * Aktywny bundle produkcyjny frontendu: `assets/index-DEOMvVS2.js` (w 100% tożsamy z lokalną kompilacją `frontend/dist/assets/index-DEOMvVS2.js`).
-  * Potwierdzony pomiar produkcyjny `POST /api/v1/cognitive/intake` dla zapytania geopolitycznego `"Czy Rosja do końca tego roku napadnie na Polskę?"`:
-    - `intake_wall_time_seconds: 53.5065` (potwierdza nowy kod V16).
-    - `web_pages_fetched: 2`, `web_quotes_verified: 2`, `web_quotes_unverified: 0`.
-    - `n_documented_premises: 2`, `n_premises_rejected_as_undocumented: 0`.
-    - `n_active_premises: 2` (udokumentowane przesłanki sieciowe aktywne w obliczeniach).
-    - `dominant_scenario: "Bezpośredni atak Rosji na Polskę do końca 2026 roku"`, `dominant_probability: 0.6883` (rozkład niejednostajny, ugruntowany w cytatach).
-    - `dominant_sensitivity_band: "59,8%–91,5%"`.
 
 
 ### Stan przed V4 — Surowy wynik bramek mechanicznych (`scripts/check_v4.sh`):
@@ -335,10 +321,16 @@ WYNIK KOŃCOWY: WSZYSTKIE BRAMKI ZIELONE (PASS)
 
 ---
 
+### ✅ Faza V18: Liczby Muszą Pochodzić z Dokumentów (2026-09-18)
+- **Odwrócenie kolejności (V18-1)**: `backend/domain/cognitive/active_inference_engine.py` tworzy `candidate_scenarios` przed pobieraniem stron i przekazuje je do `extractor.extract_parameter_evidences`. Zapewnia to generowanie `impacts_proposed > 0` i `impacts_accepted > 0` ze zweryfikowanymi cytatami.
+- **Reguła DEC-040 (V18-2)**: Wpływy nieugruntowane w zdaniu dokumentu otrzymują `impact_source = "model_unverified"` i nie mają prawa wejść do agregacji softmax; rozkład przy ich obecności pozostaje ściśle płaski (1/k). Jedynie wpływy `documented` lub zatwierdzone przez decydenta `user_defined` kształtują rozkład. Wprowadzono wskaźnik telemetrii `impact_documented_share` (100,0% we wszystkich biegach z ugruntowanym wpływem).
+- **Spójność interfejsu (V18-3)**: W `frontend/src/components/RecommendationView.tsx` dosłowne zdanie uzasadniające wyświetlane jest wyłącznie dla `impact_source === 'documented'`. Dla `impact_source === 'model_unverified'` interfejs wyświetla: *„ocena modelu, bez pokrycia w dokumencie”* oraz przycisk „Zatwierdź wpływ”.
+- **Rozbicie czasów wykonania (V18-4)**: Do telemetrii dodano `time_search_seconds`, `time_fetch_seconds`, `time_extraction_seconds`, `time_decomposition_seconds`, `time_aggregation_seconds`.
+- **Pomiary 10 biegów (`scripts/measure_forecast_stability.py`)**: Mediana 69,57 s, worst-case 101,26 s, best-case 31,93 s; mediana ekstrakcji 39,67 s, mediana dekompozycji 17,02 s. Zero timeoutów.
+- **Raport**: Utworzono `docs/REPORT_V18.md`, zaktualizowano `docs/AUDYT_ZGODNOSCI.md`, wszystkie 25 bramek `scripts/check_v4.sh` zielone.
+
+---
+
 ## Następny krok (Next Step)
 
-Wszystkie trzy punkty zlecenia V17 wdrożone, opomiarowane i udokumentowane w `docs/REPORT_V16.md` i `docs/AUDYT_ZGODNOSCI.md`:
-1. Bramka `G-R4` czysta (wszystkie ścieżki w dokumentacji istnieją na dysku).
-2. Liczniki telemetrii `impacts_proposed`, `impacts_accepted`, `impact_rejected_unsupported` zaimplementowane i rozpropagowane.
-3. Stabilność i powtarzalność rozkładu scenariuszy opomiarowana w `scripts/measure_forecast_stability.py` i zdiagnozowana u źródła.
-Bramki `scripts/check_v4.sh`: 25/25 PASS. Repozytorium gotowe do pushu i wdrożenia produkcyjnego.
+Zatwierdzenie raportu V18 przez Jana, push na `origin/main` i wdrożenie na żywe środowisko produkcyjne Vercel CLI (`vercel deploy --prod --scope macieto --yes`) z pomiarem produkcyjnym potwierdzającym `impacts_proposed > 0` i `impact_documented_share`.

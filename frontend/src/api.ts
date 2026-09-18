@@ -304,6 +304,7 @@ export interface EvidencePremise {
   weight_breakdown?: Record<string, number> | null
   weight_justification?: string | null
   impact_justification?: Record<string, any> | null
+  impact_source?: 'documented' | 'model_unverified' | 'user_defined'
 }
 
 export interface ScenarioForecast {

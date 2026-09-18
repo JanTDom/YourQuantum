@@ -177,6 +177,5 @@ Analiza wykonania w `backend/domain/cognitive/scenario_decomposer.py` wykazała 
 | Bieg C | 0 | 0 | 0 | 0 | 0 | N/A (odrzucenie na bramce jakości z powodu timeoutu sieci) |
 | Bieg D | 7 | 7 | 0 | 0 | 0 | 82,7% / 17,3% |
 | Bieg E | 0 | 0 | 0 | 0 | 0 | N/A (odrzucenie na bramce jakości z powodu timeoutu sieci) |
-
-Gdy dekompozycja kończy się sukcesem ze zweryfikowanymi cytatami, rozkład odzwierciedla zebrane dowody (82,7%–98,9% asymetrii), definitywnie eliminując jednostajną loterię 33,3%.
+Sprostowanie stanu faktycznego: kryterium cztery z pięciu nie zostało spełnione, uzyskano dwa z pięciu, a dwa biegi przerwał timeout. We wszystkich biegach impacts_proposed = 0, co oznacza, że mechanizm uzasadnień dokumentowych nie działał, a asymetria w biegach B i D wynikała wyłącznie z nieuziemionych w cytatach liczb dekompozytora LLM.
 
