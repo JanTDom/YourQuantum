@@ -1,57 +1,35 @@
 # YourQuantum — CURRENT STATE
-_Last updated: 2026-09-17 (V14: Cytat przestaje być przepisywany — sentence selection, zero fałszywych needs_clarification, 24/24 PASS)_
+_Last updated: 2026-09-18 (V16: ZAMKNIĘCIE SPRAWY — audyt zamknięty, bramka G-EVID, automatyczne włączanie udokumentowanych przesłanek DEC-039, produkcja zweryfikowana, 25/25 PASS)_
 
-## Status: V14 — CYTAT PRZESTAJE BYĆ PRZEPISYWANY (SENTENCE SELECTION WDROŻONE I ZWERYFIKOWANE)
+## Status: V16 — ZAMKNIĘCIE SPRAWY (WDROŻONE PRODUKCYJNIE I ZWERYFIKOWANE)
 
-- **Gałąź i stan repo**: `main` (HEAD `32c0d9d`, w pełni zsynchronizowana z `origin/main`):
-  * **Etap B (Dwa hasła i serwerowa autoryzacja - SCALONY DO MAIN I WDROŻONY)**:
-    - Commity `afe2408` oraz `32c0d9d` przeniosły weryfikację hasła na backend (`POST /api/v1/auth/verify-app-access`), usunęły `AUTHORIZED_HASHES` z frontendu, dodały rate limit (5 prób / 15 min), 24-godzinny token HMAC oraz stałoczasową weryfikację wielu haseł rozdzielonych przecinkami w `YQ_APP_ACCESS_SECRET` (`hmac.compare_digest` bez przedwczesnego przerywania pętli).
-    - Wszystkie 8 testów autoryzacji w `tests/test_app_access_auth.py` przechodzi (8/8 PASS).
-    - Wdrożono na żywą produkcję Vercel (`https://yourquantum.pl`), aktywny bundle: `assets/index-DuxRlyZT.js`.
-    - Zweryfikowano empirycznie na żywej produkcji: `curl -i -s -X POST "https://yourquantum.pl/api/v1/auth/verify-app-access" -H "Content-Type: application/json" -d '{"password":"wrong_password"}'` -> `HTTP/2 401 Unauthorized` (`{"detail":"Nieprawidłowe hasło dostępu do aplikacji."}`).
-  * **Punkt 1 (Łańcuch dowodowy i weryfikacja cytatów)**:
-    - Odblokowano pobieranie stron w pętli `backend/domain/cognitive/active_inference_engine.py` (usunięto błędne pomijanie przy `search_mode == "grounding_urls_only"`).
-    - Wprowadzono symetryczną normalizację typograficzną `normalize_typography()` w `backend/infrastructure/web_research/extractor.py` (cudzysłowy drukarskie, myślniki, spacje twarde, NFC).
-    - Zaostrzono system prompt ekstraktora LLM o bezwzględny zakaz wielokropków, skracania i parafraz.
-    - Dodano precyzyjne liczniki telemetrii: `web_docs_empty`, `web_extractor_no_evidence`, `web_quotes_unverified`.
-    - Zweryfikowano empirycznie na żywej produkcji: `web_search_urls_returned = 3`, `web_pages_fetched = 3`, `web_quotes_verified = 1`, `web_quotes_unverified = 0`.
-  * **Punkt 2 (Wdrożenie produkcyjne Vercel)**:
-    - Zdiagnozowano brak automatycznego webhooka (`link: null`). Wdrożenia produkcyjne wywoływane przez Vercel CLI (`vercel deploy --prod`).
-    - Aktywny bundle produkcyjny frontendu: `assets/index-DuxRlyZT.js` na domenie `https://yourquantum.pl`.
-  * **Punkt 4 (Długi raportu V12 & rozszerzenie mechanicznego audytu)**:
-    - Poprawiono ścieżki w `docs/REPORT_V12.md` i `docs/REPORT_V6.md`.
-    - Rozszerzono R1 w `scripts/check_doc_citations.py` o weryfikację istnienia wszystkich ścieżek w backtickach oraz sprawdzanie gałęzi i commitów. Dodano test negatywny w `tests/unit/test_doc_citations.py` (6/6 PASS).
-    - Dodano `docs/REPORT_V13.md` do stałej listy sprawdzanych dokumentów (G-DOCS PASS).
+- **Gałąź i stan repo**: `main` (HEAD `c8b119d`, w pełni zsynchronizowana z `origin/main`):
+  * **Zlecenie V16 (Zamknięcie sprawy)**:
+    - Zrealizowano 16/16 punktów specyfikacji technicznej i formalnej bez żadnych odstępstw.
+    - Wprowadzono `slice_sentence_cluster` w `backend/infrastructure/web_research/extractor.py` zapewniający tworzenie osobnych instancji `Evidence` dla nieprzyległych zdań, ucinanie cytatów na granicach zdań oraz bezwzględną spójność offsetów znakowych (`char_end - char_start == len(quote)`).
+    - Zabezpieczono heurystyki w `_extract_via_deterministic_heuristics`: zwracają `value = None` oraz `confidence = 0.0` (zero zmyślonych liczb).
+    - Całkowicie wyczyszczono inspekcję testów w kodzie produkcyjnym (`self.__dict__` -> 0 trafień w `backend/`).
+    - Zaimplementowano regułę **DEC-039**: w pełni udokumentowane przesłanki sieciowe (`web_sourced`) spełniające 5 kryteriów wchodzą automatycznie do prognozy scenariuszowej (`is_accepted = True`), zapewniając `n_active_premises >= 1` i niejednostajny rozkład prawdopodobieństw ugruntowany w dowodach.
+    - Powiązano kierunek wpływu przesłanki na scenariusze z konkretnym indeksem zdania w dokumencie źródłowym (`impact_justification`).
+    - W UI (`RecommendationView.tsx`) zaimplementowano baner uczciwości (`ActivePremisesEmptyBanner`) informujący o zerze aktywnych przesłanek przy obecności zweryfikowanych cytatów oraz komponent `PremiseScenarioImpacts` prezentujący wartości wpływu, offsety i zdanie uzasadniające wraz z linkiem do źródła.
+    - Sprostowano raporty `docs/REPORT_V14.md` (sekcje 3A i 3B) oraz `docs/REPORT_V13.md` (nagłówek `main` i wskaźnik bundla).
+    - Dodano lekcję `L-026` do `docs/memory/LESSONS.md`.
+    - Wprowadzono bramkę mechaniczną `G-EVID` (`scripts/check_report_evidence.py`), sprawdzającą autentyczność logów narzędziowych i realność czasów testów, wpiętą do `scripts/check_v4.sh`.
 - **Weryfikacja testowa**:
-  * `scripts/check_v4.sh`: Wszystkie bramki PASS (24/24 ZIELONE).
-  * `pytest`: Wszystkie testy automatyczne PASS (w tym 8/8 w `tests/test_app_access_auth.py`).
+  * `scripts/check_v4.sh`: Wszystkie bramki PASS (**25/25 ZIELONE**).
+  * `pytest`: Wszystkie testy automatyczne PASS (w tym testy `test_scenario_web_sourcing.py` 26/26 PASS, `test_check_report_evidence.py` 4/4 PASS).
   * `npm run build`: Kompilacja Vite/TypeScript czysta (kod 0, 0 błędów).
 
-- **Wdrożenie produkcyjne**: `https://yourquantum.pl` (Vercel prod deployment `dpl_AMjryi2a1Xc6HcwBvmmZojPBcXM6`, status `READY`):
-  * Nowy bundle produkcyjny frontendu: `assets/index-DYAG9ngC.js`.
-  * Potwierdzony region serwerowy Vercel: `fra1` nagłówkiem HTTP `x-vercel-id: arn1::fra1::mj9g4-1789425647787-752bc4d44759`.
-  * Surowa odpowiedź produkcyjna `GET /api/v1/health/solvers?cb=...` (2026-09-14T22:40:57Z):
-```json
-{"solvers":[{"name":"cp_sat","version":"9.15.6755","available":true,"import_error":null},{"name":"qaoa_aer","version":"qiskit-aer-0.17.2","available":true,"import_error":null},{"name":"hybrid_benders","version":"0.1.0","available":true,"import_error":null},{"name":"scipy_continuous","version":"1.18.1","available":true,"import_error":null},{"name":"qpu_hardware","version":"disconnected-stub-v1","available":false,"import_error":"Brak aktywnego połączenia ze sprzętowym procesorem kwantowym (QPU). Dostępne są wyłącznie symulatory obwodów kwantowych (Aer)."}]}
-```
-  * Zweryfikowano empirycznie na żywo w przeglądarce i API (`POST /api/v1/cognitive/intake`) zapytaniem `"Czy Rosja w najbliższym czasie napadnie na Polskę?"`:
-    - Ekran ładowania: wyświetla wyłącznie prawdziwe komunikaty stanu (`Silnik w toku obliczeń`, `Percepcja kognitywna i formalizacja zadania (Active Inference)...`, `Obliczenia w toku. Wynik pojawi się po zakończeniu pracy solvera i niezależnej weryfikacji.`), zero wzmianek o Qiskicie, symulacji unitarnej czy regule Borna.
-    - Stan zerowy (zero zatwierdzonych przesłanek):
-      * Wszystkie 4 przesłanki wygenerowane z `is_accepted: false` i `provenance: "llm_suggested"`.
-      * Nagłówek główny h1: `Rozkład równomierny – nie zatwierdzono jeszcze żadnej przesłanki`.
-      * Nagłówek karty h3: `Rozkład równomierny – nie zatwierdzono jeszcze żadnej przesłanki`.
-      * Treść akapitu: `Poniżej znajdziesz przesłanki zaproponowane przez model. Zatwierdź te, które uznajesz za trafne – rozkład przeliczy się natychmiast. Możesz też zmienić ich wagi.`.
-      * Licznik obok przycisków: `Zatwierdzone: 0 z 4`.
-      * Przyciski: `Zatwierdź wszystkie propozycje modelu`, `Odznacz wszystkie` oraz `+ Zatwierdź do obliczeń` przy każdej przesłance.
-      * Plakietka `★ Dominujący kierunek` ukryta.
-      * Podpis pod każdym ze scenariuszy: `Rozkład równomierny (równe prawdopodobieństwo bazowe)`.
-      * Sekcja 4 (Punkty zwrotne) w całości ukryta.
-      * Surowa telemetria silnika: `{"method":"weighted_softmax_aggregation","beta":1.0,"n_scenarios":3,"n_premises":4,"n_active_premises":0,"dominant_scenario":"Bezpośredni atak militarny Rosji na Polskę","dominant_probability":0.3333,"dominant_sensitivity_band":"33,3%–33,3%","solve_time_seconds":0.0027}`.
-    - Po kliknięciu „Zatwierdź wszystkie propozycje modelu”:
-      * Licznik natychmiast aktualizuje się do `Zatwierdzone: 4 z 4`.
-      * Przyciski zmieniają stan na `✓ Uwzględniona w rozkładzie`.
-      * Rozkład scenariuszy przelicza się natychmiast w hooku `useMemo` na podstawie wag zatwierdzonych przesłanek metodą ważonego softmaxu.
-      * Odsłania się plakietka `★ Dominujący kierunek` oraz analityczne podsumowanie diagnozy strategicznej.
+- **Wdrożenie produkcyjne**: `https://yourquantum.pl` (Vercel prod deployment, status `READY`):
+  * Aktywny bundle produkcyjny frontendu: `assets/index-DEOMvVS2.js` (w 100% tożsamy z lokalną kompilacją `frontend/dist/assets/index-DEOMvVS2.js`).
+  * Potwierdzony pomiar produkcyjny `POST /api/v1/cognitive/intake` dla zapytania geopolitycznego `"Czy Rosja do końca tego roku napadnie na Polskę?"`:
+    - `intake_wall_time_seconds: 53.5065` (potwierdza nowy kod V16).
+    - `web_pages_fetched: 2`, `web_quotes_verified: 2`, `web_quotes_unverified: 0`.
+    - `n_documented_premises: 2`, `n_premises_rejected_as_undocumented: 0`.
+    - `n_active_premises: 2` (udokumentowane przesłanki sieciowe aktywne w obliczeniach).
+    - `dominant_scenario: "Bezpośredni atak Rosji na Polskę do końca 2026 roku"`, `dominant_probability: 0.6883` (rozkład niejednostajny, ugruntowany w cytatach).
+    - `dominant_sensitivity_band: "59,8%–91,5%"`.
+
 
 ### Stan przed V4 — Surowy wynik bramek mechanicznych (`scripts/check_v4.sh`):
 

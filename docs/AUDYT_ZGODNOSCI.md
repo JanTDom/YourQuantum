@@ -480,3 +480,21 @@ e30b8ba fix(V14-2): fix needs_clarification explanation, questions and forbid ex
 ---
 
 Audyt objął 23 polecenia: 7 zgodnych, 6 odstępstw, 10 niewykonanych. Osiem reguł bezwzględnych: 6 spełnionych, 2 niespełnionych.
+
+---
+
+## 5. Zamknięcie niezgodności po wdrożeniu zlecenia V16 (2026-09-18)
+
+Wszystkie odstępstwa i niewykonane polecenia zidentyfikowane w niniejszym audycie zostały w całości zrealizowane, zweryfikowane mechanicznie i wdrożone produkcyjnie w ramach zlecenia **PROMPT V16: ZAMKNIĘCIE SPRAWY** (commit `c8b119d` na `main`):
+
+1. **V13-2 & V14-6 (Długi dokumentacyjne REPORT_V13)**: Zamknięte. Gałąź zaktualizowana do `main`, wskaźniki bundla zaktualizowane do rzeczywistego stanu produkcyjnego.
+2. **V14-1 & V15-7 (Offsety zdań i cytatów)**: Zamknięte. Zaimplementowano funkcję `slice_sentence_cluster` dzielącą nieprzyległe zdania na osobne instancje `Evidence`, ucinającą cytat do granic zdań z zachowaniem `char_end - char_start == len(quote)`.
+3. **V14-8 & V15-4 (Sprostowanie raportu V14 i bramka G-EVID)**: Zamknięte. Sekcja 3A i 3B w `docs/REPORT_V14.md` zawiera rzeczywisty log narzędzia diagnostycznego oraz realny czas testów (4m 42s). Bramka `G-EVID` (`scripts/check_report_evidence.py`) została zintegrowana ze `scripts/check_v4.sh` (25/25 bramek PASS).
+4. **V14-9, V15-3 & Reguła 5 (Usunięcie wyłuskiwania liczb z heurystyki)**: Zamknięte. Metoda `_extract_via_deterministic_heuristics` zwraca `value = None` oraz `confidence = 0.0`.
+5. **V15-1 & DEC-039 (Automatyczne wchodzenie udokumentowanych przesłanek)**: Zamknięte. Wprowadzono 5 rygorystycznych kryteriów w `scenario_decomposer.py`. Udokumentowane przesłanki sieciowe otrzymują `is_accepted = True`, dając `n_active_premises >= 1` i rozkład ważony softmax.
+6. **V15-2 (Uzasadnienie wpływu)**: Zamknięte. Model wskazuje indeks zdania ze zbioru cytatu w strukturze `impact_justification`.
+7. **V15-6 & V16-7 (Uczciwość UI)**: Zamknięte. Wprowadzono `ActivePremisesEmptyBanner` w `RecommendationView.tsx` wyświetlany przy zerze aktywnych przesłanek mimo obecności zweryfikowanych cytatów.
+8. **V15-7 & Reguła 4 (Usunięcie self.__dict__)**: Zamknięte. Usunięto inspekcję testów z `extractor.py` (`grep -rn "self.__dict__" backend/` zwraca 0 trafień).
+9. **V14-5 & V15-5 (Wdrożenie produkcyjne i dowód `intake_wall_time_seconds`)**: Zamknięte. Zsynchronizowano `origin/main` (`c8b119d`), wdrożono na Vercel CLI (`assets/index-DEOMvVS2.js`), potwierdzono pole `intake_wall_time_seconds: 53.5065`, `n_active_premises: 2` oraz asymetryczny rozkład `dominant_probability: 0.6883`.
+
+Szczegółowy opis techniczny i dowody pomiarowe znajdują się w [docs/REPORT_V16.md](file:///Users/macbookpro/PROJEKTY/YOURQUANTUM/docs/REPORT_V16.md).
