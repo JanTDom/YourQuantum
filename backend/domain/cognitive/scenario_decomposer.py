@@ -202,6 +202,7 @@ async def decompose_scenario_query_async(
                         if sc.id not in impacts:
                             impacts[sc.id] = 0.0
 
+                    # Put model proposals strictly into impact_proposed (Prompt V19 §1)
                     premises.append(EvidencePremise(
                         id=str(pr_data["id"]),
                         name=normalize_polish_geopolitical_text(str(pr_data["name"])),
@@ -209,11 +210,12 @@ async def decompose_scenario_query_async(
                         source=normalize_polish_geopolitical_text(str(pr_data.get("source", "propozycja modelu"))),
                         confidence=1.0,
                         weight=1.0,
-                        impact_on_scenarios=impacts,
+                        impact_on_scenarios={},
+                        impact_proposed=impacts,
                         provenance="llm_suggested",
                         source_ref=str(pr_data.get("source", "propozycja modelu")),
                         is_accepted=False,
-                        impact_source="model_unverified",
+                        impact_source={sc.id: "model_unverified" for sc in scenarios},
                     ))
         except Exception as exc:
             logger.warning("LLM scenario decomposition failed: %s", exc)
@@ -390,11 +392,25 @@ def _integrate_verified_evidences(
     for idx, ev in enumerate(verified_evidences):
         web_id = f"web_{idx+1}"
         pub = ev.publisher or ev.source_title or "Zweryfikowane źródło sieciowe"
-        impacts: dict[str, float] = dict(ev.impact_on_scenarios) if ev.impact_on_scenarios else {}
-        weight = 1.0
-        has_model_impacts = bool(impacts)
+        
+        # Grounded impacts strictly from verified evidences (Prompt V19 §1)
+        grounded_impacts: dict[str, float] = {}
+        if ev.impact_on_scenarios:
+            for sc_id, imp_val in ev.impact_on_scenarios.items():
+                just_entry = ev.impact_justification.get(sc_id) if ev.impact_justification else None
+                if isinstance(just_entry, dict) and just_entry.get("justifying_sentence"):
+                    grounded_impacts[sc_id] = float(imp_val)
 
-        # Also check if decomposing model provided impacts for this web premise
+        # Model proposals from decomposing model or ungrounded evidence impacts
+        proposed_impacts: dict[str, float] = {}
+        if ev.impact_on_scenarios:
+            for sc_id, imp_val in ev.impact_on_scenarios.items():
+                if sc_id not in grounded_impacts:
+                    proposed_impacts[sc_id] = float(imp_val)
+
+        weight = 1.0
+
+        # Also check decomposing model proposals from raw_premises_data
         for pr_data in raw_premises_data:
             pid = str(pr_data.get("id", ""))
             if pid == web_id or f"web_{idx+1}" in pid:
@@ -402,18 +418,27 @@ def _integrate_verified_evidences(
                 if isinstance(raw_impacts, list):
                     for item in raw_impacts:
                         if isinstance(item, dict) and "scenario_id" in item and "impact" in item:
-                            impacts[str(item["scenario_id"])] = float(item["impact"])
+                            sc_key = str(item["scenario_id"])
+                            # Do NOT overwrite grounded impacts with model proposals
+                            if sc_key not in grounded_impacts:
+                                proposed_impacts[sc_key] = float(item["impact"])
                 elif isinstance(raw_impacts, dict):
                     for k, v in raw_impacts.items():
-                        impacts[str(k)] = float(v)
+                        sc_key = str(k)
+                        if sc_key not in grounded_impacts:
+                            proposed_impacts[sc_key] = float(v)
                 weight = float(pr_data.get("weight", 1.0))
-                if len(impacts) > 0:
-                    has_model_impacts = True
                 break
 
+        # Build per-scenario impact_source mapping (Prompt V19 §1)
+        scenario_impact_sources: dict[str, Literal["documented", "model_unverified", "user_defined"]] = {}
         for sc in scenarios:
-            if sc.id not in impacts:
-                impacts[sc.id] = 0.0
+            if sc.id in grounded_impacts:
+                scenario_impact_sources[sc.id] = "documented"
+            else:
+                scenario_impact_sources[sc.id] = "model_unverified"
+                if sc.id not in proposed_impacts:
+                    proposed_impacts[sc.id] = 0.0
 
         wb = compute_evidence_weight(ev, all_evidences=verified_evidences)
         computed_weight = wb.final_weight
@@ -434,24 +459,19 @@ def _integrate_verified_evidences(
             premise_accepted = False
             n_rejected_undoc += 1
 
-        # Check whether impacts are documented with verified justifications (DEC-040)
-        has_documented_impacts = False
-        if ev.impact_justification:
-            for sc_id, just_data in ev.impact_justification.items():
-                if isinstance(just_data, dict) and just_data.get("justifying_sentence"):
-                    has_documented_impacts = True
-                    break
+        has_documented_impacts = len(grounded_impacts) > 0
+        has_model_proposals = any(abs(v) > 0.001 for v in proposed_impacts.values())
 
-        if has_documented_impacts:
-            impact_source_val = "documented"
+        if has_documented_impacts and has_model_proposals:
+            desc_impact_text = "Część wpływów została udokumentowana w tekście źródłowym; pozostałe stanowią propozycję analityczną modelu."
+            source_ref_val = str(ev.source_url) if ev.source_url else None
+        elif has_documented_impacts:
             desc_impact_text = "Wpływ na scenariusze został udokumentowany i zweryfikowany w tekście źródłowym."
             source_ref_val = str(ev.source_url) if ev.source_url else None
-        elif has_model_impacts:
-            impact_source_val = "model_unverified"
+        elif has_model_proposals:
             desc_impact_text = "Liczbowy wpływ na scenariusze jest propozycją analityczną modelu i wymaga zatwierdzenia przez decydenta."
             source_ref_val = str(ev.source_url) if ev.source_url else None
         else:
-            impact_source_val = "model_unverified"
             unspecified_impacts_count += 1
             desc_impact_text = "Wpływ na scenariusze nie został określony; przesłanka nie przeważa rozkładu, dopóki nie nadasz jej wag ręcznie."
             source_ref_val = f"{ev.source_url} [wpływy: nieokreślone]" if ev.source_url else "[wpływy: nieokreślone]"
@@ -467,12 +487,13 @@ def _integrate_verified_evidences(
             source=str(pub),
             confidence=float(ev.confidence),
             weight=computed_weight,
-            impact_on_scenarios=impacts,
+            impact_on_scenarios=grounded_impacts,
+            impact_proposed=proposed_impacts,
             provenance="web_sourced",
             source_ref=source_ref_val,
             is_accepted=premise_accepted,
             impact_justification=dict(ev.impact_justification) if ev.impact_justification else {},
-            impact_source=impact_source_val,
+            impact_source=scenario_impact_sources,
         ))
 
     clean_llm = [p for p in premises if not p.id.startswith("web_")]

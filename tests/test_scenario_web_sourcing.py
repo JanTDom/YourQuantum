@@ -147,8 +147,10 @@ def test_web_sourced_premise_with_model_impacts_preserves_model_numbers():
         web_premises = [p for p in forecast.evidence_premises if p.provenance == "web_sourced"]
         assert len(web_premises) == 1
         wp = web_premises[0]
-        assert wp.impact_on_scenarios["sc_1"] == 0.85
-        assert wp.impact_on_scenarios["sc_2"] == -0.65
+        assert wp.impact_proposed["sc_1"] == 0.85
+        assert wp.impact_proposed["sc_2"] == -0.65
+        assert wp.impact_on_scenarios == {}
+        assert wp.get_impact_source("sc_1") == "model_unverified"
         assert "liczbowy wpływ na scenariusze jest propozycją analityczną modelu i wymaga zatwierdzenia przez decydenta." in wp.description.lower()
         assert wp.source_ref == "https://stat.gov.pl/makro/inflacja-2026.html"
         assert "[wpływy: nieokreślone]" not in (wp.source_ref or "")
@@ -163,8 +165,15 @@ def test_web_sourced_premise_with_model_impacts_preserves_model_numbers():
         for sc in dist_unaccepted.scenarios:
             assert pytest.approx(sc.probability, abs=1e-3) == 1.0 / len(dist_unaccepted.scenarios)
 
-        # After user acceptance, the model-provided impact shifts probability (DEC-040: user approval sets impact_source to user_defined)
-        accepted_premises = [p.model_copy(update={"is_accepted": True, "impact_source": "user_defined"}) for p in forecast.evidence_premises]
+        # After user acceptance, the model-provided impact shifts probability (V19: user explicitly transfers impact_proposed to impact_on_scenarios with impact_source=user_defined)
+        accepted_premises = [
+            p.model_copy(update={
+                "is_accepted": True,
+                "impact_on_scenarios": dict(p.impact_proposed),
+                "impact_source": "user_defined",
+            })
+            for p in forecast.evidence_premises
+        ]
         dist_accepted = compute_scenario_distribution(
             query=forecast.query,
             scenarios=[sc.model_copy() for sc in forecast.scenarios],
@@ -1171,3 +1180,114 @@ def test_v18_justifying_sentence_only_for_documented_impacts():
     )
     assert prem_documented.impact_source == "documented"
     assert prem_documented.impact_justification["sc_1"]["justifying_sentence"] == "Polska wzmacnia granicę wschodnią."
+
+
+def test_v19_separate_impact_dictionaries_and_per_impact_source():
+    """
+    Prompt V19 §1 (Usterka poprawności):
+    - impact_on_scenarios carries EXCLUSIVELY impacts grounded in verified sentences.
+    - impact_proposed carries decomposing model proposals, never merged automatically.
+    - Grounded values are NEVER overwritten by decomposing model proposals.
+    - impact_source is per-impact mapping (scenario_id -> "documented" | "model_unverified" | "user_defined").
+    - Softmax reads EXCLUSIVELY impact_on_scenarios: evidence with justification for s1 and model proposal for s2
+      yields a distribution depending exclusively on s1, and the grounded value for s1 remains unchanged.
+    """
+    from backend.domain.cognitive.scenario_decomposer import _integrate_verified_evidences
+
+    scenarios = [
+        ScenarioOutcome(id="s1", title="Scenariusz Alfa"),
+        ScenarioOutcome(id="s2", title="Scenariusz Beta"),
+        ScenarioOutcome(id="s3", title="Scenariusz Gamma"),
+    ]
+
+    # Verified evidence with grounded impact strictly for s1 (+0.8), but none for s2 or s3
+    ev = Evidence(
+        id="ev_test_v19",
+        claim="Fakt empiryczny z udokumentowanym wpływem na s1",
+        value=None,
+        unit=None,
+        source_url="https://example.org/report",
+        source_title="Raport analityczny",
+        publisher="Ośrodek Badań",
+        content_hash="hash123",
+        quote="Wojska sojusznicze zwiększyły obecność na wschodniej flance.",
+        extraction_method=ExtractionMethod.SENTENCE_SELECTION,
+        confidence=1.0,
+        char_start=0,
+        char_end=60,
+        impact_on_scenarios={"s1": 0.8},
+        impact_justification={"s1": {"justifying_sentence": "Wojska sojusznicze zwiększyły obecność na wschodniej flance."}},
+    )
+
+    # Decomposing model proposal provides an impact for s2 (+0.9) AND attempts to overwrite s1 (+0.1)
+    p_json = {
+        "premises": [
+            {
+                "id": "web_1",
+                "name": "Przesłanka web_1 z propozycji modelu",
+                "description": "Opis modelu",
+                "weight": 1.0,
+                "impacts": [
+                    {"scenario_id": "s1", "impact": 0.1},  # MUST NOT OVERWRITE GROUNDED 0.8!
+                    {"scenario_id": "s2", "impact": 0.9},  # Unverified proposal -> goes to impact_proposed
+                ],
+            }
+        ]
+    }
+
+    integrated_premises, _, _, n_doc, n_rej = _integrate_verified_evidences(
+        premises=[],
+        scenarios=scenarios,
+        verified_evidences=[ev],
+        p_json=p_json,
+        query="Test zapytania V19",
+    )
+
+    assert len(integrated_premises) == 1
+    p = integrated_premises[0]
+
+    # 1. Verification of impact_on_scenarios vs impact_proposed
+    assert "s1" in p.impact_on_scenarios
+    assert pytest.approx(p.impact_on_scenarios["s1"], abs=1e-4) == 0.8  # Grounded impact untouched!
+    assert "s2" not in p.impact_on_scenarios  # s2 is unverified, must NOT be in impact_on_scenarios
+
+    assert "s2" in p.impact_proposed
+    assert pytest.approx(p.impact_proposed["s2"], abs=1e-4) == 0.9  # s2 resides in impact_proposed
+    # s1 in impact_proposed must NOT have replaced grounded impact
+    assert p.impact_on_scenarios["s1"] == 0.8
+
+    # 2. Verification of per-scenario impact_source
+    assert p.get_impact_source("s1") == "documented"
+    assert p.get_impact_source("s2") == "model_unverified"
+    assert p.get_impact_source("s3") == "model_unverified"
+
+    # 3. Verification of Softmax: distribution depends EXCLUSIVELY on s1
+    forecast = compute_scenario_distribution(
+        query="Test zapytania V19",
+        scenarios=[s.model_copy() for s in scenarios],
+        premises=integrated_premises,
+        beta=1.0,
+    )
+
+    probs = {sc.id: sc.probability for sc in forecast.scenarios}
+    # Since s1 has +0.8 and s2, s3 have effective 0.0, s1 must dominate
+    assert probs["s1"] > probs["s2"]
+    # s2 and s3 have no documented impacts -> equal probabilities
+    assert pytest.approx(probs["s2"], abs=1e-3) == probs["s3"]
+    # Distribution was not shaped by s2 (+0.9 proposal)
+    assert probs["s2"] < probs["s1"]
+
+    # 4. User acceptance simulation (e.g. user accepts proposal for s2)
+    p_accepted = p.model_copy(deep=True)
+    p_accepted.impact_on_scenarios["s2"] = p_accepted.impact_proposed["s2"]
+    p_accepted.impact_source["s2"] = "user_defined"
+
+    forecast_after_user = compute_scenario_distribution(
+        query="Test zapytania V19",
+        scenarios=[s.model_copy() for s in scenarios],
+        premises=[p_accepted],
+        beta=1.0,
+    )
+    probs_user = {sc.id: sc.probability for sc in forecast_after_user.scenarios}
+    # Now s2 (+0.9) enters distribution and overtakes s1 (+0.8)
+    assert probs_user["s2"] > probs_user["s1"]

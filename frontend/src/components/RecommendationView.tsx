@@ -96,11 +96,47 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
     )
   }
 
-  const handleAcceptPremiseImpact = (premiseId: string) => {
+  const getImpactSource = (premise: EvidencePremise, scenarioId: string): string => {
+    if (!premise.impact_source) return 'model_unverified'
+    if (typeof premise.impact_source === 'string') return premise.impact_source
+    return premise.impact_source[scenarioId] || premise.impact_source['__default__'] || 'model_unverified'
+  }
+
+  const handleAcceptPremiseImpact = (premiseId: string, scenarioId?: string) => {
     setScenarioPremises((prev) =>
-      prev.map((p) =>
-        p.id === premiseId ? { ...p, is_accepted: true, impact_source: 'user_defined' } : p
-      )
+      prev.map((p) => {
+        if (p.id !== premiseId) return p
+        const updatedImpacts = { ...p.impact_on_scenarios }
+        let updatedSource: Record<string, 'documented' | 'model_unverified' | 'user_defined'> = {}
+        if (typeof p.impact_source === 'string') {
+          updatedSource = { __default__: p.impact_source }
+        } else if (p.impact_source) {
+          updatedSource = { ...p.impact_source }
+        }
+
+        if (scenarioId) {
+          if (p.impact_proposed && scenarioId in p.impact_proposed) {
+            updatedImpacts[scenarioId] = p.impact_proposed[scenarioId]
+          }
+          updatedSource[scenarioId] = 'user_defined'
+        } else {
+          if (p.impact_proposed) {
+            for (const [sId, sVal] of Object.entries(p.impact_proposed)) {
+              if (!(sId in updatedImpacts)) {
+                updatedImpacts[sId] = sVal
+              }
+              updatedSource[sId] = 'user_defined'
+            }
+          }
+        }
+
+        return {
+          ...p,
+          is_accepted: true,
+          impact_on_scenarios: updatedImpacts,
+          impact_source: updatedSource,
+        }
+      })
     )
   }
 
@@ -119,8 +155,9 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
     for (const sc of forecast.scenarios) {
       let s = 0.0
       for (const p of activePremises) {
-        // DEC-040: Unverified model impacts do NOT shape distribution unless user explicitly approved
-        const isImpactActive = p.impact_source === 'documented' || p.impact_source === 'user_defined' || p.provenance === 'user_supplied'
+        // DEC-040 & Prompt V19: Unverified model impacts do NOT shape distribution unless user explicitly approved
+        const source = getImpactSource(p, sc.id)
+        const isImpactActive = source === 'documented' || source === 'user_defined' || p.provenance === 'user_supplied'
         const imp = isImpactActive ? (p.impact_on_scenarios[sc.id] ?? 0.0) : 0.0
         s += imp * p.weight * p.confidence
       }
@@ -856,7 +893,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                         <PremiseScenarioImpacts
                           premise={premise}
                           scenarios={liveForecast.scenarios}
-                          onAcceptImpact={() => handleAcceptPremiseImpact(premise.id)}
+                          onAcceptImpact={(scId) => handleAcceptPremiseImpact(premise.id, scId)}
                         />
 
                         {/* Weight Slider */}
@@ -2388,12 +2425,26 @@ function PremiseScenarioImpacts({
 }: {
   premise: EvidencePremise
   scenarios: ScenarioOutcome[]
-  onAcceptImpact?: () => void
+  onAcceptImpact?: (scenarioId?: string) => void
 }) {
-  if (!premise.impact_on_scenarios || Object.keys(premise.impact_on_scenarios).length === 0) {
+  const allScenarioIds = Array.from(new Set([
+    ...Object.keys(premise.impact_on_scenarios || {}),
+    ...Object.keys(premise.impact_proposed || {}),
+  ]))
+
+  if (allScenarioIds.length === 0) {
     return null
   }
-  const isDocumented = premise.impact_source === 'documented'
+
+  const getSourceForScenario = (scId: string): string => {
+    if (!premise.impact_source) return 'model_unverified'
+    if (typeof premise.impact_source === 'string') return premise.impact_source
+    return premise.impact_source[scId] || premise.impact_source['__default__'] || 'model_unverified'
+  }
+
+  const hasAnyUnverifiedProposal = allScenarioIds.some(
+    (scId) => getSourceForScenario(scId) === 'model_unverified' && premise.impact_proposed && scId in premise.impact_proposed
+  )
 
   return (
     <div style={{
@@ -2406,20 +2457,25 @@ function PremiseScenarioImpacts({
     }}>
       <div style={{ fontWeight: 700, color: 'oklch(75% 0.12 80)', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span>Wpływ na scenariusze i uziemienie w tekście:</span>
-        {premise.impact_source && (
-          <span style={{
-            fontSize: '0.6875rem',
-            fontWeight: 600,
-            color: isDocumented ? 'oklch(80% 0.15 140)' : 'oklch(75% 0.15 60)',
-          }}>
-            {isDocumented ? '✓ wpływ udokumentowany' : '⚠ propozycja modelu'}
-          </span>
-        )}
+        <span style={{
+          fontSize: '0.6875rem',
+          fontWeight: 600,
+          color: hasAnyUnverifiedProposal ? 'oklch(75% 0.15 60)' : 'oklch(80% 0.15 140)',
+        }}>
+          {hasAnyUnverifiedProposal ? '⚠ zawiera propozycje modelu' : '✓ wpływ udokumentowany'}
+        </span>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-        {Object.entries(premise.impact_on_scenarios).map(([scId, impVal]) => {
+        {allScenarioIds.map((scId) => {
           const scObj = scenarios.find((s) => s.id === scId)
           const scName = scObj ? scObj.title : scId
+          const source = getSourceForScenario(scId)
+          const isDocumented = source === 'documented'
+          const isUserDefined = source === 'user_defined'
+          const impVal = isDocumented || isUserDefined
+            ? (premise.impact_on_scenarios[scId] ?? 0.0)
+            : (premise.impact_proposed?.[scId] ?? 0.0)
+
           const justObj = premise.impact_justification?.[scId]
           const justSentence = justObj?.justifying_sentence
           const charStart = justObj?.char_start
@@ -2439,6 +2495,16 @@ function PremiseScenarioImpacts({
                 }}>
                   {isPositive ? `+${impVal.toFixed(2)}` : impVal.toFixed(2)}
                 </span>
+                <span style={{
+                  fontSize: '0.625rem',
+                  fontWeight: 600,
+                  padding: '0.1rem 0.35rem',
+                  borderRadius: '3px',
+                  background: isDocumented ? 'oklch(80% 0.15 140 / 0.15)' : isUserDefined ? 'oklch(75% 0.12 80 / 0.15)' : 'oklch(75% 0.15 60 / 0.15)',
+                  color: isDocumented ? 'oklch(85% 0.15 140)' : isUserDefined ? 'oklch(90% 0.12 80)' : 'oklch(85% 0.15 60)',
+                }}>
+                  {isDocumented ? 'udokumentowany' : isUserDefined ? 'zatwierdzony przez Ciebie' : 'propozycja modelu'}
+                </span>
                 {isDocumented && charStart !== undefined && charEnd !== undefined && (
                   <span style={{ fontSize: '0.6875rem', color: 'oklch(50% 0.02 250)' }}>
                     (znaki: {charStart}–{charEnd})
@@ -2453,6 +2519,24 @@ function PremiseScenarioImpacts({
                   >
                     [źródło ↗]
                   </a>
+                )}
+                {!isDocumented && !isUserDefined && onAcceptImpact && (
+                  <button
+                    type="button"
+                    onClick={() => onAcceptImpact(scId)}
+                    style={{
+                      fontSize: '0.625rem',
+                      fontWeight: 600,
+                      padding: '0.15rem 0.45rem',
+                      borderRadius: '3px',
+                      background: 'oklch(22% 0.05 80)',
+                      color: 'oklch(90% 0.08 80)',
+                      border: '1px solid oklch(35% 0.08 80)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Zatwierdź ten wpływ
+                  </button>
                 )}
               </div>
               {isDocumented && justSentence ? (
@@ -2473,14 +2557,14 @@ function PremiseScenarioImpacts({
                   paddingLeft: '0.5rem',
                   borderLeft: '2px solid oklch(25% 0.02 250)',
                 }}>
-                  ocena modelu, bez pokrycia w dokumencie
+                  {isUserDefined ? 'wpływ zatwierdzony przez decydenta' : 'ocena modelu, bez pokrycia w dokumencie'}
                 </div>
               )}
             </div>
           )
         })}
       </div>
-      {premise.impact_source === 'model_unverified' && onAcceptImpact && (
+      {hasAnyUnverifiedProposal && onAcceptImpact && (
         <div style={{
           marginTop: '0.5rem',
           padding: '0.35rem 0.6rem',
@@ -2496,7 +2580,7 @@ function PremiseScenarioImpacts({
           </span>
           <button
             type="button"
-            onClick={onAcceptImpact}
+            onClick={() => onAcceptImpact()}
             style={{
               fontSize: '0.6875rem',
               fontWeight: 600,
@@ -2508,7 +2592,7 @@ function PremiseScenarioImpacts({
               cursor: 'pointer',
             }}
           >
-            Zatwierdź wpływ
+            Zatwierdź wszystkie propozycje wpływu
           </button>
         </div>
       )}

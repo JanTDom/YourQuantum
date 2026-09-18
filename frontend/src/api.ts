@@ -298,13 +298,14 @@ export interface EvidencePremise {
   confidence: number
   weight: number
   impact_on_scenarios: Record<string, number>
+  impact_proposed?: Record<string, number>
   provenance?: 'user_supplied' | 'web_sourced' | 'llm_suggested' | 'assumed'
   source_ref?: string | null
   is_accepted?: boolean
   weight_breakdown?: Record<string, number> | null
   weight_justification?: string | null
   impact_justification?: Record<string, any> | null
-  impact_source?: 'documented' | 'model_unverified' | 'user_defined'
+  impact_source?: Record<string, 'documented' | 'model_unverified' | 'user_defined'> | 'documented' | 'model_unverified' | 'user_defined'
 }
 
 export interface ScenarioForecast {

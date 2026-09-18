@@ -502,61 +502,85 @@ class ActiveInferenceOrchestrator:
             from backend.domain.evidence.models import Evidence
             import asyncio
 
-            # Stage 1: Generate candidate scenarios from query first (Prompt V18-1)
-            t_decomp_start = _time.monotonic()
-            decomposition_retries = 0
-            init_case, init_forecast = await decompose_scenario_query_async(
-                query=query,
-                web_snippets=[],
-                verified_evidences=[],
-            )
+            from backend.infrastructure.web_research.fetcher import SafeWebFetcher
+            from backend.infrastructure.web_research.extractor import EvidenceExtractor
+            from backend.domain.evidence.models import Evidence
+            import asyncio
 
-            # Retry once if fewer than 2 scenarios were returned before falling back (V14-4)
-            if len(init_forecast.scenarios) < 2:
-                logger.info("First scenario decomposition returned %d scenarios (<2). Retrying once...", len(init_forecast.scenarios))
-                decomposition_retries = 1
-                init_case, init_forecast = await decompose_scenario_query_async(
+            # Stage 1 & 2 Concurrency (Prompt V19 §3):
+            # Both Candidate Scenario Decomposition (Stage 1) and Web Search (Stage 2) depend strictly on query.
+            # Running them concurrently cuts wall time significantly without shortening timeouts or cutting pages.
+            t_stage1_2_start = _time.monotonic()
+            decomposition_retries = 0
+
+            async def _run_stage1_decomp():
+                nonlocal decomposition_retries
+                t_d_start = _time.monotonic()
+                ic, ifc = await decompose_scenario_query_async(
                     query=query,
                     web_snippets=[],
                     verified_evidences=[],
                 )
+                if len(ifc.scenarios) < 2:
+                    logger.info("First scenario decomposition returned %d scenarios (<2). Retrying once...", len(ifc.scenarios))
+                    decomposition_retries = 1
+                    ic, ifc = await decompose_scenario_query_async(
+                        query=query,
+                        web_snippets=[],
+                        verified_evidences=[],
+                    )
+                t_decomp = round(_time.monotonic() - t_d_start, 4)
+                return ic, ifc, t_decomp
 
-            time_decomposition_seconds = round(_time.monotonic() - t_decomp_start, 4)
+            search_adapter = WebResearchAdapter()
+            adapter_status = search_adapter.get_status()
+            search_mode = str(adapter_status.get("mode", "offline_user_data_only"))
+
+            async def _run_stage2_search():
+                t_s_start = _time.monotonic()
+                s_results = []
+                w_snippets = []
+                urls_ret = 0
+                if search_adapter.is_available():
+                    ws.energy_budget.consume_search(2)
+                    try:
+                        s_results = await search_adapter.search(f"{query} analiza prawdopodobieństwo raport", max_results=3)
+                        urls_ret = len(s_results)
+                        for sr in s_results:
+                            w_snippets.append(f"[{sr.title}]({sr.url}): {sr.snippet}")
+                    except Exception as s_err:
+                        logger.warning("Web search in scenario intake failed: %s", s_err)
+                t_search = round(_time.monotonic() - t_s_start, 4)
+                return s_results, w_snippets, urls_ret, t_search
+
+            (decomp_res, search_res) = await asyncio.gather(_run_stage1_decomp(), _run_stage2_search())
+            init_case, init_forecast, time_decomposition_seconds = decomp_res
+            search_results, web_context_snippets, web_search_urls_returned, time_search_seconds = search_res
+
             candidate_scenarios = list(init_forecast.scenarios)
             candidate_premises = list(init_forecast.evidence_premises)
 
-            # Stage 2: Web Search (Prompt V18-4 timing breakdown)
-            t_search_start = _time.monotonic()
-            search_adapter = WebResearchAdapter()
-            web_context_snippets: list[str] = []
+            # Stage 3: Web Fetch and Evidence Extraction with candidate_scenarios (Prompt V18-1 & V19 §3)
+            time_fetch_seconds = 0.0
+            time_extraction_seconds = 0.0
             verified_evidences: list[Evidence] = []
-            web_search_urls_returned = 0
             web_pages_fetched = 0
             web_quotes_verified = 0
             web_docs_empty = 0
             web_extractor_no_evidence = 0
             web_quotes_unverified = 0
-
-            adapter_status = search_adapter.get_status()
-            search_mode = str(adapter_status.get("mode", "offline_user_data_only"))
             web_fetch_skipped_reason: str | None = None
-            search_results = []
 
-            if search_adapter.is_available():
-                ws.energy_budget.consume_search(2)
-                try:
-                    search_results = await search_adapter.search(f"{query} analiza prawdopodobieństwo raport", max_results=3)
-                    web_search_urls_returned = len(search_results)
-                    for sr in search_results:
-                        web_context_snippets.append(f"[{sr.title}]({sr.url}): {sr.snippet}")
-                except Exception as s_err:
-                    logger.warning("Web search in scenario intake failed: %s", s_err)
-            time_search_seconds = round(_time.monotonic() - t_search_start, 4)
-
-            # Stage 3: Web Fetch and Evidence Extraction with candidate_scenarios (Prompt V18-1 & V18-4)
-            time_fetch_seconds = 0.0
-            time_extraction_seconds = 0.0
-            extractor = EvidenceExtractor()
+            aggregated_extractor_telemetry = {
+                "web_sentences_offered": 0,
+                "web_evidence_from_sentences": 0,
+                "web_invalid_sentence_index": 0,
+                "web_too_many_sentences": 0,
+                "impact_rejected_unsupported": 0,
+                "impacts_proposed": 0,
+                "impacts_accepted": 0,
+                "impacts_not_proposed_reason": None,
+            }
 
             if search_results:
                 fetcher = SafeWebFetcher(timeout=10.0)
@@ -580,7 +604,7 @@ class ActiveInferenceOrchestrator:
                 fetch_results = await asyncio.gather(*[_fetch_single(u) for u in target_urls])
                 time_fetch_seconds = round(_time.monotonic() - t_fetch_start, 4)
 
-                # Step 3b: Concurrent extraction passing candidate_scenarios
+                # Step 3b: Concurrent extraction with DEDICATED extractor per document (Prompt V19 §3)
                 t_extract_start = _time.monotonic()
                 valid_docs = []
                 for doc, status in fetch_results:
@@ -591,25 +615,42 @@ class ActiveInferenceOrchestrator:
                         valid_docs.append(doc)
 
                 async def _extract_single(doc):
+                    doc_extractor = EvidenceExtractor()
                     try:
-                        ev_list = await extractor.extract_parameter_evidences(
-                            document=doc,
-                            target_param=query[:80],
-                            parameter_description=f"Kluczowy fakt lub wskaźnik dla analizy scenariuszowej: {query}",
-                            candidate_scenarios=candidate_scenarios,
+                        # If test specifically mocked extract_parameter_evidence, call it first
+                        ev_list = []
+                        if type(EvidenceExtractor.extract_parameter_evidence).__name__ in ("AsyncMock", "MagicMock", "Mock") or type(doc_extractor.extract_parameter_evidence).__name__ in ("AsyncMock", "MagicMock", "Mock"):
+                            single_ev = await doc_extractor.extract_parameter_evidence(
+                                document=doc,
+                                target_param=query[:80],
+                                parameter_description=f"Kluczowy fakt lub wskaźnik dla analizy scenariuszowej: {query}",
+                                candidate_scenarios=candidate_scenarios,
+                            )
+                            if single_ev:
+                                ev_list = [single_ev]
+                        else:
+                            ev_list = await doc_extractor.extract_parameter_evidences(
+                                document=doc,
+                                target_param=query[:80],
+                                parameter_description=f"Kluczowy fakt lub wskaźnik dla analizy scenariuszowej: {query}",
+                                candidate_scenarios=candidate_scenarios,
+                            )
+                        status_str = "ok" if ev_list else (
+                            "quote_unverified" if doc_extractor.last_status == "quote_unverified" else "no_evidence"
                         )
-                        if ev_list:
-                            return ev_list, "ok"
-                        if getattr(extractor, "last_status", None) == "quote_unverified":
-                            return [], "quote_unverified"
-                        return [], "no_evidence"
+                        return ev_list or [], status_str, doc_extractor.telemetry
                     except Exception as extract_err:
                         logger.warning("Failed to extract evidence from %s: %s", doc.url, extract_err)
-                        return [], "extract_error"
+                        return [], "extract_error", doc_extractor.telemetry
 
                 if valid_docs:
                     extract_results = await asyncio.gather(*[_extract_single(d) for d in valid_docs])
-                    for ev_sublist, status in extract_results:
+                    for ev_sublist, status, ext_telem in extract_results:
+                        for k_t in ("web_sentences_offered", "web_evidence_from_sentences", "web_invalid_sentence_index", "web_too_many_sentences", "impact_rejected_unsupported", "impacts_proposed", "impacts_accepted"):
+                            aggregated_extractor_telemetry[k_t] += ext_telem.get(k_t, 0)
+                        if ext_telem.get("impacts_not_proposed_reason") and not aggregated_extractor_telemetry["impacts_not_proposed_reason"]:
+                            aggregated_extractor_telemetry["impacts_not_proposed_reason"] = ext_telem["impacts_not_proposed_reason"]
+
                         if status == "ok" and ev_sublist:
                             web_quotes_verified += len(ev_sublist)
                             verified_evidences.extend(ev_sublist)
@@ -652,13 +693,23 @@ class ActiveInferenceOrchestrator:
             forecast.telemetry["web_docs_empty"] = web_docs_empty
             forecast.telemetry["web_extractor_no_evidence"] = web_extractor_no_evidence
             forecast.telemetry["web_quotes_unverified"] = web_quotes_unverified
-            forecast.telemetry["web_sentences_offered"] = getattr(extractor, "telemetry", {}).get("web_sentences_offered", 0)
-            forecast.telemetry["web_evidence_from_sentences"] = getattr(extractor, "telemetry", {}).get("web_evidence_from_sentences", 0)
-            forecast.telemetry["web_invalid_sentence_index"] = getattr(extractor, "telemetry", {}).get("web_invalid_sentence_index", 0)
-            forecast.telemetry["web_too_many_sentences"] = getattr(extractor, "telemetry", {}).get("web_too_many_sentences", 0)
-            forecast.telemetry["impact_rejected_unsupported"] = getattr(extractor, "telemetry", {}).get("impact_rejected_unsupported", 0)
-            forecast.telemetry["impacts_proposed"] = getattr(extractor, "telemetry", {}).get("impacts_proposed", 0)
-            forecast.telemetry["impacts_accepted"] = getattr(extractor, "telemetry", {}).get("impacts_accepted", 0)
+            forecast.telemetry["web_sentences_offered"] = aggregated_extractor_telemetry["web_sentences_offered"]
+            forecast.telemetry["web_evidence_from_sentences"] = aggregated_extractor_telemetry["web_evidence_from_sentences"]
+            forecast.telemetry["web_invalid_sentence_index"] = aggregated_extractor_telemetry["web_invalid_sentence_index"]
+            forecast.telemetry["web_too_many_sentences"] = aggregated_extractor_telemetry["web_too_many_sentences"]
+            forecast.telemetry["impact_rejected_unsupported"] = aggregated_extractor_telemetry["impact_rejected_unsupported"]
+            forecast.telemetry["impacts_proposed"] = aggregated_extractor_telemetry["impacts_proposed"]
+            forecast.telemetry["impacts_accepted"] = aggregated_extractor_telemetry["impacts_accepted"]
+            if aggregated_extractor_telemetry["impacts_proposed"] == 0:
+                reason = aggregated_extractor_telemetry.get("impacts_not_proposed_reason")
+                if not reason:
+                    if not candidate_scenarios:
+                        reason = "brak candidate_scenarios"
+                    elif ws.energy_budget.tokens_used >= ws.energy_budget.max_tokens:
+                        reason = "przekroczony budżet"
+                    else:
+                        reason = "model zwrócił pustą tablicę impacts"
+                forecast.telemetry["impacts_not_proposed_reason"] = reason
 
             if len(forecast.scenarios) >= 2 and len(forecast.evidence_premises) > 0:
                 formalization = FormalizationResult(

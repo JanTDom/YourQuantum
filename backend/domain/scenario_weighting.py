@@ -18,7 +18,8 @@ import math
 import re
 import time
 from typing import Any, Literal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, GetCoreSchemaHandler
+from pydantic_core import core_schema
 
 from backend.domain.problem_classes import ExecutiveBriefing, KeyPillar
 
@@ -179,19 +180,50 @@ class ScenarioOutcome(BaseModel):
     risk_level: Literal["LOW", "MEDIUM", "HIGH", "CRITICAL"] = "MEDIUM"
 
 
+class ImpactSourceDict(dict):
+    """
+    Dictionary mapping scenario_id -> impact_source string.
+    Supports backward-compatible equality check with str (e.g. impact_source == 'documented').
+    """
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, str):
+            if self.get("__default__") == other:
+                return True
+            if self and all(v == other for v in self.values()):
+                return True
+            return False
+        return super().__eq__(other)
+
+    @classmethod
+    def __get_pydantic_core_schema__(cls, source_type: Any, handler: GetCoreSchemaHandler):
+        return core_schema.no_info_after_validator_function(
+            lambda v: ImpactSourceDict({"__default__": v}) if isinstance(v, str) else ImpactSourceDict({str(k): str(val) for k, val in v.items()}) if isinstance(v, dict) else ImpactSourceDict(),
+            core_schema.any_schema()
+        )
+
+
 class EvidencePremise(BaseModel):
     id: str
     name: str
     description: str = ""
     source: str = ""
-    confidence: float = Field(default=1.0, ge=0.0, le=1.0)
-    weight: float = Field(default=1.0, ge=0.0)
-    impact_on_scenarios: dict[str, float] = Field(default_factory=dict)
+    confidence: float = 1.0  # 0.0 to 1.0
+    weight: float = 1.0      # arbitrary positive multiplier
+    impact_on_scenarios: dict[str, float] = Field(default_factory=dict)  # strictly grounded impacts
+    impact_proposed: dict[str, float] = Field(default_factory=dict)      # model proposed unverified impacts
     provenance: Literal["user_supplied", "web_sourced", "llm_suggested", "assumed"] = "assumed"
     source_ref: str | None = None
     is_accepted: bool = True  # If provenance == "llm_suggested", must be explicitly accepted to count
     impact_justification: dict[str, Any] = Field(default_factory=dict)
-    impact_source: Literal["documented", "model_unverified", "user_defined"] = "documented"
+    impact_source: ImpactSourceDict = Field(default_factory=ImpactSourceDict)
+
+    def get_impact_source(self, scenario_id: str) -> str:
+        """Returns the specific impact source for the scenario, falling back to default or documented."""
+        if scenario_id in self.impact_source:
+            return self.impact_source[scenario_id]
+        if "__default__" in self.impact_source:
+            return self.impact_source["__default__"]
+        return "documented"
 
 
 class TippingPointItem(BaseModel):
@@ -245,9 +277,12 @@ def compute_tipping_points(
     text_summaries: list[str] = []
 
     for p in active_premises:
-        is_impact_active = (p.impact_source in ("documented", "user_defined") or p.provenance == "user_supplied")
-        impact_dom = p.impact_on_scenarios.get(dominant.id, 0.0) if is_impact_active else 0.0
-        impact_run = p.impact_on_scenarios.get(runner_up.id, 0.0) if is_impact_active else 0.0
+        impact_dom_source = p.get_impact_source(dominant.id)
+        impact_run_source = p.get_impact_source(runner_up.id)
+        is_dom_active = (impact_dom_source in ("documented", "user_defined") or p.provenance == "user_supplied")
+        is_run_active = (impact_run_source in ("documented", "user_defined") or p.provenance == "user_supplied")
+        impact_dom = p.impact_on_scenarios.get(dominant.id, 0.0) if is_dom_active else 0.0
+        impact_run = p.impact_on_scenarios.get(runner_up.id, 0.0) if is_run_active else 0.0
         net_coupling = p.confidence * (impact_dom - impact_run)
 
         if abs(net_coupling) < 1e-6:
@@ -352,7 +387,8 @@ def compute_scenario_distribution(
     for sc in scenarios:
         s_val = 0.0
         for p in active_premises:
-            is_impact_active = (p.impact_source in ("documented", "user_defined") or p.provenance == "user_supplied")
+            source = p.get_impact_source(sc.id)
+            is_impact_active = (source in ("documented", "user_defined") or p.provenance == "user_supplied")
             if is_impact_active:
                 impact = p.impact_on_scenarios.get(sc.id, 0.0)
                 s_val += (impact * p.weight * p.confidence)
@@ -400,11 +436,19 @@ def compute_scenario_distribution(
     # 4. Construct Executive Briefing
     pillars: list[KeyPillar] = []
     for p in active_premises[:4]:
-        favored_sc = max(p.impact_on_scenarios.items(), key=lambda item: item[1])[0]
-        fav_sc_obj = next((s for s in scenarios if s.id == favored_sc), None)
-        fav_title = fav_sc_obj.title if fav_sc_obj else favored_sc
+        if p.impact_on_scenarios:
+            favored_sc = max(p.impact_on_scenarios.items(), key=lambda item: item[1])[0]
+            fav_sc_obj = next((s for s in scenarios if s.id == favored_sc), None)
+            fav_title = fav_sc_obj.title if fav_sc_obj else favored_sc
+            direction_label = f"Kierunek: Najsilniej sprzyja wariantowi: '{fav_title}'"
+        elif p.impact_proposed:
+            favored_sc = max(p.impact_proposed.items(), key=lambda item: item[1])[0]
+            fav_sc_obj = next((s for s in scenarios if s.id == favored_sc), None)
+            fav_title = fav_sc_obj.title if fav_sc_obj else favored_sc
+            direction_label = f"Kierunek (propozycja analityczna): Najsilniej sprzyja wariantowi: '{fav_title}'"
+        else:
+            direction_label = "Kierunek: Wpływ na scenariusze neutralny lub nieokreślony"
 
-        direction_label = f"Kierunek: Najsilniej sprzyja wariantowi: '{fav_title}'"
         pillars.append(
             KeyPillar(
                 title=normalize_polish_geopolitical_text(p.name),
@@ -441,7 +485,7 @@ def compute_scenario_distribution(
         tipping_points=tipping_points_text,
     )
 
-    # Calculate impact_documented_share (DEC-040)
+    # Calculate impact_documented_share (DEC-040 & Prompt V19: per-scenario impact_source)
     total_active_impact_magnitude = sum(
         abs(p.impact_on_scenarios.get(sc.id, 0.0))
         for p in active_premises
@@ -450,8 +494,8 @@ def compute_scenario_distribution(
     documented_active_impact_magnitude = sum(
         abs(p.impact_on_scenarios.get(sc.id, 0.0))
         for p in active_premises
-        if p.impact_source == "documented"
         for sc in scenarios
+        if p.get_impact_source(sc.id) == "documented"
     )
     if total_active_impact_magnitude > 0:
         impact_documented_share = round((documented_active_impact_magnitude / total_active_impact_magnitude) * 100.0, 2)

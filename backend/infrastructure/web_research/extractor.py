@@ -185,6 +185,7 @@ class EvidenceExtractor:
             "impact_rejected_unsupported": 0,
             "impacts_proposed": 0,
             "impacts_accepted": 0,
+            "impacts_not_proposed_reason": None,
         }
 
     async def extract_parameter_evidence(
@@ -445,6 +446,10 @@ class EvidenceExtractor:
                 },
             }
 
+        if not candidate_scenarios:
+            if self.telemetry.get("impacts_not_proposed_reason") is None:
+                self.telemetry["impacts_not_proposed_reason"] = "brak candidate_scenarios"
+
         resp = await self.gateway.generate(
             system_instruction=system_instruction,
             user_content=user_content,
@@ -454,10 +459,14 @@ class EvidenceExtractor:
         )
 
         if not resp.parsed_json or not isinstance(resp.parsed_json, dict):
+            if candidate_scenarios and self.telemetry.get("impacts_not_proposed_reason") is None:
+                self.telemetry["impacts_not_proposed_reason"] = "odpowiedź modelu nie przeszła walidacji schematu"
             return None
 
         raw_indices = resp.parsed_json.get("sentence_indices")
         if not raw_indices or not isinstance(raw_indices, list):
+            if candidate_scenarios and self.telemetry.get("impacts_not_proposed_reason") is None:
+                self.telemetry["impacts_not_proposed_reason"] = "odpowiedź modelu nie przeszła walidacji schematu"
             return None
 
         indices: list[int] = []
@@ -502,6 +511,8 @@ class EvidenceExtractor:
 
         selected_indices_set = set(sorted_indices)
         if isinstance(raw_impacts, list):
+            if candidate_scenarios and len(raw_impacts) == 0 and self.telemetry.get("impacts_not_proposed_reason") is None:
+                self.telemetry["impacts_not_proposed_reason"] = "model zwrócił pustą tablicę impacts"
             for imp in raw_impacts:
                 if not isinstance(imp, dict):
                     continue
