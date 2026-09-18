@@ -5,7 +5,7 @@ import {
   Evidence,
   EvidencePremise,
   JobResult,
-  ScenarioForecast,
+  ScenarioForecast, ScenarioOutcome,
 } from '../api'
 import { EvidenceDrawer } from './EvidenceDrawer'
 
@@ -434,7 +434,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                     )}
                   </span>
                 </div>
-                {/* banner padding line */}
+                <ActivePremisesEmptyBanner activeCount={liveForecast.activeCount} webQuotesVerified={forecast.telemetry?.web_quotes_verified ?? 0} />
                 {/* banner padding line */}
                 {/* banner padding line */}
                 {/* banner padding line */}
@@ -843,6 +843,7 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                           </p>
                         )}
                         {isWeb && <WebEvidenceNotice sourceRef={premise.source_ref} weightBreakdown={premise.weight_breakdown} weightJustification={premise.weight_justification} />}
+                        <PremiseScenarioImpacts premise={premise} scenarios={liveForecast.scenarios} />
 
                         {/* Weight Slider */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
@@ -2331,6 +2332,117 @@ function WebEvidenceNotice({
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+function ActivePremisesEmptyBanner({
+  activeCount,
+  webQuotesVerified,
+}: {
+  activeCount: number
+  webQuotesVerified: number
+}) {
+  if (!(activeCount === 0 && webQuotesVerified > 0)) {
+    return null
+  }
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: '0.625rem',
+      padding: '0.75rem 1rem',
+      borderRadius: '8px',
+      background: 'oklch(18% 0.08 75 / 0.5)',
+      borderLeft: '4px solid oklch(80% 0.18 75)',
+      fontSize: '0.8125rem',
+      color: 'oklch(90% 0.1 75)',
+      marginBottom: '1.5rem',
+    }}>
+      <span>⚠️</span>
+      <span>
+        <strong>Rozkład 33/33/33% wynika z braku aktywnych przesłanek:</strong> Pobrane źródła sieciowe dostarczyły zweryfikowane cytaty ({webQuotesVerified}), lecz żadna z przesłanek nie została jeszcze włączona do obliczeń. Zatwierdź przesłanki poniżej, aby ugruntować rozkład prawdopodobieństw w faktach.
+      </span>
+    </div>
+  )
+}
+
+function PremiseScenarioImpacts({
+  premise,
+  scenarios,
+}: {
+  premise: EvidencePremise
+  scenarios: ScenarioOutcome[]
+}) {
+  if (!premise.impact_on_scenarios || Object.keys(premise.impact_on_scenarios).length === 0) {
+    return null
+  }
+  return (
+    <div style={{
+      marginTop: '0.6rem',
+      padding: '0.5rem 0.75rem',
+      borderRadius: '6px',
+      background: 'oklch(12% 0.015 250)',
+      border: '1px solid oklch(20% 0.02 250)',
+      fontSize: '0.75rem',
+    }}>
+      <div style={{ fontWeight: 700, color: 'oklch(75% 0.12 80)', marginBottom: '0.35rem' }}>
+        Wpływ na scenariusze i uziemienie w tekście:
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+        {Object.entries(premise.impact_on_scenarios).map(([scId, impVal]) => {
+          const scObj = scenarios.find((s) => s.id === scId)
+          const scName = scObj ? scObj.title : scId
+          const justObj = premise.impact_justification?.[scId]
+          const justSentence = justObj?.justifying_sentence
+          const charStart = justObj?.char_start
+          const charEnd = justObj?.char_end
+          const isPositive = impVal > 0
+          const isZero = Math.abs(impVal) < 0.001
+
+          return (
+            <div key={scId} style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <span style={{ fontWeight: 600, color: 'oklch(85% 0.02 250)' }}>
+                  {scName}:
+                </span>
+                <span style={{
+                  fontWeight: 800,
+                  color: isZero ? 'oklch(65% 0.02 250)' : isPositive ? 'oklch(80% 0.15 140)' : 'oklch(80% 0.18 25)',
+                }}>
+                  {isPositive ? `+${impVal.toFixed(2)}` : impVal.toFixed(2)}
+                </span>
+                {charStart !== undefined && charEnd !== undefined && (
+                  <span style={{ fontSize: '0.6875rem', color: 'oklch(50% 0.02 250)' }}>
+                    (znaki: {charStart}–{charEnd})
+                  </span>
+                )}
+                {premise.source_ref && premise.source_ref.startsWith('http') && (
+                  <a
+                    href={premise.source_ref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ fontSize: '0.6875rem', color: 'oklch(75% 0.12 80)', textDecoration: 'underline' }}
+                  >
+                    [źródło ↗]
+                  </a>
+                )}
+              </div>
+              {justSentence && (
+                <div style={{
+                  fontSize: '0.6875rem',
+                  color: 'oklch(70% 0.03 250)',
+                  fontStyle: 'italic',
+                  paddingLeft: '0.5rem',
+                  borderLeft: '2px solid oklch(30% 0.05 80)',
+                }}>
+                  „{justSentence}”
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

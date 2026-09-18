@@ -303,6 +303,7 @@ export interface EvidencePremise {
   is_accepted?: boolean
   weight_breakdown?: Record<string, number> | null
   weight_justification?: string | null
+  impact_justification?: Record<string, any> | null
 }
 
 export interface ScenarioForecast {
