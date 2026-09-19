@@ -1,0 +1,149 @@
+[
+  {
+    "run": 1,
+    "status": 200,
+    "wall_time": 107.05,
+    "problem_class": "DESIGN",
+    "levers_count": 3,
+    "criteria_count": 3,
+    "documented_cells": 0,
+    "empty_cells": 0,
+    "assumed_cells": 0,
+    "sources": [],
+    "sources_count": 0
+  },
+  {
+    "run": 2,
+    "status": 200,
+    "wall_time": 102.13,
+    "problem_class": "DESIGN",
+    "levers_count": 3,
+    "criteria_count": 3,
+    "documented_cells": 4,
+    "empty_cells": 0,
+    "assumed_cells": 0,
+    "sources": [
+      "https://www.poradnikzdrowie.pl/zdrowie/badania/budzet-na-zdrowie-2027-dodatkowe-200-mln-zl-napedzi-in-vitro-i-walke-z-rakiem-aa-TS1c-udkh-r1TU.html"
+    ],
+    "sources_count": 1
+  },
+  {
+    "run": 3,
+    "status": 200,
+    "wall_time": 101.41,
+    "problem_class": "DESIGN",
+    "levers_count": 3,
+    "criteria_count": 3,
+    "documented_cells": 4,
+    "empty_cells": 0,
+    "assumed_cells": 0,
+    "sources": [
+      "https://www.rp.pl/forum-ekonomiczne/art45152041-zdrowie-kosztuje-coraz-wiecej-system-zbliza-sie-do-sciany"
+    ],
+    "sources_count": 1
+  },
+  {
+    "run": 4,
+    "status": 200,
+    "wall_time": 99.06,
+    "problem_class": "DESIGN",
+    "levers_count": 3,
+    "criteria_count": 3,
+    "documented_cells": 0,
+    "empty_cells": 0,
+    "assumed_cells": 0,
+    "sources": [],
+    "sources_count": 0
+  },
+  {
+    "run": 5,
+    "status": 200,
+    "wall_time": 114.82,
+    "problem_class": "DESIGN",
+    "levers_count": 3,
+    "criteria_count": 3,
+    "documented_cells": 4,
+    "empty_cells": 0,
+    "assumed_cells": 0,
+    "sources": [
+      "https://alertmedyczny.pl/krajowy-plan-transformacji-systemu-zdrowia-2027-2031-jest-oficjalny-dokument-mz/",
+      "https://remedium.md/publikacje/wiadomosci/kadrowa-rewolucja-2027-2031-jak-ministerstwo-zdrowia-chce-zatrzymac-medykow-w-systemie"
+    ],
+    "sources_count": 2
+  },
+  {
+    "run": 6,
+    "status": 200,
+    "wall_time": 117.65,
+    "problem_class": "DESIGN",
+    "levers_count": 3,
+    "criteria_count": 3,
+    "documented_cells": 5,
+    "empty_cells": 0,
+    "assumed_cells": 0,
+    "sources": [
+      "https://krytykapolityczna.pl/kraj/polska-wymiera-co-nie-dziala-w-nfz/",
+      "https://www.rp.pl/forum-ekonomiczne/art45152041-zdrowie-kosztuje-coraz-wiecej-system-zbliza-sie-do-sciany"
+    ],
+    "sources_count": 2
+  },
+  {
+    "run": 7,
+    "status": 200,
+    "wall_time": 104.7,
+    "problem_class": "DESIGN",
+    "levers_count": 3,
+    "criteria_count": 3,
+    "documented_cells": 0,
+    "empty_cells": 0,
+    "assumed_cells": 0,
+    "sources": [],
+    "sources_count": 0
+  },
+  {
+    "run": 8,
+    "status": 200,
+    "wall_time": 115.76,
+    "problem_class": "DESIGN",
+    "levers_count": 3,
+    "criteria_count": 3,
+    "documented_cells": 4,
+    "empty_cells": 0,
+    "assumed_cells": 0,
+    "sources": [
+      "https://wei.org.pl/en/2025/news/lwojdygawei-org-pl/the-polish-healthcare-system-is-on-the-brink-of-collapse/",
+      "https://www.statista.com/chart/30314/survey-on-where-healthcare-systems-frequently-let-down-patients/"
+    ],
+    "sources_count": 2
+  },
+  {
+    "run": 9,
+    "status": 200,
+    "wall_time": 119.01,
+    "problem_class": "DESIGN",
+    "levers_count": 3,
+    "criteria_count": 3,
+    "documented_cells": 2,
+    "empty_cells": 0,
+    "assumed_cells": 0,
+    "sources": [
+      "https://speyside-group.com/news-insights/strengthening-polands-healthcare-system"
+    ],
+    "sources_count": 1
+  },
+  {
+    "run": 10,
+    "status": 200,
+    "wall_time": 111.26,
+    "problem_class": "DESIGN",
+    "levers_count": 3,
+    "criteria_count": 3,
+    "documented_cells": 2,
+    "empty_cells": 0,
+    "assumed_cells": 0,
+    "sources": [
+      "https://www.aip-group.pl/system-opieki-zdrowotnej-w-polsce.html"
+    ],
+    "sources_count": 1
+  }
+]

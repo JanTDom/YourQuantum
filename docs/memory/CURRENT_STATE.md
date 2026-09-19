@@ -1,25 +1,25 @@
 # YourQuantum — CURRENT STATE
-_Last updated: 2026-09-18 (V19: TRZY DOMKNIĘCIA — rozdział słowników wpływów, per-scenariuszowy impact_source, telemetria impacts_not_proposed_reason, równoległe wyszukiwanie i dekompozycja, 10-biegowy pomiar produkcyjny: 10/10 biegów z 100% ugruntowaniem, mediana 34,11 s, 25/25 bramek PASS)_
+_Last updated: 2026-09-19 (V21: DANE Z SIECI TAKŻE W KLASIE DESIGN — eliminacja zmyślonych liczb, podpięcie pod rurociąg SafeWebFetcher/EvidenceExtractor, synteza Pareto na udokumentowanym podzbiorze kryteriów, 10-biegowy pomiar produkcyjny: 10/10 sukcesów, 0 komórek assumed, mediana 109,16 s, 25/25 bramek PASS)_
 
-## Status: V19 — TRZY DOMKNIĘCIA (WDROŻONE I OPOMIAROWANE NA PRODUKCJI)
+## Status: V21 — DANE Z SIECI TAKŻE W KLASIE DESIGN (WDROŻONE I OPOMIAROWANE NA PRODUKCJI)
 
-- **Gałąź i stan repo**: `main` (gotowe do pushu i wdrożenia produkcyjnego):
-  * **Zlecenie V19 (Trzy domknięcia)**:
-    - **Rozdział słowników wpływów i `impact_source` per wpływ (V19-1, DEC-041)**: Słownik `impact_on_scenarios: dict[str, float]` niesie wyłącznie wpływy ugruntowane w zweryfikowanych zdaniach z dokumentów (`ev.impact_on_scenarios`). Nowe pole `impact_proposed: dict[str, float]` w `EvidencePremise` przechowuje propozycje analityczne modelu (nigdy nie scalane automatycznie i nie nadpisujące zweryfikowanych danych). Słownik `impact_source` mapuje `scenario_id -> 'documented' | 'model_unverified' | 'user_defined'` (z klasą `ImpactSourceDict` zapewniającą wsteczną zgodność porównań ze stringami). Softmax czyta wyłącznie `impact_on_scenarios`.
-    - **Telemetria `impacts_not_proposed_reason` (V19-2)**: Gdy `impacts_proposed == 0`, silnik raportuje ustandaryzowaną przyczynę (`brak candidate_scenarios`, `model zwrócił pustą tablicę impacts`, `odpowiedź modelu nie przeszła walidacji schematu`, `przekroczony budżet`).
-    - **Optymalizacja czasu odpowiedzi (V19-3)**: Dekompozycja zapytania na scenariusze (Etap 1) oraz wyszukiwanie sieciowe (Etap 2) wykonywane są współbieżnie przez `asyncio.gather`. Dedykowana instancja `EvidenceExtractor` na każdy dokument eliminuje współdzielony stan mutowalny.
-    - **Pomiary produkcyjne (10 biegów na `https://yourquantum.pl`)**:
-      * **Liczba biegów z `impact_documented_share > 0`**: **10 na 10 biegów (100,0%)**.
-      * **Rozrzut `impact_documented_share`**: ściśle **100,0%** we wszystkich 10 biegach (min=100,0%, max=100,0%, średnia=100,0%).
-      * **Łączna liczba propozycji wpływu**: 64 zaproponowane, 54 zaakceptowane na podstawie zweryfikowanych cytatów, 10 odrzuconych jako nieugruntowane (`impact_rejected_unsupported`).
-      * **Czas całkowity**: Mediana **34,11 s**, najlepszy czas **29,22 s**, najgorszy czas **78,71 s** (skrócenie mediany z ~69,5 s w V18 do 34,11 s w V19).
-    - **Oficjalny raport**: Utworzono [docs/REPORT_V19.md](file:///Users/macbookpro/PROJEKTY/YOURQUANTUM/docs/REPORT_V19.md).
+- **Gałąź i stan repo**: `main` (wypchnięte na `origin/main` i wdrożone na produkcję):
+  * **Zlecenie V21 (Dane z sieci w klasie DESIGN, DEC-042)**:
+    - **Eliminacja liczb zmyślonych przez model (DEC-042)**: Usunięto arbitralne domyślne oceny `7.0` i `3.0` oraz status `provenance="assumed"`. Komórki bez zweryfikowanych faktów w sieci pozostają puste (`value=None`, `provenance="unverified"`).
+    - **Podpięcie klasy DESIGN pod rurociąg dowodowy**: W fazie intake dla klasy `DESIGN` uruchamiane jest wyszukiwanie w sieci, pobieranie stron przez `backend/infrastructure/web_research/fetcher.py` (`SafeWebFetcher` z ochroną SSRF) oraz ekstrakcja z dosłowną weryfikacją cytatów `backend/infrastructure/web_research/extractor.py` (`EvidenceExtractor._verify_quote_in_text`).
+    - **Kalkulacja Pareto na udokumentowanym podzbiorze kryteriów**: Puste komórki nie są zastępowane zerami ani średnimi. Kryteria nieposiadające danych liczbowych w żadnej opcji są wykluczane z dominacji Pareto i raportowane w `design_criteria_excluded`. W przypadku braku jakichkolwiek danych zwracany jest uczciwy fallback `insufficient_data=True` z komunikatem *„Nie znalazłem wystarczających danych, żeby porównać te warianty.”*
+    - **Modernizacja interfejsu**: W `frontend/src/components/DesignWorkspace.tsx` usunięto jednostkowe przyciski założeń, dodano zbiorczy przycisk `🌐 Dociągnij dane z sieci`, licznik ugruntowanych i pustych komórek oraz możliwość edycji manualnej przez decydenta (`user_supplied`).
+    - **Pomiary produkcyjne (10 biegów na `https://yourquantum.pl` dla zapytania o ochronę zdrowia)**:
+      * **Skuteczność**: **10 na 10 biegów (100%)** zakończonych sukcesem 200 OK w klasie `DESIGN`.
+      * **Komórki `assumed`**: **0 we wszystkich 10 biegach (100% rygoru empirycznego)**.
+      * **Ugruntowanie empiryczne**: W 7/10 biegów pozyskano od 2 do 5 udokumentowanych komórek z cytatami z polskich portali branżowych i ekonomicznych; w 3/10 biegów uczciwy stan 0 danych.
+      * **Czas całkowity**: Mediana **109,16 s** (min 99,06 s, max 119,01 s, średnia 109,28 s).
+    - **Oficjalny raport**: Utworzono `docs/REPORT_V21.md`.
 - **Weryfikacja testowa**:
   * `scripts/check_v4.sh`: Wszystkie bramki PASS (**25/25 ZIELONE**).
-  * `pytest`: Wszystkie 257 testów automatycznych PASS (w tym testy `tests/test_scenario_web_sourcing.py` 29/29 PASS, `tests/unit/test_doc_citations.py` 6/6 PASS).
+  * `pytest`: Wszystkie 262 testy automatyczne PASS (w tym nowy zestaw `tests/unit/test_design_web_sourcing.py` 3/3 PASS).
   * `npm run build`: Kompilacja Vite/TypeScript czysta (kod 0, 0 błędów).
-- **Wdrożenie produkcyjne**: `https://yourquantum.pl` (Vercel prod deployment, status `READY`):
-  * Aktywny commit produkcyjny: `70e3f59` (origin/main).
+- **Wdrożenie produkcyjne**: `https://yourquantum.pl` (Vercel prod deployment, status `READY`).
 
 
 
@@ -354,6 +354,20 @@ WYNIK KOŃCOWY: WSZYSTKIE BRAMKI ZIELONE (PASS)
 
 ---
 
+### ✅ Faza V21: Dane z Sieci Także w Klasie DESIGN (2026-09-19)
+- **Eliminacja zmyślonych liczb modelu (DEC-042)**: Usunięto arbitralne domyślne oceny `7.0` i `3.0` oraz status `provenance="assumed"`. Komórki bez zweryfikowanych faktów w sieci pozostają puste (`value=None`, `provenance="unverified"`).
+- **Podpięcie klasy DESIGN pod rurociąg dowodowy**: W fazie intake dla klasy `DESIGN` uruchamiane jest wyszukiwanie w sieci, pobieranie stron przez `backend/infrastructure/web_research/fetcher.py` (`SafeWebFetcher` z ochroną SSRF) oraz ekstrakcja z dosłowną weryfikacją cytatów `backend/infrastructure/web_research/extractor.py` (`EvidenceExtractor._verify_quote_in_text`).
+- **Kalkulacja Pareto na udokumentowanym podzbiorze kryteriów**: Puste komórki nie są zastępowane zerami ani średnimi. Kryteria nieposiadające danych liczbowych w żadnej opcji są wykluczane z dominacji Pareto i raportowane w `design_criteria_excluded`. W przypadku braku jakichkolwiek danych zwracany jest uczciwy fallback `insufficient_data=True` z komunikatem *„Nie znalazłem wystarczających danych, żeby porównać te warianty.”*
+- **Modernizacja interfejsu**: W `frontend/src/components/DesignWorkspace.tsx` usunięto jednostkowe przyciski założeń, dodano zbiorczy przycisk `🌐 Dociągnij dane z sieci`, licznik ugruntowanych i pustych komórek oraz możliwość edycji manualnej przez decydenta (`user_supplied`).
+- **Pomiary produkcyjne (10 biegów na `https://yourquantum.pl` dla zapytania o ochronę zdrowia)**:
+  * **Skuteczność**: **10 na 10 biegów (100%)** zakończonych sukcesem 200 OK w klasie `DESIGN`.
+  * **Komórki `assumed`**: **0 we wszystkich 10 biegach (100% rygoru empirycznego)**.
+  * **Ugruntowanie empiryczne**: W 7/10 biegów pozyskano od 2 do 5 udokumentowanych komórek z cytatami z polskich portali branżowych i ekonomicznych; w 3/10 biegów uczciwy stan 0 danych.
+  * **Czas całkowity**: Mediana **109,16 s** (min 99,06 s, max 119,01 s, średnia 109,28 s).
+- **Raport**: Utworzono `docs/REPORT_V21.md`, zarejestrowano decyzję DEC-042 w `docs/memory/DECISIONS.md`.
+
+---
+
 ## Następny krok (Next Step)
 
-Zlecenie V19 ukończone, przetestowane (25/25 bramek PASS w scripts/check_v4.sh), wdrożone produkcyjnie na https://yourquantum.pl i zweryfikowane pełnym 10-biegowym pomiarem produkcyjnym (10/10 biegów ze 100,0% ugruntowaniem, mediana 34,11 s). Oczekiwanie na dyspozycję Jana co do kolejnego etapu rozwoju YourQuantum.
+Zlecenie V21 ukończone, przetestowane (25/25 bramek PASS w `scripts/check_v4.sh`), wdrożone produkcyjnie na `https://yourquantum.pl` i zweryfikowane pełnym 10-biegowym pomiarem produkcyjnym (10/10 sukcesów 200 OK, 0 komórek assumed, do 5 zweryfikowanych komórek z sieci www, mediana czasu 109,16 s). Oczekiwanie na dyspozycję Jana co do kolejnych kroków i dalszych ulepszeń platformy.

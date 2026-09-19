@@ -147,3 +147,18 @@ W sekcji 4 dokumentu `docs/REPORT_V6.md` doszło do błędu fabrykowania opisu i
 - **Dowód**: Niezależny pomiar i audyt wykazany w `docs/AUDYT_ZGODNOSCI.md` (sekcja 3A i 3B).
 - **Środek zaradczy**: Wprowadzenie bezwzględnej bramki mechanicznej `G-EVID` (`scripts/check_report_evidence.py`), sprawdzającej, czy logi w raportach odpowiadają rzeczywistym uruchomieniom, czy nie zawierają fikcyjnych artefaktów oraz czy czasy testów odzwierciedlają faktyczne pomiary.
 - **Zasada na przyszłość**: Każda liczba, log, czas wykonania i cytat w raporcie musi pochodzić bezpośrednio z wyjścia narzędzia uruchomionego w tej samej sesji roboczej. Zgłoszenie czegokolwiek z pamięci lub domysłu stanowi dyskwalifikujące naruszenie rzemiosła.
+
+---
+
+## L-027: Normalizacja wskaźników pewności (confidence) w modelach Pydantic
+- **Objaw**: Podczas wielobiegu produkcyjnego zapytanie zakończyło się błędem 500: `1 validation error for ScoredValue: confidence Input should be less than or equal to 1 [input_value=5.0]`.
+- **Przyczyna**: Ekstraktory lub modele zewnętrzne mogą sporadycznie zwrócić ocenę pewności w skali Likerta 1–5 lub w procentach 0–100 zamiast ułamka dziesiętnego [0.0, 1.0]. Model `ScoredValue` z twardą walidacją `le=1.0` wyrzucał wyjątek `ValidationError`.
+- **Zasada**: W modelach danych przyjmujących wartości od ekstraktorów LLM lub sieciowych należy stosować `@field_validator(mode="before")`, który automatycznie wykrywa i normalizuje alternatywne skale (np. $v \le 5.0 \implies v / 5.0$, $v \le 100.0 \implies v / 100.0$) oraz klamruje wartość do $[0.0, 1.0]$, zapobiegając awariom na produkcji.
+
+---
+
+## L-028: Zakaz lokalnych importów `import asyncio` wewnątrz funkcji
+- **Objaw**: Na produkcji endpoint `/api/v1/cognitive/intake` zgłosił `UnboundLocalError: cannot access local variable 'asyncio' where it is not associated with a value` przy wywołaniu `await asyncio.gather(...)`.
+- **Przyczyna**: W Pythonie umieszczenie `import asyncio` w dalszej gałęzi funkcji sprawia, że kompilator traktuje nazwę `asyncio` jako zmienną lokalną w całym zakresie tej funkcji. Każde wcześniejsze odwołanie do `asyncio` przed dotarciem do linii importu powoduje `UnboundLocalError`.
+- **Zasada**: Moduły biblioteki standardowej, a zwłaszcza `asyncio`, muszą być importowane wyłącznie na poziomie modułu (top-level), nigdy wewnątrz ciał funkcji.
+
