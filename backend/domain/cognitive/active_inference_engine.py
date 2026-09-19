@@ -5,6 +5,7 @@ Karl Friston's Free Energy Principle and neurobiological global workspace theory
 """
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import logging
 import re
@@ -559,12 +560,6 @@ class ActiveInferenceOrchestrator:
             from backend.infrastructure.web_research.fetcher import SafeWebFetcher
             from backend.infrastructure.web_research.extractor import EvidenceExtractor
             from backend.domain.evidence.models import Evidence
-            import asyncio
-
-            from backend.infrastructure.web_research.fetcher import SafeWebFetcher
-            from backend.infrastructure.web_research.extractor import EvidenceExtractor
-            from backend.domain.evidence.models import Evidence
-            import asyncio
 
             # Stage 1 & 2 Concurrency (Prompt V19 §3):
             # Both Candidate Scenario Decomposition (Stage 1) and Web Search (Stage 2) depend strictly on query.
