@@ -432,15 +432,27 @@ class ActiveInferenceOrchestrator:
                     queries.append(f"{lev.name} {variant_titles} {crit_names} {REFERENCE_INSTITUTIONS}")
                 return queries[:DESIGN_MAX_SEARCH_QUERIES]
 
+            ws.telemetry["design_search_available"] = bool(search_adapter.is_available())
             if search_adapter.is_available():
                 ws.energy_budget.consume_search(2)
                 design_queries = _build_design_queries()
 
+                # Telemetria rozróżniająca "wyszukiwarka nic nie znalazła" od "wyszukiwarka
+                # odmówiła odpowiedzi" — bez niej zero pobranych stron jest nierozróżnialne
+                # od awarii dostawcy i wymaga zaglądania do logów runtime.
+                search_failures: list[str] = []
+                search_empty = 0
+
                 async def _run_one_search(q: str) -> list[Any]:
+                    nonlocal search_empty
                     try:
-                        return await search_adapter.search(q, max_results=4)
+                        out = await search_adapter.search(q, max_results=4)
+                        if not out:
+                            search_empty += 1
+                        return out
                     except Exception as s_err:
                         logger.warning("Design search failed for %r: %s", q[:60], s_err)
+                        search_failures.append(f"{type(s_err).__name__}: {str(s_err)[:120]}")
                         return []
 
                 try:
@@ -463,6 +475,9 @@ class ActiveInferenceOrchestrator:
                         break
 
                 ws.telemetry["design_search_queries_issued"] = len(design_queries)
+                ws.telemetry["design_search_results_total"] = sum(len(b) for b in search_batches)
+                ws.telemetry["design_search_empty_queries"] = search_empty
+                ws.telemetry["design_search_failures"] = search_failures[:4]
 
             # Build compatible DecisionCase with options per lever
             case_options: list[Option] = []
@@ -823,6 +838,10 @@ class ActiveInferenceOrchestrator:
                     "design_cells_rejected_duplicate": ws.telemetry.get("design_cells_rejected_duplicate", 0),
                     # Telemetria budżetu badawczego — V24 §A4 / DEC-045
                     "design_search_queries_issued": ws.telemetry.get("design_search_queries_issued", 0),
+                    "design_search_results_total": ws.telemetry.get("design_search_results_total", 0),
+                    "design_search_empty_queries": ws.telemetry.get("design_search_empty_queries", 0),
+                    "design_search_failures": ws.telemetry.get("design_search_failures", []),
+                    "design_search_available": ws.telemetry.get("design_search_available", None),
                     "design_pages_fetched": ws.telemetry.get("design_pages_fetched", 0),
                     "design_extraction_calls_used": ws.telemetry.get("design_extraction_calls_used", 0),
                     "design_budget_exhausted": ws.telemetry.get("design_budget_exhausted", False),
