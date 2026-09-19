@@ -9,7 +9,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Literal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class Fact(BaseModel):
@@ -81,6 +81,21 @@ class ScoredValue(BaseModel):
     provenance: Literal["user_supplied", "derived", "assumed", "web_sourced", "llm_extracted", "llm_suggested", "unverified"] = "user_supplied"
     source_ref: str | None = None  # fact_id | evidence_id | "assumption" | "user_input"
     confidence: float = Field(default=1.0, ge=0.0, le=1.0)
+
+    @field_validator("confidence", mode="before")
+    @classmethod
+    def normalize_confidence(cls, v: Any) -> float:
+        if v is None:
+            return 1.0
+        try:
+            val = float(v)
+            if val > 1.0 and val <= 5.0:
+                val = val / 5.0
+            elif val > 5.0 and val <= 100.0:
+                val = val / 100.0
+            return max(0.0, min(1.0, val))
+        except (ValueError, TypeError):
+            return 1.0
 
 
 class DecisionCase(BaseModel):

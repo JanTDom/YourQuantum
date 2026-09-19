@@ -520,12 +520,19 @@ class ActiveInferenceOrchestrator:
                                 # Przypisujemy ugruntowaną wartość tylko jeśli komórka jest jeszcze pusta
                                 current_cell = design_problem.score_matrix.get(lev_id, {}).get(opt_id, {}).get(crit_id)
                                 if not current_cell or current_cell.value is None:
+                                    conf_val = float(ev.confidence) if ev.confidence is not None else 0.85
+                                    if conf_val > 1.0 and conf_val <= 5.0:
+                                        conf_val /= 5.0
+                                    elif conf_val > 5.0 and conf_val <= 100.0:
+                                        conf_val /= 100.0
+                                    clamped_conf = max(0.0, min(1.0, conf_val))
+
                                     scored_val = ScoredValue(
                                         value=num_val,
                                         unit=ev.unit or "",
                                         provenance="web_sourced",
                                         source_ref=ev.source_url or "Zweryfikowane źródło sieciowe",
-                                        confidence=ev.confidence,
+                                        confidence=clamped_conf,
                                     )
                                     design_problem.score_matrix[lev_id][opt_id][crit_id] = scored_val
                                     opt_case_id = f"{lev_id}__{opt_id}"
