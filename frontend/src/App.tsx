@@ -544,14 +544,17 @@ export const App: React.FC = () => {
         onSelectExample={handleIntakeSubmit}
       />
 
-      <BrainModal
-        isOpen={isBrainOpen}
-        onClose={() => setIsBrainOpen(false)}
-        onGoToDilemma={() => {
-          setIsBrainOpen(false)
-          window.scrollTo({ top: 0, behavior: 'smooth' })
-        }}
-      />
+      {/* Osłona błędów: awaria okna mózgu nie ma prawa wygasić całej aplikacji. */}
+      <ErrorBoundary>
+        <BrainModal
+          isOpen={isBrainOpen}
+          onClose={() => setIsBrainOpen(false)}
+          onGoToDilemma={() => {
+            setIsBrainOpen(false)
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+          }}
+        />
+      </ErrorBoundary>
 
       <ApiPortalModal
         isOpen={isApiPortalOpen}

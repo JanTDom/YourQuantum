@@ -17,6 +17,11 @@ export const BrainModal: React.FC<BrainModalProps> = ({
   onGoToDilemma,
 }) => {
   const sentinelRef = useRef(false)
+  // onClose przychodzi z rodzica jako nowa funkcja przy każdym przerysowaniu.
+  // Trzymamy ją w ref, żeby efekt historii nie restartował się co render —
+  // inaczej każde przerysowanie dokładało kolejny wpis do historii przeglądarki.
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
 
   // Push a history entry when the modal opens so browser Back = close modal.
   // On close, pop that entry if it's still in the stack.
@@ -28,7 +33,7 @@ export const BrainModal: React.FC<BrainModalProps> = ({
 
       const handlePop = () => {
         sentinelRef.current = false
-        onClose()
+        onCloseRef.current()
       }
       window.addEventListener("popstate", handlePop)
       return () => window.removeEventListener("popstate", handlePop)
@@ -36,10 +41,15 @@ export const BrainModal: React.FC<BrainModalProps> = ({
       // If we closed via button (not Back), pop the entry we pushed
       if (sentinelRef.current) {
         sentinelRef.current = false
-        history.back()
+        // Cofamy się WYŁĄCZNIE wtedy, gdy na wierzchu historii nadal stoi wpis,
+        // który sami dołożyliśmy. Bez tego warunku history.back() potrafi wyprowadzić
+        // użytkownika poza aplikację — na pustą stronę.
+        if (typeof history.state === "object" && history.state?.brainModal === true) {
+          history.back()
+        }
       }
     }
-  }, [isOpen, onClose])
+  }, [isOpen])
 
   // Escape key
   useEffect(() => {

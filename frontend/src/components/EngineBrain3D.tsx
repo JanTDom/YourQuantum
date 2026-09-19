@@ -121,6 +121,9 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null)
   const [activeLobe, setActiveLobe] = useState<BrainLobeId>("FRONTAL_INTAKE")
+  // Karta graficzna bywa niedostępna (wyłączone WebGL, tryb sandbox, stary sprzęt).
+  // Bez tego stanu użytkownik dostawał czarny prostokąt bez żadnego wyjaśnienia.
+  const [webglFailed, setWebglFailed] = useState(false)
   const activeLobeRef = useRef<BrainLobeId>("FRONTAL_INTAKE")
   const [isSimulating, setIsSimulating] = useState(false)
   const [simStep, setSimStep] = useState<string | null>(null)
@@ -247,6 +250,7 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
         powerPreference: "high-performance",
       })
     } catch {
+      setWebglFailed(true)
       return
     }
 
@@ -747,7 +751,33 @@ export const EngineBrain3D: React.FC<EngineBrain3DProps> = ({
   return (
     <div className={s.container} style={{ height: height }}>
       {/* 3D WebGL Canvas Viewport */}
-      <div ref={containerRef} className={s.canvasWrapper} />
+      <div ref={containerRef} className={s.canvasWrapper}>
+        {webglFailed && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "0.6rem",
+              padding: "2rem",
+              textAlign: "center",
+              color: "oklch(80% 0.02 250)",
+            }}
+          >
+            <div style={{ fontSize: "1rem", fontWeight: 700 }}>
+              Ta przeglądarka nie uruchomiła grafiki 3D
+            </div>
+            <div style={{ fontSize: "0.85rem", color: "oklch(65% 0.02 250)", maxWidth: "420px", lineHeight: 1.5 }}>
+              Wizualizacja mózgu silnika wymaga WebGL, który jest tu wyłączony albo niedostępny.
+              Opisy płatów po prawej stronie działają normalnie, a sam silnik decyzyjny nie
+              korzysta z grafiki — liczy tak samo.
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Top Telemetry HUD Strip */}
       <div className={s.telemetryHud}>
