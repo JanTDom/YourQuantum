@@ -128,15 +128,17 @@ def run_single(client: httpx.Client, run_idx: int) -> dict:
         if l_cells == 0:
             empty_levers += 1
 
-    ds = data.get("design_synthesis") or {}
-    coverage = ds.get("coverage_percentage", 0.0)
-    ranking_withheld = ds.get("ranking_withheld", False)
-    ranking_reason = ds.get("ranking_withheld_reason")
-    indistinguishable = ds.get("indistinguishable_variants") or []
+    # V23 / DEC-044: pola syntezy są teraz w metadata (nie w design_synthesis)
+    meta = data.get("metadata") or {}
+    coverage = meta.get("coverage_percentage", meta.get("design_coverage_percent", 0.0))
+    ranking_withheld = meta.get("ranking_withheld", False)
+    ranking_reason = meta.get("ranking_withheld_reason")
+    indistinguishable = meta.get("indistinguishable_variants") or []
 
     telemetry = data.get("telemetry") or {}
-    rejected_off_topic = telemetry.get("design_cells_rejected_off_topic", 0)
-    rejected_duplicate = telemetry.get("design_cells_rejected_duplicate", 0)
+    rejected_off_topic = meta.get("design_cells_rejected_off_topic", telemetry.get("design_cells_rejected_off_topic", 0))
+    rejected_duplicate = meta.get("design_cells_rejected_duplicate", telemetry.get("design_cells_rejected_duplicate", 0))
+
 
     logger.info(
         "Run %d complete: time=%.2fs, class=%s, doc_cells=%d, empty_cells=%d, empty_levers=%d, cov=%.1f%%, ranking_withheld=%s, dup_keys=%d, off_topic_rej=%d",

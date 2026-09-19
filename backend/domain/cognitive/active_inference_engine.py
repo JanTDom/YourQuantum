@@ -643,6 +643,26 @@ class ActiveInferenceOrchestrator:
                 round((documented_cells_count / total_possible_cells) * 100, 1) if total_possible_cells > 0 else 0.0
             )
 
+            # Synteza Pareto + wstrzymanie rankingu (DEC-043 §2D §2E, V23 DEC-044)
+            # compute_design_synthesis oblicza coverage_percentage, ranking_withheld, ranking_withheld_reason
+            # i indistinguishable_variants — wszystkie pola trafiają do metadata odpowiedzi intake,
+            # dzięki czemu skrypt pomiaru i frontend mogą je odczytać bezpośrednio.
+            from backend.domain.problem_classes import compute_design_synthesis as _compute_synthesis
+            try:
+                synthesis_result = _compute_synthesis(design_problem)
+                synthesis_ranking_withheld: bool = synthesis_result.ranking_withheld
+                synthesis_ranking_reason: str | None = synthesis_result.ranking_withheld_reason
+                synthesis_coverage: float = synthesis_result.coverage_percentage
+                synthesis_indistinguishable: list[str] = synthesis_result.indistinguishable_variants
+                synthesis_insufficient: bool = synthesis_result.insufficient_data
+            except Exception as _synth_err:
+                logger.warning("Design synthesis failed during intake (non-fatal): %s", _synth_err)
+                synthesis_ranking_withheld = True
+                synthesis_ranking_reason = "Błąd wewnętrzny syntezy — ranking wstrzymany ostrożnościowo."
+                synthesis_coverage = ws.telemetry["design_coverage_percent"]
+                synthesis_indistinguishable = []
+                synthesis_insufficient = documented_cells_count == 0
+
             formalization = FormalizationResult(
                 status="ready_for_review",
                 raw_query=query,
@@ -660,13 +680,20 @@ class ActiveInferenceOrchestrator:
                     "design_matrix_documented_cells": documented_cells_count,
                     "design_matrix_empty_cells": total_possible_cells - documented_cells_count,
                     "design_empty_levers": empty_levers_list,
-                    "design_coverage_percent": ws.telemetry["design_coverage_percent"],
+                    "design_coverage_percent": synthesis_coverage,
                     "design_cells_rejected_off_topic": ws.telemetry.get("design_cells_rejected_off_topic", 0),
                     "design_cells_rejected_duplicate": ws.telemetry.get("design_cells_rejected_duplicate", 0),
+                    # Pola syntezy — DEC-044 / V23
+                    "ranking_withheld": synthesis_ranking_withheld,
+                    "ranking_withheld_reason": synthesis_ranking_reason,
+                    "coverage_percentage": synthesis_coverage,
+                    "indistinguishable_variants": synthesis_indistinguishable,
+                    "insufficient_data": synthesis_insufficient,
                 },
             )
             ws.update_hypothesis(None, {"status": "ready_for_review", "class": "DESIGN"})
             return formalization, ws
+
 
         # 2c. Scenario Risk & Evidence Weighting Pathway
         # Decomposes predictive, geopolitical, and future forecasting inquiries into mutually exclusive scenarios

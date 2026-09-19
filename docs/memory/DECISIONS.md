@@ -774,7 +774,26 @@ W audycie Promptu V17 i V18 stwierdzono, że we wszystkich wcześniejszych biega
    - Zapytania wyszukiwania dla klasy DESIGN rozszerzono o polskie instytucje referencyjne (`GUS NFZ Ministerstwo Zdrowia OECD Eurostat`), dodane do `config/source_classes.json`.
    - Wprowadzono limit wywołań ekstrakcji `MAX_DESIGN_EXTRACTION_CALLS = 12` ze wstępnym filtrem leksykalnym sprawdzającym obecność słów kluczowych wariantu w pobranym tekście przed zaangażowaniem modelu językowego.
 
+## DEC-044: Integracja compute_design_synthesis ze ścieżką cognitive/intake (V23)
 
+**Data:** 2026-09-19  
+**Autor:** Antigravity (V23, zatwierdzone przez Jana Domaniewskiego)  
+**Kontekst:** W pomiarze produkcyjnym V22 (10 runów, 2026-09-19) stwierdzono empirycznie, że pole `ranking_withheld` zawsze wynosiło `False` mimo `cov=0.0%` i `empty_levers=2–4`. Root cause: funkcja `compute_design_synthesis()` była wywoływana wyłącznie w dedykowanym endpoincie `POST /api/v1/design-synthesis`, a nie w ścieżce `POST /api/v1/cognitive/intake`. Skrypt pomiaru czytał `data.get("design_synthesis") or {}` — klucz nieistniejący w odpowiedzi `intake` — co dawało zawsze `False`.
 
+**Decyzja:**  
+Po obliczeniu statystyk pokrycia macierzy w bloku DESIGN `active_inference_engine.py` (linia ~644) wywołać `compute_design_synthesis(design_problem)` i wstrzyknąć wyniki do `FormalizationResult.metadata`:
 
+- `ranking_withheld: bool` — czy ranking jest wstrzymany (cov < 25%, puste dźwignie, warianty nierozróżnialne)
+- `ranking_withheld_reason: str | None` — powód wstrzymania
+- `coverage_percentage: float` — pokrycie macierzy liczone przez syntezę (identyczne z `design_coverage_percent`, ale pobrane bezpośrednio z wyniku syntezy)
+- `indistinguishable_variants: list[str]` — opisy nierozróżnialnych wariantów
+- `insufficient_data: bool` — czy jest za mało danych do jakiejkolwiek syntezy
+
+Wywołanie jest synchroniczne (nie-async) i opakowane w `try/except` — awaria syntezy jest nieblokująca: backend zwraca `ranking_withheld=True` ostrożnościowo i loguje ostrzeżenie.
+
+Skrypt `scripts/measure_design_v22.py` zaktualizowany: czyta pola syntezy z `data["metadata"]` zamiast `data["design_synthesis"]`.
+
+**Wpływ:** Zamknięcie reguł §2D i §2E z DEC-043 w ścieżce `intake`. Frontend (`RecommendationView.tsx`, `DesignWorkspace.tsx`) czyta `metadata.ranking_withheld` — pole jest teraz obecne.
+
+**Alternatywa odrzucona:** Przeniesienie całej syntezy do osobnego wywołania po stronie frontendu — odrzucono, bo rozdziela logikę uczciwości (sprawdzenie `ranking_withheld` musi nastąpić po stronie serwera, zanim wynik trafi do użytkownika).
 
