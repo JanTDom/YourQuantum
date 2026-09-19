@@ -1,7 +1,25 @@
 # YourQuantum — CURRENT STATE
-_Last updated: 2026-09-19 (V21: DANE Z SIECI TAKŻE W KLASIE DESIGN — eliminacja zmyślonych liczb, podpięcie pod rurociąg SafeWebFetcher/EvidenceExtractor, synteza Pareto na udokumentowanym podzbiorze kryteriów, 10-biegowy pomiar produkcyjny: 10/10 sukcesów, 0 komórek assumed, mediana 109,16 s, 25/25 bramek PASS)_
+_Last updated: 2026-09-19 (V22: LICZBA MUSI DOTYCZYĆ TEJ KOMÓRKI — reguły leksykalne §2A–2E, telemetria ws, 10-biegowy pomiar produkcyjny: 10/10 HTTP 200, 0 komórek assumed, 5/7 reguł PASS, 2 FAIL — patrz diagnoza)_
 
-## Status: V21 — DANE Z SIECI TAKŻE W KLASIE DESIGN (WDROŻONE I OPOMIAROWANE NA PRODUKCJI)
+## Status: V22 — WDROŻONE, OPOMIAROWANE, 5/7 REGUŁ PASS
+
+- **Commity**: `5aeb901` (V22 core) + `129e5ee` (fix AttributeError `GlobalWorkspace.telemetry`)
+- **Gałąź**: `main` (wypchnięte na `origin/main`, wdrożone na produkcję Vercel)
+- **Raport**: `docs/REPORT_V22.md`
+
+### Co działa (V22 PASS)
+- **10/10 runów HTTP 200** — AttributeError `'GlobalWorkspace' object has no attribute 'telemetry'` naprawiony przez dodanie `self.telemetry: dict[str, Any] = {}` do `GlobalWorkspace.__init__`.
+- **0 komórek `assumed`** — zakaz zmyślania liczb (DEC-043) utrzymany.
+- **0 brakujących `quote`/`char_start`/`char_end`** dla komórek `web_sourced`.
+- **0 komórek `unit = "null"`** — normalizacja jednostek działa.
+- **0 duplikatów `(url, quote)`** — deduplikacja Reguły 2C działa.
+
+### Co nie działa (V22 FAIL — diagnoza ustalona)
+- **`ranking_withheld` nie jest eksponowane** przez endpoint `cognitive/intake`.
+  Funkcja `compute_design_synthesis()` (która oblicza `ranking_withheld`, `coverage_percentage`, `indistinguishable_variants`) jest wywoływana **wyłącznie** w dedykowanym endpoincie `POST /api/v1/design-synthesis`, **nie** w ścieżce `cognitive/intake`. Skrypt mierzy `data.get("design_synthesis") or {}` → zawsze pusty dict → `ranking_withheld=False`.
+  Logika wstrzymywania rankingu (linia 600–616 `problem_classes.py`) istnieje i jest poprawna — nie jest jednak wywoływana.
+- W efekcie: `cov=0.0%` + `empty_levers=2–4` w 10/10 runach, ale `ranking_withheld=False` (nieprawidłowo).
+
 
 - **Gałąź i stan repo**: `main` (wypchnięte na `origin/main` i wdrożone na produkcję):
   * **Zlecenie V21 (Dane z sieci w klasie DESIGN, DEC-042)**:
@@ -368,6 +386,12 @@ WYNIK KOŃCOWY: WSZYSTKIE BRAMKI ZIELONE (PASS)
 
 ---
 
-## Następny krok (Next Step)
+## Następny krok (V23)
 
-Zlecenie V21 ukończone, przetestowane (25/25 bramek PASS w `scripts/check_v4.sh`), wdrożone produkcyjnie na `https://yourquantum.pl` i zweryfikowane pełnym 10-biegowym pomiarem produkcyjnym (10/10 sukcesów 200 OK, 0 komórek assumed, do 5 zweryfikowanych komórek z sieci www, mediana czasu 109,16 s). Oczekiwanie na dyspozycję Jana co do kolejnych kroków i dalszych ulepszeń platformy.
+**Zintegrować `compute_design_synthesis()` ze ścieżką DESIGN w `active_inference_engine.py`:**
+
+1. Po zbudowaniu `design_problem` wywołać `compute_design_synthesis(design_problem)`.
+2. Wynik (`ranking_withheld`, `ranking_withheld_reason`, `coverage_percentage`, `indistinguishable_variants`) dołączyć do `FormalizationResult.metadata`.
+3. Zaktualizować skrypt `scripts/measure_design_v22.py`: czytać z `metadata["ranking_withheld"]` zamiast `data.get("design_synthesis", {}).get("ranking_withheld")`.
+4. Zarejestrować decyzję jako DEC-044 w `docs/memory/DECISIONS.md`.
+5. Ponownie uruchomić 10-biegowy pomiar produkcyjny i wygenerować `docs/REPORT_V23.md`.
