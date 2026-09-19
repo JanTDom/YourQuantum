@@ -781,7 +781,7 @@ W audycie Promptu V17 i V18 stwierdzono, że we wszystkich wcześniejszych biega
 **Kontekst:** W pomiarze produkcyjnym V22 (10 runów, 2026-09-19) stwierdzono empirycznie, że pole `ranking_withheld` zawsze wynosiło `False` mimo `cov=0.0%` i `empty_levers=2–4`. Root cause: funkcja `compute_design_synthesis()` była wywoływana wyłącznie w dedykowanym endpoincie `POST /api/v1/design-synthesis`, a nie w ścieżce `POST /api/v1/cognitive/intake`. Skrypt pomiaru czytał `data.get("design_synthesis") or {}` — klucz nieistniejący w odpowiedzi `intake` — co dawało zawsze `False`.
 
 **Decyzja:**  
-Po obliczeniu statystyk pokrycia macierzy w bloku DESIGN `active_inference_engine.py` (linia ~644) wywołać `compute_design_synthesis(design_problem)` i wstrzyknąć wyniki do `FormalizationResult.metadata`:
+Po obliczeniu statystyk pokrycia macierzy w bloku DESIGN `backend/domain/cognitive/active_inference_engine.py` (linia ~644) wywołać `compute_design_synthesis(design_problem)` i wstrzyknąć wyniki do `FormalizationResult.metadata`:
 
 - `ranking_withheld: bool` — czy ranking jest wstrzymany (cov < 25%, puste dźwignie, warianty nierozróżnialne)
 - `ranking_withheld_reason: str | None` — powód wstrzymania
@@ -793,7 +793,7 @@ Wywołanie jest synchroniczne (nie-async) i opakowane w `try/except` — awaria 
 
 Skrypt `scripts/measure_design_v22.py` zaktualizowany: czyta pola syntezy z `data["metadata"]` zamiast `data["design_synthesis"]`.
 
-**Wpływ:** Zamknięcie reguł §2D i §2E z DEC-043 w ścieżce `intake`. Frontend (`RecommendationView.tsx`, `DesignWorkspace.tsx`) czyta `metadata.ranking_withheld` — pole jest teraz obecne.
+**Wpływ:** Zamknięcie reguł §2D i §2E z DEC-043 w ścieżce `intake`. Frontend (`frontend/src/components/RecommendationView.tsx`, `frontend/src/components/DesignWorkspace.tsx`) czyta `metadata.ranking_withheld` — pole jest teraz obecne.
 
 **Alternatywa odrzucona:** Przeniesienie całej syntezy do osobnego wywołania po stronie frontendu — odrzucono, bo rozdziela logikę uczciwości (sprawdzenie `ranking_withheld` musi nastąpić po stronie serwera, zanim wynik trafi do użytkownika).
 

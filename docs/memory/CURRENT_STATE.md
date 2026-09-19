@@ -1,5 +1,23 @@
 # YourQuantum — CURRENT STATE
-_Last updated: 2026-09-19 (V22: LICZBA MUSI DOTYCZYĆ TEJ KOMÓRKI — reguły leksykalne §2A–2E, telemetria ws, 10-biegowy pomiar produkcyjny: 10/10 HTTP 200, 0 komórek assumed, 5/7 reguł PASS, 2 FAIL — patrz diagnoza)_
+_Last updated: 2026-09-19 (V23: synteza DESIGN wpięta w ścieżkę intake — `ranking_withheld` eksponowane; pomiar 5 biegów produkcyjnych: 4/5 HTTP 200, mediana 112,8 s, pokrycie macierzy 0–11,1%, zero komórek zmyślonych)_
+
+## Status: V23 — SYNTEZA DESIGN W INTAKE (ZAMKNIĘTE POMIAREM)
+
+- **Commit**: `1e5259b` (wpięcie `compute_design_synthesis` w ścieżkę `cognitive/intake`, DEC-044)
+- **Raport**: `docs/REPORT_V23.md` · surowe pomiary: `docs/measurement_v23_raw.jsonl`
+- **Zamknięta usterka V22**: `ranking_withheld` jest teraz eksponowane przez endpoint intake (zweryfikowane na żywej produkcji).
+
+### Zmierzone na produkcji (5 biegów, zapytanie o system ochrony zdrowia)
+- 4/5 biegów HTTP 200; jeden przerwany timeoutem po stronie klienta po 165 s.
+- Mediana czasu 112,8 s; najkrótszy 67,1 s; najdłuższy 160,4 s.
+- Pokrycie macierzy: 0,0% / 0,0% / 5,6% / 11,1% — powyżej zera w 2 biegach na 4.
+- Ranking wstrzymany w 4 biegach na 4, z podaniem nazw pustych dźwigni.
+- 10 komórek odrzuconych jako niedotyczące wariantu, 1 jako duplikat dowodu, **0 komórek zmyślonych**.
+
+### Otwarte decyzje właściciela
+1. Czy ścieżka DESIGN ma dążyć do liczbowej macierzy ocen, czy zwracać udokumentowany przegląd wariantów z cytatami bez wymuszania liczb. Źródła sieciowe nie zawierają liczb mierzących pojedyncze kryterium dla pojedynczego wariantu, stąd niskie pokrycie.
+2. Czy akceptowalna jest mediana czasu odpowiedzi powyżej stu sekund.
+
 
 ## Status: V22 — WDROŻONE, OPOMIAROWANE, 5/7 REGUŁ PASS
 
@@ -17,7 +35,7 @@ _Last updated: 2026-09-19 (V22: LICZBA MUSI DOTYCZYĆ TEJ KOMÓRKI — reguły l
 ### Co nie działa (V22 FAIL — diagnoza ustalona)
 - **`ranking_withheld` nie jest eksponowane** przez endpoint `cognitive/intake`.
   Funkcja `compute_design_synthesis()` (która oblicza `ranking_withheld`, `coverage_percentage`, `indistinguishable_variants`) jest wywoływana **wyłącznie** w dedykowanym endpoincie `POST /api/v1/design-synthesis`, **nie** w ścieżce `cognitive/intake`. Skrypt mierzy `data.get("design_synthesis") or {}` → zawsze pusty dict → `ranking_withheld=False`.
-  Logika wstrzymywania rankingu (linia 600–616 `problem_classes.py`) istnieje i jest poprawna — nie jest jednak wywoływana.
+  Logika wstrzymywania rankingu (linia 600–616 `backend/domain/problem_classes.py`) istnieje i jest poprawna — nie jest jednak wywoływana.
 - W efekcie: `cov=0.0%` + `empty_levers=2–4` w 10/10 runach, ale `ranking_withheld=False` (nieprawidłowo).
 
 
@@ -388,7 +406,7 @@ WYNIK KOŃCOWY: WSZYSTKIE BRAMKI ZIELONE (PASS)
 
 ## Następny krok (V23)
 
-**Zintegrować `compute_design_synthesis()` ze ścieżką DESIGN w `active_inference_engine.py`:**
+**Zintegrować `compute_design_synthesis()` ze ścieżką DESIGN w `backend/domain/cognitive/active_inference_engine.py`:**
 
 1. Po zbudowaniu `design_problem` wywołać `compute_design_synthesis(design_problem)`.
 2. Wynik (`ranking_withheld`, `ranking_withheld_reason`, `coverage_percentage`, `indistinguishable_variants`) dołączyć do `FormalizationResult.metadata`.
