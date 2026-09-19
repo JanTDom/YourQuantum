@@ -130,7 +130,8 @@ def build_plain_briefing(
     if empty_levers:
         summary.append(_c(
             f"Dla {len(empty_levers)} {_pl(len(empty_levers), 'obszaru', 'obszarów', 'obszarów')} "
-            f"nie znalazłem żadnych liczb ({_join_names(empty_levers)}), więc nie wpłynęły one na wynik."
+            f"nie znalazłem żadnych liczb ({_join_names(empty_levers)}), "
+            f"{_pl(len(empty_levers), 'więc nie wpłynął on na wynik.', 'więc nie wpłynęły one na wynik.', 'więc nie wpłynęły one na wynik.')}"
         ))
     if rejected_off_topic:
         summary.append(_c(
