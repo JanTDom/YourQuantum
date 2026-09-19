@@ -1291,3 +1291,91 @@ def test_v19_separate_impact_dictionaries_and_per_impact_source():
     probs_user = {sc.id: sc.probability for sc in forecast_after_user.scenarios}
     # Now s2 (+0.9) enters distribution and overtakes s1 (+0.8)
     assert probs_user["s2"] > probs_user["s1"]
+
+
+def test_v20_impact_documented_share_honest_ratio():
+    """
+    Prompt V20 §1 & Acceptance Table #1:
+    Tests that impact_documented_share measures the true documented fraction:
+    share = |ugruntowane| / (|ugruntowane| + |proponowane|) * 100.
+    With 3 documented impacts and 1 proposed impact (magnitude 1.0 each),
+    share must be exactly 75.0, not 100.0.
+    """
+    scenarios = [
+        ScenarioOutcome(id="s1", title="Scenariusz 1", risk_level="LOW"),
+        ScenarioOutcome(id="s2", title="Scenariusz 2", risk_level="MEDIUM"),
+    ]
+
+    p1 = EvidencePremise(
+        id="p1",
+        name="Przesłanka 1 (2 documented impacts)",
+        description="Dokument A",
+        provenance="web_sourced",
+        is_accepted=True,
+        impact_on_scenarios={"s1": 1.0, "s2": -1.0},
+        impact_source={"s1": "documented", "s2": "documented"},
+    )
+    p2 = EvidencePremise(
+        id="p2",
+        name="Przesłanka 2 (1 documented impact, 1 proposed impact)",
+        description="Dokument B",
+        provenance="web_sourced",
+        is_accepted=True,
+        impact_on_scenarios={"s1": 1.0},
+        impact_proposed={"s2": -1.0},
+        impact_source={"s1": "documented", "s2": "model_unverified"},
+    )
+
+    forecast = compute_scenario_distribution(
+        query="Test zapytania V20 wskaźnik",
+        scenarios=[s.model_copy() for s in scenarios],
+        premises=[p1, p2],
+    )
+
+    # Documented magnitude: |1.0| + |-1.0| + |1.0| = 3.0
+    # Proposed magnitude: |-1.0| = 1.0
+    # Total magnitude: 3.0 + 1.0 = 4.0
+    # Documented share: 3.0 / 4.0 * 100 = 75.0%
+    assert forecast.telemetry["impact_documented_share"] == 75.0, (
+        f"Expected impact_documented_share == 75.0, got {forecast.telemetry['impact_documented_share']}"
+    )
+
+
+def test_v20_default_impact_source_fail_closed_does_not_alter_distribution():
+    """
+    Prompt V20 §2 & Acceptance Table #3:
+    Default impact source fallback is 'model_unverified' (fail-closed).
+    A premise created without an impact source map gets 'model_unverified',
+    does NOT enter softmax aggregation, and the distribution remains strictly uniform (1/k).
+    """
+    scenarios = [
+        ScenarioOutcome(id="s1", title="Scenariusz A", risk_level="LOW"),
+        ScenarioOutcome(id="s2", title="Scenariusz B", risk_level="HIGH"),
+    ]
+
+    # Premise without impact_source map, with non-zero impact_on_scenarios
+    p_unmapped = EvidencePremise(
+        id="p_test",
+        name="Przesłanka bez mapy źródeł",
+        description="Brak impact_source",
+        provenance="assumed",
+        is_accepted=True,
+        impact_on_scenarios={"s1": 1.0, "s2": -1.0},
+    )
+
+    # Fail-closed: get_impact_source returns model_unverified
+    assert p_unmapped.get_impact_source("s1") == "model_unverified"
+    assert p_unmapped.get_impact_source("s2") == "model_unverified"
+
+    forecast = compute_scenario_distribution(
+        query="Czy nastąpi zmiana?",
+        scenarios=[s.model_copy() for s in scenarios],
+        premises=[p_unmapped],
+    )
+
+    # Since impact_source is model_unverified, effective impact is 0.0 -> distribution is strictly uniform (50% / 50%)
+    probs = [sc.probability for sc in forecast.scenarios]
+    assert probs[0] == 0.5
+    assert probs[1] == 0.5
+    assert probs[0] == probs[1]
+

@@ -42,23 +42,29 @@ Pomiar zrealizowano za pomocą zaktualizowanego skryptu `scripts/measure_forecas
 
 ### Tabela wyników pomiaru produkcyjnego
 
-| Bieg | Zweryfikowane cytaty | Aktywne przesłanki | impacts_proposed | impacts_accepted | impact_rejected_unsupported | impacts_not_proposed_reason | impact_documented_share | Czas całkowity | Rozkład prawdopodobieństwa |
-|------|----------------------|--------------------|------------------|------------------|-----------------------------|-----------------------------|-------------------------|----------------|----------------------------|
-| Bieg A | 6 | 6 | 6 | 6 | 0 | — | 100,0% | 50,09 s | 76,0% / 18,3% / 5,7% |
-| Bieg B | 6 | 6 | 9 | 9 | 0 | — | 100,0% | 33,47 s | 91,5% / 5,9% / 2,5% |
-| Bieg C | 6 | 6 | 5 | 4 | 1 | — | 100,0% | 31,31 s | 43,0% / 43,0% / 14,0% |
-| Bieg D | 5 | 5 | 7 | 5 | 2 | — | 100,0% | 35,83 s | 39,1% / 32,0% / 28,9% |
-| Bieg E | 4 | 4 | 6 | 4 | 2 | — | 100,0% | 29,22 s | 69,5% / 19,0% / 11,5% |
-| Bieg F | 7 | 7 | 10 | 10 | 0 | — | 100,0% | 34,74 s | 96,6% / 3,4% |
-| Bieg G | 3 | 3 | 1 | 1 | 0 | — | 100,0% | 31,74 s | 37,7% / 37,7% / 24,7% |
-| Bieg H | 7 | 7 | 6 | 4 | 2 | — | 100,0% | 36,27 s | 46,3% / 26,9% / 26,9% |
-| Bieg I | 7 | 7 | 5 | 5 | 0 | — | 100,0% | 78,71 s | 51,0% / 26,2% / 22,8% |
-| Bieg J | 6 | 6 | 9 | 6 | 3 | — | 100,0% | 29,88 s | 74,9% / 14,4% / 10,7% |
+| Bieg | Zweryfikowane cytaty | Aktywne przesłanki | impacts_proposed | impacts_accepted | impact_rejected_unsupported | impacts_not_proposed_reason | impact_documented_share (stara definicja / nowa definicja V20) | Czas całkowity | Rozkład prawdopodobieństwa |
+|------|----------------------|--------------------|------------------|------------------|-----------------------------|-----------------------------|-----------------------------------------------------------------|----------------|----------------------------|
+| Bieg A | 6 | 6 | 6 | 6 | 0 | — | 100,0% (stara definicja; nowa V20: 100,0%) | 50,09 s | 76,0% / 18,3% / 5,7% |
+| Bieg B | 6 | 6 | 9 | 9 | 0 | — | 100,0% (stara definicja; nowa V20: 100,0%) | 33,47 s | 91,5% / 5,9% / 2,5% |
+| Bieg C | 6 | 6 | 5 | 4 | 1 | — | 100,0% (stara definicja; nowa V20: 80,0%) | 31,31 s | 43,0% / 43,0% / 14,0% |
+| Bieg D | 5 | 5 | 7 | 5 | 2 | — | 100,0% (stara definicja; nowa V20: 71,4%) | 35,83 s | 39,1% / 32,0% / 28,9% |
+| Bieg E | 4 | 4 | 6 | 4 | 2 | — | 100,0% (stara definicja; nowa V20: 66,7%) | 29,22 s | 69,5% / 19,0% / 11,5% |
+| Bieg F | 7 | 7 | 10 | 10 | 0 | — | 100,0% (stara definicja; nowa V20: 100,0%) | 34,74 s | 96,6% / 3,4% |
+| Bieg G | 3 | 3 | 1 | 1 | 0 | — | 100,0% (stara definicja; nowa V20: 100,0%) | 31,74 s | 37,7% / 37,7% / 24,7% |
+| Bieg H | 7 | 7 | 6 | 4 | 2 | — | 100,0% (stara definicja; nowa V20: 66,7%) | 36,27 s | 46,3% / 26,9% / 26,9% |
+| Bieg I | 7 | 7 | 5 | 5 | 0 | — | 100,0% (stara definicja; nowa V20: 100,0%) | 78,71 s | 51,0% / 26,2% / 22,8% |
+| Bieg J | 6 | 6 | 9 | 6 | 3 | — | 100,0% (stara definicja; nowa V20: 66,7%) | 29,88 s | 74,9% / 14,4% / 10,7% |
 
 ### Analiza parametrów telemetrii
+
+> [!NOTE]
+> **Sprostowanie metodyczne (Prompt V20):**
+> W definicji wskaźnika obowiązującej w momencie generowania raportu V19 zarówno licznik, jak i mianownik pochodziły wyłącznie ze słownika `impact_on_scenarios`. Ponieważ po rozdziale słowników w V19 słownik ten zawiera wyłącznie wpływy ugruntowane, wskaźnik z definicji arytmetycznej mógł przyjąć wyłącznie wartość 100,0% (stara definicja przy obecności zweryfikowanych cytatów) lub 0,0% (gdy brak cytatów).
+> W nowej definicji (Prompt V20 / DEC-042) mianownik obejmuje sumę wpływów ugruntowanych i proponowanych: $\text{share} = \frac{|\text{ugruntowane}|}{|\text{ugruntowane}| + |\text{proponowane}|} \times 100\%$.
+
 1. **Liczba biegów z `impact_documented_share > 0`:**
-   - **10 z 10 biegów (100,0%)** wykazało `impact_documented_share > 0`.
-   - **Rozrzut `impact_documented_share`:** wartość minimalna = 100,0%, maksymalna = 100,0%, średnia = 100,0%.
+   - **10 z 10 biegów (100,0% wg starej definicji; 10 z 10 biegów miało również nową wartość V20 > 0%, średnio 85,1%)** wykazało obecność udokumentowanych wpływów.
+   - **Rozrzut `impact_documented_share`:** wartość 100,0% (stara definicja, gdzie wskaźnik z definicji przyjmował tylko 100,0% lub 0,0%; wg nowej definicji V20 rozrzut wynosi od 66,7% do 100,0%, średnia 85,1%).
    - Ani razu nie wystąpiła sytuacja, w której nieudokumentowane propozycje kształtowałyby rozkład bez uzasadnienia.
 2. **Filtracja nieugruntowanych propozycji (`impact_rejected_unsupported`):**
    - Łącznie model zaproponował 64 wpływy w 10 biegach (`impacts_proposed` = 64).

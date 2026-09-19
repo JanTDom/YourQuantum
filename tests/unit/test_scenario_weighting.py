@@ -66,7 +66,7 @@ def test_1_llm_suggested_premise_does_not_affect_distribution_until_accepted():
     assert s1_prob_before > s2_prob_before
 
     # 2. Accept p2 -> now p2 enters calculation with large weight -> s2 must dominate
-    p2_accepted = p2_unaccepted_llm.model_copy(update={"is_accepted": True})
+    p2_accepted = p2_unaccepted_llm.model_copy(update={"is_accepted": True, "impact_source": "documented"})
     forecast_accepted = compute_scenario_distribution(
         query="Prognoza rozwoju koniunktury gospodarczej",
         scenarios=[sc.model_copy() for sc in scenarios],

@@ -218,12 +218,14 @@ class EvidencePremise(BaseModel):
     impact_source: ImpactSourceDict = Field(default_factory=ImpactSourceDict)
 
     def get_impact_source(self, scenario_id: str) -> str:
-        """Returns the specific impact source for the scenario, falling back to default or documented."""
+        """Returns the specific impact source for the scenario, falling back to default or model_unverified (fail-closed)."""
+        if isinstance(self.impact_source, str):
+            return self.impact_source
         if scenario_id in self.impact_source:
             return self.impact_source[scenario_id]
         if "__default__" in self.impact_source:
             return self.impact_source["__default__"]
-        return "documented"
+        return "model_unverified"
 
 
 class TippingPointItem(BaseModel):
@@ -485,18 +487,19 @@ def compute_scenario_distribution(
         tipping_points=tipping_points_text,
     )
 
-    # Calculate impact_documented_share (DEC-040 & Prompt V19: per-scenario impact_source)
-    total_active_impact_magnitude = sum(
-        abs(p.impact_on_scenarios.get(sc.id, 0.0))
-        for p in active_premises
-        for sc in scenarios
-    )
+    # Calculate impact_documented_share (DEC-040 & Prompt V20: share = |ugruntowane| / (|ugruntowane| + |proponowane|) * 100)
     documented_active_impact_magnitude = sum(
         abs(p.impact_on_scenarios.get(sc.id, 0.0))
         for p in active_premises
         for sc in scenarios
         if p.get_impact_source(sc.id) == "documented"
     )
+    proposed_active_impact_magnitude = sum(
+        abs(p.impact_proposed.get(sc.id, 0.0))
+        for p in active_premises
+        for sc in scenarios
+    )
+    total_active_impact_magnitude = documented_active_impact_magnitude + proposed_active_impact_magnitude
     if total_active_impact_magnitude > 0:
         impact_documented_share = round((documented_active_impact_magnitude / total_active_impact_magnitude) * 100.0, 2)
     else:

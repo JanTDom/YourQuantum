@@ -5,6 +5,25 @@ interface QuantumLoadingOverlayProps {
 }
 
 export const QuantumLoadingOverlay: React.FC<QuantumLoadingOverlayProps> = ({ statusMessage }) => {
+  const [elapsedSeconds, setElapsedSeconds] = React.useState(0)
+
+  React.useEffect(() => {
+    const timer = setInterval(() => {
+      setElapsedSeconds((prev) => prev + 1)
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [])
+
+  const currentStageText = React.useMemo(() => {
+    if (statusMessage) return statusMessage
+    if (elapsedSeconds < 14) {
+      return 'Etap 1/3: Równoległe wyszukiwanie w sieci i dekompozycja zapytania na scenariusze...'
+    }
+    if (elapsedSeconds < 36) {
+      return 'Etap 2/3: Pobieranie źródeł i ekstrakcja cytatów dowodowych z dokumentów...'
+    }
+    return 'Etap 3/3: Weryfikacja cytatów, konstrukcja macierzy wpływów i rozkład Gibbsa-Boltzmanna...'
+  }, [elapsedSeconds, statusMessage])
 
   return (
     <div
@@ -209,27 +228,25 @@ export const QuantumLoadingOverlay: React.FC<QuantumLoadingOverlayProps> = ({ st
 
         <h2 style={{
           margin: '0 0 0.85rem 0',
-          fontSize: '1.375rem',
+          fontSize: '1.25rem',
           fontWeight: 900,
           letterSpacing: '-0.02em',
           color: 'oklch(98% 0.005 250)',
+          lineHeight: 1.35,
         }}>
-          {statusMessage || 'Przetwarzanie problemu decyzyjnego...'}
+          {currentStageText}
         </h2>
 
-        {/* Subtitle based on reality (Prompt V6 §2) */}
-        {statusMessage && (
-          <p style={{
-            margin: 0,
-            fontSize: '0.9rem',
-            color: 'oklch(80% 0.05 80)',
-            lineHeight: 1.6,
-            fontWeight: 500,
-            transition: 'opacity 200ms ease',
-          }}>
-            Obliczenia w toku. Wynik pojawi się po zakończeniu pracy solvera i niezależnej weryfikacji.
-          </p>
-        )}
+        <p style={{
+          margin: 0,
+          fontSize: '0.85rem',
+          color: 'oklch(80% 0.05 80)',
+          lineHeight: 1.6,
+          fontWeight: 500,
+          transition: 'opacity 200ms ease',
+        }}>
+          Obliczenia w toku · Czas analizy: <strong>{elapsedSeconds} s</strong> (głębokie badanie faktów bez skracania limitów)
+        </p>
 
         {/* Quantum Shimmer Progress Bar */}
         <div style={{
