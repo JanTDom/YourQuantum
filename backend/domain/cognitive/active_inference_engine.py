@@ -412,7 +412,7 @@ class ActiveInferenceOrchestrator:
 
             design_problem = await decompose_design_query_async(query)
 
-            # Build compatible DecisionCase with options per lever for backward compatibility and case workspace
+            # Build compatible DecisionCase with options per lever
             case_options: list[Option] = []
             for lever in design_problem.levers:
                 for opt in lever.options:
@@ -431,18 +431,11 @@ class ActiveInferenceOrchestrator:
                 )
                 for c in design_problem.criteria
             ]
+
+            # Inicjalizacja pustej macierzy dla DecisionCase (komórki pozostają puste, brak liczb zmyślonych przez model - DEC-042)
             case_score_matrix: dict[str, dict[str, Any]] = {}
             for opt in case_options:
                 case_score_matrix[opt.id] = {}
-                for crit in case_criteria:
-                    from backend.domain.decision_case import ScoredValue
-                    case_score_matrix[opt.id][crit.id] = ScoredValue(
-                        value=7.0 if crit.direction == "maximize" else 3.0,
-                        unit=crit.unit or "skala",
-                        provenance="assumed",
-                        source_ref="Wzorzec dziedzinowy analizy systemowej (wymaga potwierdzenia)",
-                        confidence=0.75,
-                    )
 
             case = DecisionCase(
                 title=design_problem.title,
@@ -455,23 +448,89 @@ class ActiveInferenceOrchestrator:
                 facts=[],
             )
 
-            # Pre-populate score_matrix cells with baseline assumed values if empty
+            # Inicjalizacja macierzy design_problem: brak zmyślonych liczb (DEC-042)
             for lev in design_problem.levers:
                 if lev.id not in design_problem.score_matrix:
                     design_problem.score_matrix[lev.id] = {}
                 for opt in lev.options:
                     if opt.id not in design_problem.score_matrix[lev.id]:
                         design_problem.score_matrix[lev.id][opt.id] = {}
-                    for crit in design_problem.criteria:
-                        if crit.id not in design_problem.score_matrix[lev.id][opt.id]:
-                            from backend.domain.decision_case import ScoredValue
-                            design_problem.score_matrix[lev.id][opt.id][crit.id] = ScoredValue(
-                                value=7.0 if crit.direction == "maximize" else 3.0,
-                                unit=crit.unit or "skala",
-                                provenance="assumed",
-                                source_ref="Wzorzec dziedzinowy analizy systemowej (wymaga potwierdzenia)",
-                                confidence=0.75,
-                            )
+
+            # Pobieranie i ekstrakcja danych z sieci dla komórek macierzy DESIGN (DEC-042)
+            # Używamy tego samego rurociągu co dla scenariuszy: SafeWebFetcher + EvidenceExtractor z weryfikacją cytatów
+            web_quotes_verified_count = 0
+            if search_results:
+                from backend.infrastructure.web_research.fetcher import SafeWebFetcher
+                from backend.infrastructure.web_research.extractor import EvidenceExtractor
+                fetcher = SafeWebFetcher(timeout=10.0)
+                target_urls = [sr.url for sr in search_results[:3] if sr.url]
+
+                async def _fetch_single_doc(u: str):
+                    try:
+                        d = await asyncio.wait_for(fetcher.fetch(u), timeout=10.0)
+                        if d and d.page_text and d.page_text.strip():
+                            return d
+                    except Exception as err:
+                        logger.warning("Design intake fetch failed for %s: %s", u, err)
+                    return None
+
+                fetched_docs_raw = await asyncio.gather(*[_fetch_single_doc(u) for u in target_urls])
+                fetched_docs = [d for d in fetched_docs_raw if d is not None]
+
+                # Pobieramy dowody dla parametrów dźwigni i opcji (maksymalnie 6 zapytań o parametry dla budżetu czasu)
+                param_targets: list[tuple[str, str, str, str, str, str | None]] = []
+                for lev in design_problem.levers:
+                    for opt in lev.options:
+                        for crit in design_problem.criteria:
+                            if len(param_targets) < 6:
+                                param_id = f"{lev.id}_{opt.id}_{crit.id}"
+                                query_desc = f"{lev.name} {opt.title} {crit.name}"
+                                param_targets.append((lev.id, opt.id, crit.id, param_id, query_desc, crit.unit))
+
+                async def _extract_param(doc, lev_id, opt_id, crit_id, p_id, p_desc, p_unit):
+                    ext = EvidenceExtractor()
+                    try:
+                        ev_list = await ext.extract_parameter_evidences(
+                            document=doc,
+                            target_param=p_id,
+                            expected_unit=p_unit,
+                            parameter_description=p_desc,
+                        )
+                        return (lev_id, opt_id, crit_id, ev_list)
+                    except Exception as ext_err:
+                        logger.warning("Design evidence extraction error for %s: %s", p_id, ext_err)
+                        return (lev_id, opt_id, crit_id, [])
+
+                extraction_tasks = []
+                for d in fetched_docs:
+                    for lev_id, opt_id, crit_id, p_id, p_desc, p_unit in param_targets:
+                        extraction_tasks.append(_extract_param(d, lev_id, opt_id, crit_id, p_id, p_desc, p_unit))
+
+                if extraction_tasks:
+                    ext_results = await asyncio.gather(*extraction_tasks)
+                    for lev_id, opt_id, crit_id, ev_sublist in ext_results:
+                        for ev in ev_sublist:
+                            if ev.value is not None:
+                                from backend.domain.decision_case import ScoredValue
+                                try:
+                                    num_val = float(ev.value)
+                                except (ValueError, TypeError):
+                                    continue
+                                # Przypisujemy ugruntowaną wartość tylko jeśli komórka jest jeszcze pusta
+                                current_cell = design_problem.score_matrix.get(lev_id, {}).get(opt_id, {}).get(crit_id)
+                                if not current_cell or current_cell.value is None:
+                                    scored_val = ScoredValue(
+                                        value=num_val,
+                                        unit=ev.unit or "",
+                                        provenance="web_sourced",
+                                        source_ref=ev.source_url or "Zweryfikowane źródło sieciowe",
+                                        confidence=ev.confidence,
+                                    )
+                                    design_problem.score_matrix[lev_id][opt_id][crit_id] = scored_val
+                                    opt_case_id = f"{lev_id}__{opt_id}"
+                                    if opt_case_id in case_score_matrix:
+                                        case_score_matrix[opt_case_id][crit_id] = scored_val
+                                    web_quotes_verified_count += 1
 
             formalization = FormalizationResult(
                 status="ready_for_review",

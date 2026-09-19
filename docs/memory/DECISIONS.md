@@ -722,6 +722,31 @@ W audycie Promptu V17 i V18 stwierdzono, że we wszystkich wcześniejszych biega
 5. **Współbieżność Etapu 1 i 2 (V19-3)**:
    - Dekompozycja zapytania na scenariusze kandydujące (Etap 1) oraz wyszukiwanie w sieci (Etap 2) wykonywane są równolegle przez `asyncio.gather`, skracając czas odpowiedzi na produkcji do mediany 34,11 s bez obniżania limitów czasu ani liczby stron.
 
+---
+
+## DEC-042: Ujednolicony rurociąg dowodowy z sieci dla klasy DESIGN, eliminacja zmyślonych liczb i Pareto na udokumentowanym podzbiorze
+
+**Data:** 2026-09-19  
+**Autor:** Antigravity (Prompt V21, zatwierdzone przez Jana Domaniewskiego)  
+**Kontekst:** W pytaniach systemowych i architektonicznych klasy DESIGN (np. *„Jaki system ochrony zdrowia byłby najlepszy w Polsce w 2027 roku?”*) użytkownik otrzymywał pustą macierz do ręcznego wypełnienia, a w silniku istniały sztuczne wartości (`7.0`/`3.0`, `provenance="assumed"`). Reguła naczelna projektu wymaga, by dane były czerpane z sieci i weryfikowane u źródła, bez zmyślania ocen przez model.
+
+**Decyzja:**
+1. **Podpięcie klasy DESIGN pod istniejący rurociąg dowodowy (V21-1)**:
+   - Zamiast budować oddzielny moduł, faza intake klasy DESIGN została połączona z istniejącym, przetestowanym rurociągiem: wyszukiwanie w sieci, ochrona SSRF w `SafeWebFetcher` oraz ekstrakcja z dosłowną weryfikacją cytatów w tekście źródłowym (`EvidenceExtractor._verify_quote_in_text`).
+2. **Kategoryczny zakaz zmyślania liczb przez model (zero assumed numbers)**:
+   - Całkowicie wyeliminowano sztuczne wartości domyślne (np. 7.0/3.0) oraz status `provenance="assumed"`.
+   - Komórka macierzy ocen (`score_matrix`), dla której w dokumentach sieciowych nie znaleziono zweryfikowanej wartości liczbowej, pozostaje pusta (`value=None`, `provenance="unverified"`). Wartość może pochodzić wyłącznie ze zweryfikowanego źródła (`web_sourced`) albo z bezpośredniego wpisu decydenta (`user_supplied`).
+3. **Ocena Pareto na udokumentowanym podzbiorze kryteriów (V21-2)**:
+   - Puste komórki nie są zastępowane zerami ani średnimi (co zafałszowałoby relacje dominacji).
+   - Kryteria, dla których nie ma ani jednej udokumentowanej wartości w żadnej opcji, są wykluczane z kalkulacji Pareto i jawnie raportowane decydentowi w liście `design_criteria_excluded`.
+   - Obliczanie frontu Pareto (`compute_design_pareto_frontier`) odbywa się wyłącznie na aktywnych kryteriach posiadających ugruntowane dane.
+4. **Uczciwy fallback przy braku danych (V21-3)**:
+   - Jeżeli macierz nie zawiera żadnych udokumentowanych komórek (`documented_cells == 0`), silnik nie wyznacza pozornego zwycięzcy, lecz zwraca `insufficient_data=True` z jasnym komunikatem: *„Nie znalazłem wystarczających danych, żeby porównać te warianty.”*
+5. **Telemetria i interakcja w interfejsie (V21-4)**:
+   - Dodano pola telemetrii: `design_matrix_documented_cells`, `design_matrix_empty_cells`, `design_criteria_excluded`, `insufficient_data`.
+   - W interfejsie `frontend/src/components/DesignWorkspace.tsx` usunięto jednostkowe przyciski „oznacz jako założenie”, dodano zbiorczy przycisk `🌐 Dociągnij dane z sieci` (ze ścisłym budżetem do 6 brakujących komórek per kliknięcie), umożliwiono ręczną edycję komórek decydentowi (`user_supplied`) oraz odblokowano syntezę Pareto natychmiast, gdy decydent lub sieć udokumentuje chociaż jedno kryterium.
+
+
 
 
 

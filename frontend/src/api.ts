@@ -724,6 +724,10 @@ export interface DesignSynthesisResult {
   unknowns_and_decisive_assumptions: string[]
   practical_manifestation: string
   briefing?: ExecutiveBriefing
+  design_matrix_documented_cells?: number
+  design_matrix_empty_cells?: number
+  design_criteria_excluded?: string[]
+  insufficient_data?: boolean
 }
 
 export async function getDesignFixture(fixtureName: string): Promise<any> {

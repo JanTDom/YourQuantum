@@ -89,18 +89,28 @@ export const DesignWorkspace: React.FC<DesignWorkspaceProps> = ({
     validationErrors.push('Zdefiniuj co najmniej jedno kryterium oceny wielokryterialnej.')
   }
 
-  // Check score_matrix
+  // Check score_matrix documented vs empty cells
+  let documentedCells = 0
+  let emptyCells = 0
+  const activeCriteriaIds = new Set<string>()
+
   for (const lev of designProblem.levers) {
     for (const opt of lev.options) {
       for (const crit of designProblem.criteria) {
         const cell = designProblem.score_matrix?.[lev.id]?.[opt.id]?.[crit.id]
-        if (!cell || cell.value === undefined || cell.value === null || isNaN(cell.value)) {
-          validationErrors.push(`Brak wartości: ${lev.name} → ${opt.title} → ${crit.name}`)
-        } else if (!cell.source_ref || !cell.source_ref.trim()) {
-          validationErrors.push(`Brak źródła (source_ref): ${lev.name} → ${opt.title} → ${crit.name}`)
+        if (cell && cell.value !== undefined && cell.value !== null && !isNaN(cell.value)) {
+          documentedCells++
+          activeCriteriaIds.add(crit.id)
+        } else {
+          emptyCells++
         }
       }
     }
+  }
+
+  // Synthesis is valid if there is at least one active criterion with values across options
+  if (documentedCells === 0) {
+    validationErrors.push('Brak danych w macierzy. Wprowadź dane liczbowe lub dociągnij je z sieci.')
   }
 
   // Check interactions synergy sources
@@ -123,24 +133,13 @@ export const DesignWorkspace: React.FC<DesignWorkspaceProps> = ({
     if (!matrix[leverId][optionId]) matrix[leverId][optionId] = {}
     const cur = matrix[leverId][optionId][criterionId] || {
       value: undefined,
-      provenance: 'assumed',
-      source_ref: 'Założenie robocze',
+      provenance: 'user_supplied',
+      source_ref: 'Wprowadzone przez użytkownika',
     }
     matrix[leverId][optionId][criterionId] = { ...cur, ...updates }
     onUpdateDesign({
       ...designProblem,
       score_matrix: matrix,
-    })
-  }
-
-  const handleMarkAsAssumption = (leverId: string, optionId: string, criterionId: string): void => {
-    const cur = designProblem.score_matrix?.[leverId]?.[optionId]?.[criterionId]
-    const defaultVal = cur?.value !== undefined && !isNaN(cur.value) ? cur.value : 5.0
-    handleUpdateCell(leverId, optionId, criterionId, {
-      value: defaultVal,
-      provenance: 'assumed',
-      source_ref: 'Założenie przyjęte w modelu (wymaga weryfikacji)',
-      confidence: 0.6,
     })
   }
 
@@ -193,6 +192,95 @@ export const DesignWorkspace: React.FC<DesignWorkspaceProps> = ({
     } catch {
       setResearchNotice('Wyszukiwarka nieskonfigurowana — możesz wkleić adres URL źródła:')
       setShowManualUrl(true)
+    } finally {
+      setIsSearchingWeb(false)
+    }
+  }
+
+  const handleBulkWebResearch = async (): Promise<void> => {
+    // Find empty cells across design problem (capped at 6 to adhere to DEC-042 budget)
+    const targets: Array<{
+      leverId: string
+      optionId: string
+      criterionId: string
+      param_id: string
+      query_text: string
+      expected_unit?: string
+    }> = []
+
+    for (const lev of designProblem.levers) {
+      for (const opt of lev.options) {
+        for (const crit of designProblem.criteria) {
+          const cell = designProblem.score_matrix?.[lev.id]?.[opt.id]?.[crit.id]
+          if (!cell || cell.value === undefined || cell.value === null || isNaN(cell.value)) {
+            if (targets.length < 6) {
+              targets.push({
+                leverId: lev.id,
+                optionId: opt.id,
+                criterionId: crit.id,
+                param_id: `${lev.id}_${opt.id}_${crit.id}`,
+                query_text: `${lev.name} ${opt.title} ${crit.name}`,
+                expected_unit: crit.unit,
+              })
+            }
+          }
+        }
+      }
+    }
+
+    if (targets.length === 0) {
+      setResearchNotice('Wszystkie komórki posiadają już wartości.')
+      return
+    }
+
+    setIsSearchingWeb(true)
+    setResearchNotice(`🌐 Wyszukiwanie danych w sieci dla ${targets.length} brakujących pozycji...`)
+
+    try {
+      const res = await researchEvidence({
+        target_parameters: targets.map((t) => ({
+          param_id: t.param_id,
+          query_text: t.query_text,
+          expected_unit: t.expected_unit,
+        })),
+        max_results_per_param: 2,
+      })
+
+      let addedCount = 0
+      const matrix = { ...(designProblem.score_matrix || {}) }
+
+      if (res.evidence && res.evidence.length > 0) {
+        for (const ev of res.evidence) {
+          if (!ev.target_param || ev.value === undefined || ev.value === null) continue
+          const matchTarget = targets.find((t) => t.param_id === ev.target_param)
+          if (!matchTarget) continue
+          const num = parseFloat(String(ev.value))
+          if (isNaN(num)) continue
+
+          const { leverId, optionId, criterionId } = matchTarget
+          if (!matrix[leverId]) matrix[leverId] = {}
+          if (!matrix[leverId][optionId]) matrix[leverId][optionId] = {}
+
+          matrix[leverId][optionId][criterionId] = {
+            value: num,
+            unit: ev.unit || matchTarget.expected_unit,
+            provenance: 'web_sourced',
+            source_ref: ev.source_url || 'Sieć www',
+            confidence: ev.confidence ?? 0.85,
+          }
+          addedCount++
+        }
+      }
+
+      if (addedCount > 0) {
+        onUpdateDesign({ ...designProblem, score_matrix: matrix })
+        setResearchNotice(`✓ Pomyślnie pobrano i zweryfikowano ${addedCount} wartości z sieci www.`)
+      } else {
+        setResearchNotice('Nie znaleziono w sieci jednoznacznych liczb dla brakujących komórek. Możesz wpisać je ręcznie.')
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Błąd wyszukiwania'
+      setResearchNotice(`Błąd podczas badania sieci: ${msg}`)
     } finally {
       setIsSearchingWeb(false)
     }
@@ -308,15 +396,54 @@ export const DesignWorkspace: React.FC<DesignWorkspaceProps> = ({
           padding: '1.25rem',
           marginBottom: '1.5rem',
         }}>
-          <div style={{ marginBottom: '1rem' }}>
-            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: 'oklch(90% 0.01 250)' }}>
-              {activeLever.name}
-            </h3>
-            {activeLever.description && (
-              <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8125rem', color: 'oklch(60% 0.02 250)' }}>
-                {activeLever.description}
-              </p>
-            )}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '1rem',
+            flexWrap: 'wrap',
+            gap: '0.75rem',
+          }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: 'oklch(90% 0.01 250)' }}>
+                {activeLever.name}
+              </h3>
+              {activeLever.description && (
+                <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8125rem', color: 'oklch(60% 0.02 250)' }}>
+                  {activeLever.description}
+                </p>
+              )}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <span style={{
+                fontSize: '0.75rem',
+                color: 'oklch(70% 0.02 250)',
+                background: 'oklch(14% 0.02 250)',
+                padding: '0.3rem 0.6rem',
+                borderRadius: '6px',
+                border: '1px solid oklch(22% 0.02 250)',
+              }}>
+                Dane: <strong style={{ color: 'oklch(80% 0.12 140)' }}>{documentedCells} ugruntowanych</strong> / <span style={{ color: 'oklch(70% 0.05 80)' }}>{emptyCells} pustych</span>
+              </span>
+              <button
+                type="button"
+                onClick={handleBulkWebResearch}
+                disabled={isSearchingWeb || emptyCells === 0}
+                style={{
+                  background: 'oklch(75% 0.12 80 / 0.15)',
+                  color: 'oklch(88% 0.12 80)',
+                  border: '1px solid oklch(75% 0.12 80 / 0.5)',
+                  borderRadius: '6px',
+                  padding: '0.4rem 0.8rem',
+                  fontSize: '0.8125rem',
+                  fontWeight: 700,
+                  cursor: isSearchingWeb || emptyCells === 0 ? 'not-allowed' : 'pointer',
+                  transition: 'all 150ms ease',
+                }}
+              >
+                {isSearchingWeb ? 'Wyszukiwanie w sieci...' : '🌐 Dociągnij dane z sieci'}
+              </button>
+            </div>
           </div>
 
           {/* Research notice banner */}
@@ -450,24 +577,9 @@ export const DesignWorkspace: React.FC<DesignWorkspaceProps> = ({
                             <div style={{ display: 'flex', gap: '0.3rem', fontSize: '0.6875rem' }}>
                               <button
                                 type="button"
-                                onClick={() => handleMarkAsAssumption(activeLever.id, opt.id, crit.id)}
-                                title="Oznacz jako założenie robocze"
-                                style={{
-                                  background: 'none',
-                                  border: '1px solid oklch(25% 0.03 250)',
-                                  borderRadius: '3px',
-                                  color: 'oklch(70% 0.05 80)',
-                                  padding: '0.15rem 0.35rem',
-                                  cursor: 'pointer',
-                                }}
-                              >
-                                ⚠️ Założenie
-                              </button>
-                              <button
-                                type="button"
                                 onClick={() => handleWebResearch(activeLever.id, opt.id, crit.id)}
                                 disabled={isResearching}
-                                title="Dozbierz dane z sieci www (N3)"
+                                title="Dozbierz dane z sieci www dla tego parametru"
                                 style={{
                                   background: 'none',
                                   border: '1px solid oklch(25% 0.03 250)',
@@ -477,7 +589,7 @@ export const DesignWorkspace: React.FC<DesignWorkspaceProps> = ({
                                   cursor: 'pointer',
                                 }}
                               >
-                                {isResearching ? 'Szukam...' : '🌐 Sieć'}
+                                {isResearching ? 'Szukam...' : '🌐 Badaj w sieci'}
                               </button>
                             </div>
                           </div>

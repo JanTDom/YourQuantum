@@ -399,17 +399,27 @@ class DesignSynthesisResult(BaseModel):
     unknowns_and_decisive_assumptions: list[str]
     practical_manifestation: str
     briefing: ExecutiveBriefing | None = None
+    design_matrix_documented_cells: int = 0
+    design_matrix_empty_cells: int = 0
+    design_criteria_excluded: list[str] = Field(default_factory=list)
+    insufficient_data: bool = False
 
 
 def compute_design_pareto_frontier(
     design: DesignProblem,
     max_configurations: int = 1000,
+    active_criteria: list[DesignCriterion] | None = None,
 ) -> list[ParetoPoint]:
     """
     Computes Pareto optimal points for small to medium models using exhaustive search or epsilon-constraint.
     Ensures that for any two Pareto points, neither is strictly dominated by the other across all criteria.
+    Evaluates only across active_criteria (excluding criteria lacking documented data - DEC-042).
     """
     design.validate_design()
+    eval_criteria = active_criteria if active_criteria is not None else design.criteria
+    if not eval_criteria:
+        return []
+
     # List of options per lever
     lever_options_list = [[(l.id, opt.id) for opt in l.options] for l in design.levers]
     all_combos = list(itertools.product(*lever_options_list))
@@ -441,9 +451,9 @@ def compute_design_pareto_frontier(
 
         config_dict = {lid: oid for lid, oid in combo}
 
-        # Calculate scores per criterion
+        # Calculate scores per active criterion
         crit_scores: dict[str, float] = {}
-        for crit in design.criteria:
+        for crit in eval_criteria:
             total = 0.0
             for lid, oid in combo:
                 cell = design.score_matrix.get(lid, {}).get(oid, {}).get(crit.id)
@@ -465,12 +475,10 @@ def compute_design_pareto_frontier(
             if cfg_a == cfg_b:
                 continue
 
-            # Check if B dominates A
-            # B dominates A if B is as good as A on all criteria and strictly better on at least one
             better_or_equal_all = True
             strictly_better_any = False
 
-            for crit in design.criteria:
+            for crit in eval_criteria:
                 val_a = scores_a[crit.id]
                 val_b = scores_b[crit.id]
                 if crit.direction == "maximize":
@@ -507,15 +515,73 @@ def compute_design_synthesis(
     max_configurations: int = 1000,
 ) -> DesignSynthesisResult:
     """
-    Computes complete design synthesis according to D3:
-    1. Computes non-dominated Pareto frontier points across all criteria.
-    2. Determines optimal configuration based on criterion weights and synergy interactions.
-    3. Computes lever importance ranking (sensitivity spread per lever).
-    4. Gathers assumptions and sources.
-    5. Formulates practical manifestation of the optimal policy/architecture.
+    Computes complete design synthesis according to D3 & DEC-042:
+    1. Audits documented vs empty cells and excludes criteria with zero valid data.
+    2. If total documented data is insufficient, returns an honest fallback report.
+    3. Computes non-dominated Pareto frontier points across active criteria.
+    4. Determines optimal configuration based on criterion weights and synergy interactions.
+    5. Computes lever importance ranking (sensitivity spread per lever).
+    6. Gathers assumptions and sources.
+    7. Formulates practical manifestation of the optimal policy/architecture.
     """
-    pareto_points = compute_design_pareto_frontier(design, max_configurations=max_configurations)
-    total_weight = sum(c.weight for c in design.criteria) or 1.0
+    # Count documented vs empty cells
+    documented_count = 0
+    empty_count = 0
+    active_criteria: list[DesignCriterion] = []
+    excluded_criteria_names: list[str] = []
+
+    for crit in design.criteria:
+        has_any_data = False
+        for lev in design.levers:
+            for opt in lev.options:
+                cell = design.score_matrix.get(lev.id, {}).get(opt.id, {}).get(crit.id)
+                if cell and cell.value is not None:
+                    documented_count += 1
+                    has_any_data = True
+                else:
+                    empty_count += 1
+        if has_any_data:
+            active_criteria.append(crit)
+        else:
+            excluded_criteria_names.append(crit.name)
+
+    # If insufficient data exists across all criteria (0 active criteria or 0 documented cells)
+    if not active_criteria or documented_count == 0:
+        default_cfg = {l.id: l.options[0].id for l in design.levers if l.options}
+        default_titles = {}
+        for l in design.levers:
+            opt = l.options[0] if l.options else None
+            default_titles[l.name] = opt.title if opt else "Brak"
+
+        honest_msg = "Nie znalazłem wystarczających danych, żeby porównać te warianty."
+        return DesignSynthesisResult(
+            problem_id=design.id,
+            optimal_configuration=default_cfg,
+            optimal_titles=default_titles,
+            model_optimal_label="brak danych w macierzy",
+            pareto_frontier=[],
+            lever_importance_ranking=[],
+            unknowns_and_decisive_assumptions=[
+                "Brak udokumentowanych danych w sieci dla zdefiniowanych kryteriów (komórki macierzy pozostały puste)."
+            ],
+            practical_manifestation=honest_msg,
+            briefing=ExecutiveBriefing(
+                headline=f"Diagnoza: {design.title}",
+                executive_summary=honest_msg,
+                key_pillars=[],
+                primary_tradeoff="Brak podstaw empirycznych do rozróżnienia opcji.",
+                tipping_points=["Wprowadź dane liczbowe do macierzy lub dozbierz źródła z sieci www."],
+            ),
+            design_matrix_documented_cells=documented_count,
+            design_matrix_empty_cells=empty_count,
+            design_criteria_excluded=excluded_criteria_names,
+            insufficient_data=True,
+        )
+
+    pareto_points = compute_design_pareto_frontier(
+        design, max_configurations=max_configurations, active_criteria=active_criteria
+    )
+    total_weight = sum(c.weight for c in active_criteria) or 1.0
 
     # 1. Lever importance ranking
     ranking: list[dict[str, Any]] = []
@@ -523,7 +589,7 @@ def compute_design_synthesis(
         scores_per_opt: list[float] = []
         for opt in lever.options:
             opt_score = 0.0
-            for crit in design.criteria:
+            for crit in active_criteria:
                 w = crit.weight / total_weight
                 cell = design.score_matrix.get(lever.id, {}).get(opt.id, {}).get(crit.id)
                 if cell and cell.value is not None:
@@ -551,7 +617,7 @@ def compute_design_synthesis(
         score = sum(
             (p.objective_values.get(c.id, 0.0) if c.direction == "maximize" else -p.objective_values.get(c.id, 0.0))
             * (c.weight / total_weight)
-            for c in design.criteria
+            for c in active_criteria
         )
         if score > best_score:
             best_score = score
@@ -569,6 +635,10 @@ def compute_design_synthesis(
 
     # 4. Decisive assumptions
     assumptions: list[str] = []
+    if excluded_criteria_names:
+        assumptions.append(
+            f"Kryteria wykluczone z porównania z powodu braku udokumentowanych danych: {', '.join(excluded_criteria_names)}."
+        )
     for inter in design.interactions:
         if not inter.compatible:
             assumptions.append(
@@ -581,7 +651,7 @@ def compute_design_synthesis(
 
     # 5. Practical manifestation
     manifestation_parts = [f"{lever_name}: {opt_title}" for lever_name, opt_title in optimal_titles.items()]
-    practical_manifestation = f"Zrównoważona konfiguracja reformy: {'; '.join(manifestation_parts)}."
+    practical_manifestation = f"Zrównoważona konfiguracja: {'; '.join(manifestation_parts)}."
 
     # 6. Human Executive Briefing
     briefing = _build_executive_briefing(
@@ -602,6 +672,10 @@ def compute_design_synthesis(
         unknowns_and_decisive_assumptions=assumptions,
         practical_manifestation=practical_manifestation,
         briefing=briefing,
+        design_matrix_documented_cells=documented_count,
+        design_matrix_empty_cells=empty_count,
+        design_criteria_excluded=excluded_criteria_names,
+        insufficient_data=False,
     )
 
 
