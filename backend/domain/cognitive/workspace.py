@@ -186,6 +186,10 @@ class GlobalWorkspace:
     ) -> None:
         self.session_id = session_id
         self.energy_budget = budget or EnergyBudget()
+        # Mutable telemetry bag — populated by callers (e.g. DESIGN path in
+        # active_inference_engine) to accumulate per-run counters without
+        # coupling the workspace class to any specific execution strategy.
+        self.telemetry: dict[str, Any] = {}
         if memory is not None:
             memory.current_goal = goal
             self.memory = memory
