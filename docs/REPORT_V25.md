@@ -45,8 +45,45 @@ G-TESTS czerwona z powodów środowiskowych, niezależnych od tej zmiany: `.venv
 
 **Przebieg kontrolny** na zestawie trzech obszarów (jeden z danymi, jeden z identycznymi wartościami wariantów, jeden pusty) dał wynik wstępny wskazujący wariant z nazwy, dwa zdania o wykluczonych obszarach oraz notę „Wynik stoi na 8 liczbach wyjętych z dokumentów; żadnej nie dopisałem od siebie." — bez ani jednego procentu w warstwie dla laika.
 
-## 5. Do wykonania po wdrożeniu
+## 5. Pomiar produkcyjny
 
-1. `git push origin main` i wdrożenie produkcyjne — krok po stronie właściciela projektu.
-2. Pomiar na `https://yourquantum.pl`: zapytanie o system ochrony zdrowia powinno zwrócić wynik z etykietą `Wstępne`, wymienić warianty z nazwy i pokazać sekcję „Co mówią dokumenty".
-3. Dopisać wynik pomiaru do tego raportu.
+**Zapytanie:** „Jaki system ochrony zdrowia byłby najlepszy w Polsce w 2027 roku?" na `https://yourquantum.pl/api/v1/cognitive/intake`.
+
+### 5.1 Przed wdrożeniem (stary build, 2026-09-19, 21:03)
+
+| Wielkość | Wartość |
+|---|---|
+| Udokumentowane komórki | 3 z 18 (16,7%) |
+| Zweryfikowane cytaty odrzucone z obliczenia | 19 |
+| Obszary bez danych | 1 („Standard cyfryzacji i telemedycyny") |
+| Wynik | **wstrzymany** — „Nie mam wystarczających danych, żeby wskazać najlepszy wariant." |
+
+Jeden obszar bez liczb skasował całą odpowiedź, a 19 zweryfikowanych cytatów przepadło bez śladu.
+
+### 5.2 Przerwa: limit wydatków u dostawcy
+
+Pierwsze biegi po wdrożeniu zwracały 0 stron w 7 sekund. Logi runtime Vercela podały przyczynę: `Gemini Search Grounding returned status 429: "Your project has exceeded its monthly spending cap"`. Nie był to defekt kodu — wyszukiwarka odmawiała odpowiedzi. Po podniesieniu limitu w Google AI Studio ścieżka ruszyła bez żadnej zmiany w aplikacji. Przy okazji dołożono telemetrię (`design_search_results_total`, `design_search_empty_queries`, `design_search_failures`, `design_search_available`), żeby następnym razem odróżnić „nic nie znaleziono" od „dostawca odmówił" bez zaglądania do logów.
+
+### 5.3 Po wdrożeniu (2026-09-19, 23:5x)
+
+| Wielkość | Wartość |
+|---|---|
+| Czas odpowiedzi | 183,8 s (silnik 170,6 s) |
+| Zapytania do wyszukiwarki / pobrane strony | 5 / 10 |
+| Wywołania ekstrakcji | 48 |
+| Udokumentowane komórki | 6 z 44 (13,6%) |
+| Obszary wyłączone z porównania | 0 — każdy z 4 obszarów miał dane |
+| Cytaty odrzucone regułą 2B | 11, z czego **8 pokazanych** w sekcji „Co mówią dokumenty" |
+| Cytaty stojące za policzonymi liczbami | 5 |
+| Etykieta | **Wstępne** |
+| Wynik | ranking policzony i pokazany, warianty wymienione z nazwy |
+
+Nagłówek warstwy dla laika: *„Wstępnie, na danych, które udało się znaleźć, najlepiej wypada: Publiczny, oparty na składkach (Bismarckowski), Dominacja placówek prywatnych (kontraktowanych), Silna POZ z rolą 'gatekeepera' i jeszcze 1 wariant. Traktuj to jako wskazówkę, nie rozstrzygnięcie."*
+Nota: *„Wynik stoi na 6 liczbach wyjętych z dokumentów; żadnej nie dopisałem od siebie."* — bez ani jednego procentu.
+
+**Uwaga metodologiczna:** rozmiary macierzy w 5.1 i 5.2 różnią się (18 wobec 44 komórek), bo dekompozycja problemu powstaje osobno w każdym biegu. Porównywalna jest reguła, nie liczba komórek: przy pokryciu 13,6% stary build wstrzymałby wynik, nowy pokazuje go jako wstępny i nazywa warianty.
+
+## 6. Do wykonania
+
+1. Push i wdrożenie poprawki odmiany („i jeszcze 1 wariant" zamiast „i jeszcze 1") oraz telemetrii wyszukiwania — krok po stronie właściciela projektu.
+2. Biała strona po kliknięciu w mózg 3D — osobny defekt, niezwiązany z DEC-048, wymaga reprodukcji w zalogowanej sesji.

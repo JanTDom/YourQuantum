@@ -83,11 +83,18 @@ def _pl(n: int, one: str, few: str, many: str) -> str:
     return many
 
 
-def _join_names(names: list[str], limit: int = 3) -> str:
+def _join_names(
+    names: list[str],
+    limit: int = 3,
+    noun: tuple[str, str, str] = ("pozycja", "pozycje", "pozycji"),
+) -> str:
+    """Wylicza nazwy, a nadmiar skraca z poprawnie odmienionym rzeczownikiem."""
     shown = names[:limit]
     rest = len(names) - len(shown)
     joined = ", ".join(shown)
-    return f"{joined} i jeszcze {rest}" if rest > 0 else joined
+    if rest <= 0:
+        return joined
+    return f"{joined} i jeszcze {rest} {_pl(rest, *noun)}"
 
 
 def build_plain_briefing(
@@ -125,7 +132,9 @@ def build_plain_briefing(
         label = LABEL_NO_DATA
         headline = _c("Nie mam wystarczających danych, żeby wskazać najlepszy wariant.")
     elif optimal_titles:
-        wybrane = _join_names(list(optimal_titles.values()))
+        wybrane = _join_names(
+            list(optimal_titles.values()), noun=("wariant", "warianty", "wariantów")
+        )
         label = LABEL_PRELIMINARY if preliminary else LABEL_COMPUTED
         if preliminary:
             headline = _c(
@@ -162,13 +171,13 @@ def build_plain_briefing(
     if excluded_no_data:
         summary.append(_c(
             f"O {_pl(len(excluded_no_data), 'obszarze', 'obszarach', 'obszarach')} "
-            f"{_join_names(excluded_no_data)} nie znalazłem twardych danych, "
+            f"{_join_names(excluded_no_data, noun=('obszar', 'obszary', 'obszarów'))} nie znalazłem twardych danych, "
             f"więc porównanie opiera się na {_pl(compared_levers, 'pozostałym obszarze', 'pozostałych obszarach', 'pozostałych obszarach')}."
         ))
     if excluded_same:
         summary.append(_c(
             f"W {_pl(len(excluded_same), 'obszarze', 'obszarach', 'obszarach')} "
-            f"{_join_names(excluded_same)} znalezione liczby wyszły dla wszystkich wariantów "
+            f"{_join_names(excluded_same, noun=('obszar', 'obszary', 'obszarów'))} znalezione liczby wyszły dla wszystkich wariantów "
             f"tak samo, więc ten fragment niczego nie rozstrzyga."
         ))
     if rejected_off_topic:
