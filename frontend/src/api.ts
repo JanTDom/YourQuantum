@@ -741,6 +741,8 @@ export interface DesignSynthesisResult {
   coverage_percentage?: number
   ranking_withheld?: boolean
   ranking_withheld_reason?: string | null
+  preliminary?: boolean
+  preliminary_reason?: string | null
   design_criteria_excluded?: string[]
   insufficient_data?: boolean
 }

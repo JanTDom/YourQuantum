@@ -110,3 +110,16 @@ def test_briefing_serializuje_sie_do_slownika():
     d = b.model_dump(mode="json")
     assert d["headline"]["basis"] == "computed"
     assert isinstance(d["summary"], list)
+
+
+def test_wynik_wstepny_ma_ostrozny_naglowek():
+    b = build_plain_briefing(
+        _problem(), documented_cells=3, total_cells=18, empty_levers=[],
+        rejected_off_topic=4, rejected_duplicate=0, pages_fetched=9, extraction_calls=36,
+        ranking_withheld=False, ranking_withheld_reason=None,
+        optimal_titles={"l1": "Budżet państwa"}, preliminary=True,
+    )
+    assert "Wstępnie" in b.headline.text
+    assert "nie rozstrzygnięcie" in b.headline.text
+    assert find_unsupported(b) == []
+    assert find_jargon(b) == []

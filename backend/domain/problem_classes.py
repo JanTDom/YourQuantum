@@ -407,6 +407,9 @@ class DesignSynthesisResult(BaseModel):
     coverage_percentage: float = 0.0
     ranking_withheld: bool = False
     ranking_withheld_reason: str | None = None
+    # DEC-047: wynik wstępny — ranking policzony, ale na niepełnych danych
+    preliminary: bool = False
+    preliminary_reason: str | None = None
     design_criteria_excluded: list[str] = Field(default_factory=list)
     insufficient_data: bool = False
 
@@ -607,9 +610,17 @@ def compute_design_synthesis(
     elif empty_levers:
         ranking_withheld = True
         withheld_reasons.append(f"Całkowicie puste dźwignie bez danych empirycznych: {', '.join(empty_levers)}.")
-    elif coverage_percent < 25.0:
-        ranking_withheld = True
-        withheld_reasons.append(f"Pokrycie macierzy ({coverage_percent}%) poniżej wymaganego progu 25,0%.")
+
+    # DEC-047: samo niskie pokrycie nie blokuje wyniku, jeżeli KAŻDA dźwignia ma dane.
+    # Powodem blokady jest brak całego wymiaru porównania, a nie wartość procentowa.
+    preliminary = False
+    preliminary_reason: str | None = None
+    if not ranking_withheld and coverage_percent < 25.0:
+        preliminary = True
+        preliminary_reason = (
+            f"Wynik wstępny: opiera się na {documented_count} z {total_cells} danych "
+            f"({coverage_percent}% potrzebnych), po co najmniej jednej w każdym obszarze."
+        )
 
     if indistinguishable_variants:
         ranking_withheld = True
@@ -673,6 +684,8 @@ def compute_design_synthesis(
             coverage_percentage=coverage_percent,
             ranking_withheld=True,
             ranking_withheld_reason=reason_summary,
+            preliminary=False,
+            preliminary_reason=None,
             design_criteria_excluded=excluded_criteria_names,
             insufficient_data=True,
         )
@@ -779,6 +792,8 @@ def compute_design_synthesis(
         coverage_percentage=coverage_percent,
         ranking_withheld=False,
         ranking_withheld_reason=None,
+        preliminary=preliminary,
+        preliminary_reason=preliminary_reason,
         design_criteria_excluded=excluded_criteria_names,
         insufficient_data=False,
     )

@@ -841,3 +841,25 @@ Wynik analizy projektowej był podawany językiem inżyniera (pokrycie macierzy,
 **Wpływ:** Laik czyta kilka zdań i rozumie, na czym stoi wynik. Każde z tych zdań da się odtworzyć z liczb albo wskazać w dokumencie. Zdanie o świecie bez cytatu nie może powstać — nie dlatego, że zabrania tego instrukcja, tylko dlatego, że nie ma w kodzie miejsca, w którym mogłoby się pojawić.
 
 **Alternatywa odrzucona:** Generowanie streszczenia przez model językowy z instrukcją „opieraj się wyłącznie na danych". Odrzucone: dokładnie ta konstrukcja zawiodła w V13 przy cytatach i w V17 przy kierunkach wpływu — instrukcja nie jest zabezpieczeniem.
+
+---
+
+## DEC-047 — Niepełne dane dają wynik wstępny, a nie brak wyniku
+
+**Date:** 2026-09-19
+**Status:** ACTIVE
+
+**Kontekst:**
+Trzy pomiary na żywej produkcji po wdrożeniu DEC-045 dały pokrycie macierzy 13,5%, 16,7% i 22,2%. W każdym z nich ranking był wstrzymywany, między innymi przez próg 25% z DEC-043. W biegu trzecim wszystkie dźwignie miały dane empiryczne, a mimo to użytkownik nie zobaczył porównania — wyłącznie z powodu wartości procentowej.
+
+**Decyzja:**
+1. Samo pokrycie poniżej 25% **nie blokuje** wyniku. Ranking jest liczony i pokazywany, jeżeli **każda dźwignia ma co najmniej jedną udokumentowaną komórkę**.
+2. Taki wynik jest oznaczany jako **wstępny**: pola `preliminary` i `preliminary_reason` w wyniku syntezy i w `metadata` odpowiedzi intake.
+3. Nagłówek warstwy opisowej mówi to wprost: „Wstępnie, na niepełnych danych, najlepiej wypada: … Traktuj to jako wskazówkę, nie rozstrzygnięcie."
+4. Blokada rankingu zostaje w trzech przypadkach: zero udokumentowanych danych, **całkowicie pusta dźwignia** (brak całego wymiaru porównania) oraz warianty nierozróżnialne na dostępnych danych.
+
+**Uzasadnienie:** Powodem wstrzymania porównania powinien być brak wymiaru, a nie wartość procentowa. Gdy każdy obszar ma jakieś pokrycie, wynik niesie informację — pod warunkiem, że jego wstępność jest powiedziana wprost, a nie ukryta. Warstwa opisowa z DEC-046 to zapewnia: podaje liczbę danych, na których stoi wynik, i nazywa go wskazówką.
+
+**Czego nie zmienia:** żadnej reguły dowodowej. Liczby nadal mogą pochodzić wyłącznie ze zweryfikowanego dokumentu albo od decydenta. Zakazy z DEC-040, DEC-042 i DEC-043 obowiązują bez zmian.
+
+**Jak cofnąć:** przywrócić w `backend/domain/problem_classes.py` warunek blokujący przy pokryciu poniżej progu, w miejscu, w którym dziś ustawiane jest `preliminary`.

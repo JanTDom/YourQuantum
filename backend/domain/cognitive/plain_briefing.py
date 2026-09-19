@@ -91,6 +91,7 @@ def build_plain_briefing(
     ranking_withheld: bool,
     ranking_withheld_reason: str | None,
     optimal_titles: dict[str, str] | None = None,
+    preliminary: bool = False,
 ) -> PlainBriefing:
     """Składa briefing wyłącznie z policzonych wielkości i zacytowanych dokumentów."""
     levers = list(getattr(design_problem, "levers", []) or [])
@@ -102,7 +103,13 @@ def build_plain_briefing(
         headline = _c("Nie mam wystarczających danych, żeby wskazać najlepszy wariant.")
     elif optimal_titles:
         wybrane = _join_names(list(optimal_titles.values()))
-        headline = _c(f"Przy podanych wagach najlepiej wypada: {wybrane}.")
+        if preliminary:
+            headline = _c(
+                f"Wstępnie, na niepełnych danych, najlepiej wypada: {wybrane}. "
+                f"Traktuj to jako wskazówkę, nie rozstrzygnięcie."
+            )
+        else:
+            headline = _c(f"Przy podanych wagach najlepiej wypada: {wybrane}.")
     else:
         headline = _c("Porównanie policzone na znalezionych danych — szczegóły poniżej.")
 

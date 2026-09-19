@@ -748,6 +748,8 @@ class ActiveInferenceOrchestrator:
                 synthesis_coverage: float = synthesis_result.coverage_percentage
                 synthesis_indistinguishable: list[str] = synthesis_result.indistinguishable_variants
                 synthesis_insufficient: bool = synthesis_result.insufficient_data
+                synthesis_preliminary: bool = getattr(synthesis_result, "preliminary", False)
+                synthesis_preliminary_reason: str | None = getattr(synthesis_result, "preliminary_reason", None)
             except Exception as _synth_err:
                 logger.warning("Design synthesis failed during intake (non-fatal): %s", _synth_err)
                 synthesis_ranking_withheld = True
@@ -755,6 +757,8 @@ class ActiveInferenceOrchestrator:
                 synthesis_coverage = ws.telemetry["design_coverage_percent"]
                 synthesis_indistinguishable = []
                 synthesis_insufficient = documented_cells_count == 0
+                synthesis_preliminary = False
+                synthesis_preliminary_reason = None
 
             # Warstwa opisowa dla laika (V24 §B / DEC-046).
             # Budowana deterministycznie z policzonych wielkości i zacytowanych dokumentów —
@@ -773,6 +777,7 @@ class ActiveInferenceOrchestrator:
                     ranking_withheld=synthesis_ranking_withheld,
                     ranking_withheld_reason=synthesis_ranking_reason,
                     optimal_titles=getattr(synthesis_result, "optimal_titles", None) if synthesis_result is not None else None,
+                    preliminary=synthesis_preliminary,
                 )
                 plain_briefing_json = plain_briefing.model_dump(mode="json")
             except Exception as _brief_err:
@@ -813,6 +818,9 @@ class ActiveInferenceOrchestrator:
                     "coverage_percentage": synthesis_coverage,
                     "indistinguishable_variants": synthesis_indistinguishable,
                     "insufficient_data": synthesis_insufficient,
+                    # DEC-047 — wynik wstępny na niepełnych danych
+                    "preliminary": synthesis_preliminary,
+                    "preliminary_reason": synthesis_preliminary_reason,
                 },
             )
             ws.update_hypothesis(None, {"status": "ready_for_review", "class": "DESIGN"})

@@ -1,5 +1,5 @@
 # YourQuantum — CURRENT STATE
-_Last updated: 2026-09-19 (V24: budżet badawczy DESIGN podniesiony — pokrycie macierzy 0–11,1% -> 22,2% w pomiarze lokalnym; warstwa opisowa dla laika bez udziału modelu, bramka G-BRIEF)_
+_Last updated: 2026-09-19 (V24 domknięte: budżet badawczy DEC-045, warstwa opisowa DEC-046, wynik wstępny zamiast blokady progiem DEC-047; produkcja zweryfikowana trzema biegami)_
 
 ## Status: V24 — WIĘCEJ DANYCH I WYNIK PO LUDZKU
 
@@ -23,6 +23,12 @@ _Last updated: 2026-09-19 (V24: budżet badawczy DESIGN podniesiony — pokrycie
 ### Stan bramek
 - Wszystkie bramki zielone poza `G-TESTS`, która w środowisku audytora jest czerwona z powodów środowiskowych (brak `ortools`, interpreter `.venv` i binarium rollupa spoza tej platformy). `tsc -b` przechodzi czysto, 132 testy przechodzą.
 
+
+### Domknięcie V24 — DEC-047
+- Pokrycie poniżej 25% **nie blokuje** już wyniku. Ranking jest pokazywany, gdy każda dźwignia ma dane, i oznaczany jako **wstępny** (`preliminary`, `preliminary_reason`).
+- Blokada zostaje przy zerze danych, całkowicie pustej dźwigni i wariantach nierozróżnialnych.
+- Nagłówek briefingu mówi wprost: „Wstępnie, na niepełnych danych… Traktuj to jako wskazówkę, nie rozstrzygnięcie."
+- **Zweryfikowane na żywej produkcji (3 biegi, pytanie o system ochrony zdrowia)**: pokrycie 22,2% / 13,5% / 16,7%, puste dźwignie 1 / 1 / 0, odrzucenia niedotyczące wariantu 15 / 11 / 12, czasy 149 / 199 / 157 s, briefing obecny w każdym biegu, zdań bez podstawy: 0.
 
 ## Status: V23 — SYNTEZA DESIGN W INTAKE (ZAMKNIĘTE POMIAREM)
 
