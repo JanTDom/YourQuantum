@@ -433,12 +433,19 @@ WYNIK KOŃCOWY: WSZYSTKIE BRAMKI ZIELONE (PASS)
 
 ---
 
-## Następny krok (V23)
+### ✅ Faza V25: Odpowiedź zamiast odmowy (DEC-048, 2026-09-19)
+- **Pusty obszar przestał blokować wynik**: w `backend/domain/problem_classes.py` dźwignia bez udokumentowanych danych — albo taka, w której wszystkie warianty mają identyczny komplet wartości — wypada z porównania zamiast wstrzymywać całą odpowiedź. Nazwa i powód trafiają do pola `levers_excluded` w wyniku syntezy oraz w `metadata` odpowiedzi intake.
+- **Wykluczony obszar nie dostaje podsuniętego wariantu**: nie ma go w `optimal_titles`, w rankingu ważności ani wśród filarów briefingu (`_build_executive_briefing` dostaje wyłącznie obszary aktywne). Jest nazwany wprost w założeniach i w jednym zdaniu warstwy dla laika.
+- **Brak odpowiedzi zawężony do jednego przypadku**: zera zweryfikowanych faktów (albo braku obszaru zdolnego odróżnić warianty).
+- **Zweryfikowane cytaty spoza obliczenia przestały być kasowane**: `backend/domain/cognitive/active_inference_engine.py` zbiera je w miejscu odrzucenia regułą 2B i przekazuje do sekcji „Co mówią dokumenty (nie weszło do obliczenia)”. Sekcja jest wyłącznie prezentacyjna — nie niesie wartości liczbowej i nie dotyka macierzy.
+- **Dwie etykiety zamiast procentów**: `Policzone` i `Wstępne` w `frontend/src/components/DesignWorkspace.tsx`. Procenty i słowo „pokrycie” zniknęły z warstwy dla laika i zostały w warstwie technicznej.
+- **Bramki**: `scripts/check_plain_briefing.py` rozszerzony o reguły R5 (brak procentów i poprawna etykieta) i R6 (sekcja dokumentów wyłącznie z cytatami). Stan lokalny: 25 z 26 bramek zielonych, G-TESTS czerwona wyłącznie z powodów środowiskowych (`.venv` z shebangiem macOS, binarium rollup dla macOS, brak `ortools` w interpreterze pomocniczym); `tsc -b` przechodzi czysto, 67 testów jednostkowych przechodzi.
+- **Testy**: `tests/unit/test_design_v22.py` (wykluczony obszar nie blokuje, wstrzymanie tylko przy zerze faktów) oraz sześć nowych testów w `tests/unit/test_plain_briefing.py` (zdanie o wykluczonym obszarze, obszar nierozróżnialny, sekcja dokumentów z odsiewem duplikatów, brak procentów, etykiety).
 
-**Zintegrować `compute_design_synthesis()` ze ścieżką DESIGN w `backend/domain/cognitive/active_inference_engine.py`:**
+---
 
-1. Po zbudowaniu `design_problem` wywołać `compute_design_synthesis(design_problem)`.
-2. Wynik (`ranking_withheld`, `ranking_withheld_reason`, `coverage_percentage`, `indistinguishable_variants`) dołączyć do `FormalizationResult.metadata`.
-3. Zaktualizować skrypt `scripts/measure_design_v22.py`: czytać z `metadata["ranking_withheld"]` zamiast `data.get("design_synthesis", {}).get("ranking_withheld")`.
-4. Zarejestrować decyzję jako DEC-044 w `docs/memory/DECISIONS.md`.
-5. Ponownie uruchomić 10-biegowy pomiar produkcyjny i wygenerować `docs/REPORT_V23.md`.
+## Następny krok
+
+1. `git push origin main` i wdrożenie produkcyjne (krok po stronie właściciela projektu).
+2. Pomiar na żywej produkcji `https://yourquantum.pl` dla zapytania o system ochrony zdrowia: sprawdzić, że wynik pojawia się z etykietą `Wstępne`, wymienia warianty z nazwy i pokazuje sekcję „Co mówią dokumenty”.
+3. Zarejestrować pomiar w `docs/REPORT_V25.md`.

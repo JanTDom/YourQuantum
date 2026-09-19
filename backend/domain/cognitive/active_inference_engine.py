@@ -518,6 +518,10 @@ class ActiveInferenceOrchestrator:
             ws.telemetry.setdefault("design_extraction_calls_used", 0)
             ws.telemetry.setdefault("design_budget_exhausted", False)
             assigned_evidence_keys: set[tuple[str, str]] = set()
+            # DEC-048: cytaty zweryfikowane w tekście źródła, ale odrzucone z obliczenia,
+            # bo zdanie nie wymieniało porównywanego wariantu. Nie mają prawa wejść do
+            # macierzy — trafiają wyłącznie do sekcji "Co mówią dokumenty".
+            design_context_findings: list[dict[str, Any]] = []
 
             if search_results:
                 from backend.infrastructure.web_research.fetcher import SafeWebFetcher
@@ -656,6 +660,15 @@ class ActiveInferenceOrchestrator:
                                 ws.telemetry["design_cells_rejected_off_topic"] = (
                                     ws.telemetry.get("design_cells_rejected_off_topic", 0) + 1
                                 )
+                                # Cytat przeszedł weryfikację dosłowności w tekście strony,
+                                # więc można go pokazać jako kontekst — ale bez wartości liczbowej
+                                # i bez przypisania do wariantu (DEC-048).
+                                if len(design_context_findings) < 20:
+                                    design_context_findings.append({
+                                        "quote": ev.quote,
+                                        "source_ref": ev.source_url,
+                                        "source_title": ev.source_title or ev.publisher or "Źródło sieciowe",
+                                    })
                                 continue
 
                             # 2. Reguła 2C: Zakaz duplikatów (jeden dowód nie obsadza wielu komórek)
@@ -750,6 +763,7 @@ class ActiveInferenceOrchestrator:
                 synthesis_insufficient: bool = synthesis_result.insufficient_data
                 synthesis_preliminary: bool = getattr(synthesis_result, "preliminary", False)
                 synthesis_preliminary_reason: str | None = getattr(synthesis_result, "preliminary_reason", None)
+                synthesis_levers_excluded: list[dict[str, str]] = getattr(synthesis_result, "levers_excluded", []) or []
             except Exception as _synth_err:
                 logger.warning("Design synthesis failed during intake (non-fatal): %s", _synth_err)
                 synthesis_ranking_withheld = True
@@ -759,6 +773,7 @@ class ActiveInferenceOrchestrator:
                 synthesis_insufficient = documented_cells_count == 0
                 synthesis_preliminary = False
                 synthesis_preliminary_reason = None
+                synthesis_levers_excluded = []
 
             # Warstwa opisowa dla laika (V24 §B / DEC-046).
             # Budowana deterministycznie z policzonych wielkości i zacytowanych dokumentów —
@@ -778,6 +793,8 @@ class ActiveInferenceOrchestrator:
                     ranking_withheld_reason=synthesis_ranking_reason,
                     optimal_titles=getattr(synthesis_result, "optimal_titles", None) if synthesis_result is not None else None,
                     preliminary=synthesis_preliminary,
+                    excluded_levers=synthesis_levers_excluded,
+                    context_findings=design_context_findings,
                 )
                 plain_briefing_json = plain_briefing.model_dump(mode="json")
             except Exception as _brief_err:
@@ -821,6 +838,9 @@ class ActiveInferenceOrchestrator:
                     # DEC-047 — wynik wstępny na niepełnych danych
                     "preliminary": synthesis_preliminary,
                     "preliminary_reason": synthesis_preliminary_reason,
+                    # DEC-048 — obszary wyłączone z porównania oraz cytaty spoza obliczenia
+                    "levers_excluded": synthesis_levers_excluded,
+                    "context_findings_count": len(design_context_findings),
                 },
             )
             ws.update_hypothesis(None, {"status": "ready_for_review", "class": "DESIGN"})

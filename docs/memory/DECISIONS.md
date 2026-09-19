@@ -863,3 +863,28 @@ Trzy pomiary na żywej produkcji po wdrożeniu DEC-045 dały pokrycie macierzy 1
 **Czego nie zmienia:** żadnej reguły dowodowej. Liczby nadal mogą pochodzić wyłącznie ze zweryfikowanego dokumentu albo od decydenta. Zakazy z DEC-040, DEC-042 i DEC-043 obowiązują bez zmian.
 
 **Jak cofnąć:** przywrócić w `backend/domain/problem_classes.py` warunek blokujący przy pokryciu poniżej progu, w miejscu, w którym dziś ustawiane jest `preliminary`.
+
+---
+
+## DEC-048 — Pusty obszar zawęża porównanie, a nie kasuje odpowiedź
+
+**Date:** 2026-09-19
+**Status:** ACTIVE
+
+**Kontekst:**
+Po DEC-047 blokada wyniku zostawała przy całkowicie pustej dźwigni i przy wariantach nierozróżnialnych. W pomiarach na produkcji wystarczał jeden obszar bez danych, żeby użytkownik pytający „jaki system ochrony zdrowia byłby najlepszy" nie zobaczył niczego poza komunikatem o braku danych — mimo kilkunastu zweryfikowanych faktów zebranych w pozostałych obszarach. Równolegle 11–20 cytatów na bieg, zweryfikowanych co do dosłowności w tekście źródła, było po cichu kasowanych tylko dlatego, że zdanie nie wymieniało porównywanego wariantu z nazwy.
+
+**Decyzja:**
+1. Obszar (dźwignia) **wypada z porównania**, gdy nie ma ani jednej udokumentowanej liczby albo gdy wszystkie jego warianty mają identyczny komplet wartości. Wypadnięcie **nie wstrzymuje** wyniku — zawęża porównanie do obszarów, które mają pokrycie. Pole `levers_excluded` w wyniku syntezy i w `metadata` odpowiedzi intake niesie nazwę i powód.
+2. Obszar wyłączony **nie dostaje podsuniętego wariantu**: nie ma go w `optimal_titles`, w rankingu ważności ani wśród filarów briefingu. Jest nazwany wprost w założeniach i w jednym zdaniu warstwy dla laika: „O cyfryzacji nie znalazłem twardych danych, więc porównanie opiera się na pozostałych obszarach."
+3. **Brak odpowiedzi zostaje wyłącznie dla jednego przypadku: zera zweryfikowanych faktów** (albo braku jakiegokolwiek obszaru zdolnego odróżnić warianty).
+4. Wynik na niepełnym komplecie obszarów jest **wstępny** (`preliminary`). W interfejsie są dwie etykiety i żadnej trzeciej: **Policzone** i **Wstępne**.
+5. Cytaty zweryfikowane w tekście źródła, ale odrzucone z obliczenia (zdanie nie wymieniało wariantu), trafiają do sekcji **„Co mówią dokumenty (nie weszło do obliczenia)"**. Są to zdania z odnośnikiem, bez wartości liczbowej. **Nigdy nie dotykają macierzy wyników** — reguła 2B z DEC-043 obowiązuje bez zmian.
+6. Warstwa dla laika nie pokazuje procentów ani słowa „pokrycie". Te wielkości zostają w warstwie technicznej, rozwijanej przyciskiem.
+7. Bramka **G-BRIEF** (`scripts/check_plain_briefing.py`) dostaje reguły R5 (brak procentów i słowa „pokrycie" w warstwie dla laika, poprawna etykieta) i R6 (sekcja dokumentów niesie wyłącznie zacytowane zdania z cytatem).
+
+**Uzasadnienie:** Użytkownik przychodzi po odpowiedź, a nie po opis trudności zbierania danych. Uczciwość polega na powiedzeniu, na czym wynik stoi i czego zabrakło — nie na odmowie liczenia. Zebrany materiał dowodowy jest wartością samą w sobie i ma być pokazany, nawet gdy nie da się go przypisać do konkretnego wariantu.
+
+**Czego nie zmienia:** żadnej reguły dowodowej. `_verify_quote_in_text` pozostaje dosłowne (bez dopasowania rozmytego), reguła trafienia w wariant (2B) i zakaz duplikatów (2C) obowiązują bez zmian, a liczba wchodzi do obliczenia wyłącznie ze zweryfikowanego dokumentu albo od decydenta. Żadne pole nie prosi użytkownika o wpisanie brakujących liczb.
+
+**Jak cofnąć:** w `backend/domain/problem_classes.py`, w `compute_design_synthesis`, przywrócić warunek ustawiający `ranking_withheld` przy niepustej liście obszarów wyłączonych oraz przy niepustej liście `indistinguishable_variants`; w `backend/domain/cognitive/active_inference_engine.py` przestać przekazywać `context_findings` do `build_plain_briefing`.

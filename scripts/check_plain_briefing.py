@@ -9,6 +9,9 @@ bez pokrycia:
   R2. Zdanie oznaczone "quoted" niesie niepusty cytat.
   R3. Zdania streszczenia nie zawierają żargonu technicznego (Pareto, softmax, ...).
   R4. Moduł budujący briefing nie wywołuje modelu językowego.
+  R5. Warstwa dla laika nie pokazuje procentów ani słowa "pokrycie" (DEC-048).
+  R6. Sekcja "Co mówią dokumenty" niesie wyłącznie zacytowane zdania z cytatem,
+      a żadna liczba z niej nie ma wartości wchodzącej do obliczenia (DEC-048).
 
 Kod wyjścia 0 = wszystko w porządku.
 """
@@ -70,6 +73,39 @@ def check_briefing_contract() -> list[str]:
     problems += [f"R3: żargon w zdaniu: {t}" for t in find_jargon(b)]
     if "wystarczających danych" not in b.headline.text:
         problems.append("R1: przy zerze danych nagłówek nie mówi wprost o braku danych")
+
+    # R5: warstwa widoczna dla laika bez procentów i bez słowa "pokrycie".
+    b2 = build_plain_briefing(
+        _Problem(), documented_cells=4, total_cells=12, empty_levers=[],
+        rejected_off_topic=2, rejected_duplicate=1, pages_fetched=11, extraction_calls=48,
+        ranking_withheld=False, ranking_withheld_reason=None,
+        optimal_titles={"Model finansowania": "Składka"},
+        preliminary=True,
+        excluded_levers=[{"name": "Rola POZ", "reason": "no_data"}],
+        context_findings=[{"quote": "Nakłady wyniosły 6,2% PKB.",
+                           "source_ref": "https://example.test/a", "source_title": "GUS"}],
+    )
+    widoczne = " ".join(
+        x.text for x in ([b2.headline] + b2.summary + b2.tipping_points
+                         + ([b2.confidence_note] if b2.confidence_note else []))
+    )
+    if "%" in widoczne:
+        problems.append("R5: warstwa dla laika zawiera procenty")
+    if "pokryci" in widoczne.lower():
+        problems.append("R5: warstwa dla laika używa słowa 'pokrycie'")
+    if b2.label not in ("policzone", "wstepne", "brak_danych"):
+        problems.append(f"R5: nieznana etykieta wyniku: {b2.label}")
+    if b2.label != "wstepne":
+        problems.append("R5: wynik na niepełnych obszarach musi mieć etykietę 'wstepne'")
+
+    # R6: sekcja kontekstu — same cytaty, żadnej wartości liczbowej do obliczenia.
+    for x in b2.context:
+        if x.basis != "quoted" or not (x.quote and x.quote.strip()):
+            problems.append(f"R6: zdanie sekcji dokumentów bez cytatu: {x.text}")
+        if getattr(x, "value", None) is not None:
+            problems.append("R6: zdanie sekcji dokumentów niesie wartość liczbową")
+    problems += [f"R1/R2: {t}" for t in find_unsupported(b2)]
+    problems += [f"R3: żargon w zdaniu: {t}" for t in find_jargon(b2)]
 
     # Przypadek negatywny: zdanie 'quoted' bez cytatu musi zostać wykryte.
     from backend.domain.cognitive.plain_briefing import BriefSentence

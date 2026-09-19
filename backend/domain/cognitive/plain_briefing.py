@@ -34,6 +34,12 @@ class BriefSentence:
                 "source_ref": self.source_ref, "quote": self.quote}
 
 
+# Etykiety stanu wyniku pokazywane laikowi (DEC-048). Tylko trzy, bez procentów.
+LABEL_COMPUTED = "policzone"
+LABEL_PRELIMINARY = "wstepne"
+LABEL_NO_DATA = "brak_danych"
+
+
 @dataclass
 class PlainBriefing:
     headline: BriefSentence
@@ -41,6 +47,10 @@ class PlainBriefing:
     confidence_note: BriefSentence | None = None
     tipping_points: list[BriefSentence] = field(default_factory=list)
     evidence: list[BriefSentence] = field(default_factory=list)
+    # DEC-048: zweryfikowane cytaty, które NIE weszły do obliczenia (nie wymieniały wariantu).
+    # Warstwa wyłącznie prezentacyjna — żadna liczba stąd nie dotyka macierzy.
+    context: list[BriefSentence] = field(default_factory=list)
+    label: str = LABEL_COMPUTED
 
     def model_dump(self, mode: str = "json") -> dict[str, Any]:
         return {
@@ -49,6 +59,8 @@ class PlainBriefing:
             "confidence_note": self.confidence_note.model_dump() if self.confidence_note else None,
             "tipping_points": [x.model_dump() for x in self.tipping_points],
             "evidence": [x.model_dump() for x in self.evidence],
+            "context": [x.model_dump() for x in self.context],
+            "label": self.label,
         }
 
 
@@ -92,25 +104,38 @@ def build_plain_briefing(
     ranking_withheld_reason: str | None,
     optimal_titles: dict[str, str] | None = None,
     preliminary: bool = False,
+    excluded_levers: list[dict[str, str]] | None = None,
+    context_findings: list[dict[str, Any]] | None = None,
 ) -> PlainBriefing:
     """Składa briefing wyłącznie z policzonych wielkości i zacytowanych dokumentów."""
     levers = list(getattr(design_problem, "levers", []) or [])
     criteria = list(getattr(design_problem, "criteria", []) or [])
     n_variants = sum(len(getattr(l, "options", []) or []) for l in levers)
 
+    # DEC-048: obszary wyłączone z porównania. Starsze wywołania podają samą listę nazw
+    # obszarów bez danych — traktujemy je jak wyłączenie z powodu "no_data".
+    excluded = list(excluded_levers or [{"name": n, "reason": "no_data"} for n in empty_levers])
+    excluded_no_data = [e["name"] for e in excluded if e.get("reason") == "no_data"]
+    excluded_same = [e["name"] for e in excluded if e.get("reason") == "indistinguishable"]
+    compared_levers = max(len(levers) - len(excluded), 0)
+
     # --- Nagłówek -----------------------------------------------------------
+    # DEC-048: "brak odpowiedzi" zostaje wyłącznie dla przypadku zera zweryfikowanych faktów.
     if ranking_withheld or documented_cells == 0:
+        label = LABEL_NO_DATA
         headline = _c("Nie mam wystarczających danych, żeby wskazać najlepszy wariant.")
     elif optimal_titles:
         wybrane = _join_names(list(optimal_titles.values()))
+        label = LABEL_PRELIMINARY if preliminary else LABEL_COMPUTED
         if preliminary:
             headline = _c(
-                f"Wstępnie, na niepełnych danych, najlepiej wypada: {wybrane}. "
+                f"Wstępnie, na danych, które udało się znaleźć, najlepiej wypada: {wybrane}. "
                 f"Traktuj to jako wskazówkę, nie rozstrzygnięcie."
             )
         else:
             headline = _c(f"Przy podanych wagach najlepiej wypada: {wybrane}.")
     else:
+        label = LABEL_PRELIMINARY if preliminary else LABEL_COMPUTED
         headline = _c("Porównanie policzone na znalezionych danych — szczegóły poniżej.")
 
     # --- Streszczenie -------------------------------------------------------
@@ -134,17 +159,24 @@ def build_plain_briefing(
             f"Znalazłem {documented_cells} z {total_cells} potrzebnych danych — "
             f"każda pochodzi z dokumentu, żadnej nie wymyśliłem."
         ))
-    if empty_levers:
+    if excluded_no_data:
         summary.append(_c(
-            f"Dla {len(empty_levers)} {_pl(len(empty_levers), 'obszaru', 'obszarów', 'obszarów')} "
-            f"nie znalazłem żadnych liczb ({_join_names(empty_levers)}), "
-            f"{_pl(len(empty_levers), 'więc nie wpłynął on na wynik.', 'więc nie wpłynęły one na wynik.', 'więc nie wpłynęły one na wynik.')}"
+            f"O {_pl(len(excluded_no_data), 'obszarze', 'obszarach', 'obszarach')} "
+            f"{_join_names(excluded_no_data)} nie znalazłem twardych danych, "
+            f"więc porównanie opiera się na {_pl(compared_levers, 'pozostałym obszarze', 'pozostałych obszarach', 'pozostałych obszarach')}."
+        ))
+    if excluded_same:
+        summary.append(_c(
+            f"W {_pl(len(excluded_same), 'obszarze', 'obszarach', 'obszarach')} "
+            f"{_join_names(excluded_same)} znalezione liczby wyszły dla wszystkich wariantów "
+            f"tak samo, więc ten fragment niczego nie rozstrzyga."
         ))
     if rejected_off_topic:
         summary.append(_c(
-            f"Odrzuciłem {rejected_off_topic} "
-            f"{_pl(rejected_off_topic, 'znalezioną liczbę', 'znalezione liczby', 'znalezionych liczb')}, "
-            f"bo zdanie źródłowe nie dotyczyło porównywanego wariantu."
+            f"Do obliczenia nie weszło {rejected_off_topic} "
+            f"{_pl(rejected_off_topic, 'znaleziona liczba', 'znalezione liczby', 'znalezionych liczb')}, "
+            f"bo zdanie źródłowe nie mówiło wprost o porównywanym wariancie — "
+            f"znajdziesz je niżej, w tym, co mówią dokumenty."
         ))
     if rejected_duplicate:
         summary.append(_c(
@@ -155,20 +187,22 @@ def build_plain_briefing(
         summary.append(_c(f"Wstrzymałem wskazanie najlepszego wariantu. Powód: {ranking_withheld_reason}"))
 
     # --- Na czym stoi wynik -------------------------------------------------
-    if total_cells > 0:
-        pct = round(documented_cells / total_cells * 100, 1)
+    # DEC-048: w warstwie dla laika nie ma procentów ani słowa "pokrycie" —
+    # te wielkości zostają w warstwie technicznej.
+    if documented_cells > 0:
         confidence_note = _c(
-            f"Wynik opiera się na {documented_cells} z {total_cells} danych, czyli na {pct}% tego, "
-            f"co byłoby potrzebne do pełnego porównania."
+            f"Wynik stoi na {documented_cells} "
+            f"{_pl(documented_cells, 'liczbie wyjętej z dokumentu', 'liczbach wyjętych z dokumentów', 'liczbach wyjętych z dokumentów')}; "
+            f"żadnej nie dopisałem od siebie."
         )
     else:
         confidence_note = _c("Nie udało się zbudować żadnego porównania.")
 
     # --- Co by musiało się zmienić -----------------------------------------
     tipping: list[BriefSentence] = []
-    if empty_levers:
+    if excluded_no_data:
         tipping.append(_c(
-            f"Gdyby udało się znaleźć dane dla obszaru „{empty_levers[0]}”, wynik mógłby się zmienić — "
+            f"Gdyby udało się znaleźć dane dla obszaru „{excluded_no_data[0]}”, wynik mógłby się zmienić — "
             f"dziś ten obszar w ogóle nie waży."
         ))
     if documented_cells > 0 and not ranking_withheld:
@@ -204,19 +238,37 @@ def build_plain_briefing(
         if len(evidence) >= 5:
             break
 
+    # --- Co mówią dokumenty (DEC-048) --------------------------------------
+    # Cytaty zweryfikowane co do treści, ale odrzucone z obliczenia, bo zdanie
+    # nie wymieniało porównywanego wariantu. Wchodzą wyłącznie do prezentacji:
+    # nie mają wartości liczbowej i nie dotykają macierzy wyników.
+    context: list[BriefSentence] = []
+    seen_quotes: set[str] = set()
+    for item in (context_findings or []):
+        quote = str(item.get("quote") or "").strip()
+        if not quote or quote in seen_quotes:
+            continue
+        seen_quotes.add(quote)
+        src = str(item.get("source_title") or item.get("source_ref") or "źródło").strip()
+        context.append(_q(text=f"{src}: „{quote}”", source_ref=item.get("source_ref"), quote=quote))
+        if len(context) >= 8:
+            break
+
     return PlainBriefing(
         headline=headline,
         summary=summary,
         confidence_note=confidence_note,
         tipping_points=tipping,
         evidence=evidence,
+        context=context,
+        label=label,
     )
 
 
 def find_jargon(briefing: PlainBriefing) -> list[str]:
     """Zwraca zdania zawierające żargon techniczny (kontrola dla bramki G-BRIEF)."""
     offenders: list[str] = []
-    sentences = [briefing.headline] + briefing.summary + briefing.tipping_points
+    sentences = [briefing.headline] + briefing.summary + briefing.tipping_points + briefing.context
     if briefing.confidence_note:
         sentences.append(briefing.confidence_note)
     for s in sentences:
@@ -229,7 +281,10 @@ def find_jargon(briefing: PlainBriefing) -> list[str]:
 def find_unsupported(briefing: PlainBriefing) -> list[str]:
     """Zdania bez prawidłowej podstawy albo zdania 'quoted' bez cytatu (bramka G-BRIEF)."""
     bad: list[str] = []
-    sentences = [briefing.headline] + briefing.summary + briefing.tipping_points + briefing.evidence
+    sentences = (
+        [briefing.headline] + briefing.summary + briefing.tipping_points
+        + briefing.evidence + briefing.context
+    )
     if briefing.confidence_note:
         sentences.append(briefing.confidence_note)
     for s in sentences:

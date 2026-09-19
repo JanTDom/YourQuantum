@@ -119,10 +119,11 @@ def test_indistinguishable_variants_give_message_not_ranking():
     assert "Ubezpieczenie społeczne" in result.indistinguishable_variants[0]
 
 
-def test_coverage_threshold_and_empty_levers_withhold_ranking():
+def test_empty_lever_is_excluded_not_blocking(): 
     """
-    Pozycja 6 Tabeli Odbioru: telemetria podaje udokumentowane/wszystkie komórki i puste dźwignie.
-    Gdy cała dźwignia jest pusta lub pokrycie < 25%, ranking jest wstrzymywany.
+    DEC-048: dźwignia bez danych nie wstrzymuje całego wyniku — wypada z porównania.
+    Telemetria nadal podaje udokumentowane/wszystkie komórki oraz puste dźwignie,
+    a wynik zostaje oznaczony jako wstępny, bo porównanie objęło tylko część obszarów.
     """
     levers = [
         DesignLever(
@@ -174,10 +175,54 @@ def test_coverage_threshold_and_empty_levers_withhold_ranking():
     assert result.design_matrix_documented_cells == 4
     assert result.coverage_percentage == 50.0
     assert result.design_empty_levers == ["Struktura szpitali"]
-    # Z powodu pustej dźwigni ranking musi być wstrzymany
+
+    # DEC-048: pusta dźwignia wypada z porównania, ale wynik powstaje
+    assert result.ranking_withheld is False
+    assert result.insufficient_data is False
+    assert result.levers_excluded == [{"name": "Struktura szpitali", "reason": "no_data"}]
+    assert result.preliminary is True
+    assert result.pareto_frontier != []
+
+    # Wykluczony obszar nie może dostać podsuniętego wariantu
+    assert "Struktura szpitali" not in result.optimal_titles
+    assert "Model finansowania" in result.optimal_titles
+    assert all(r["lever_name"] != "Struktura szpitali" for r in result.lever_importance_ranking)
+    assert all(p.title != "Struktura szpitali" for p in result.briefing.key_pillars)
+
+    # ...ale musi zostać nazwany wprost w warstwie założeń
+    assert any("Struktura szpitali" in a for a in result.unknowns_and_decisive_assumptions)
+
+
+def test_only_zero_facts_withholds_the_answer():
+    """DEC-048: wstrzymanie odpowiedzi zostaje wyłącznie dla braku jakiegokolwiek faktu."""
+    levers = [
+        DesignLever(
+            id="l1",
+            name="Model finansowania",
+            options=[
+                LeverOption(id="o1", title="Wariant A", description=""),
+                LeverOption(id="o2", title="Wariant B", description=""),
+            ],
+        ),
+    ]
+    criteria = [DesignCriterion(id="c1", name="Koszty", direction="minimize", weight=1.0)]
+    dp = DesignProblem(
+        id="dp_empty",
+        title="Brak danych",
+        description="Zero udokumentowanych komórek",
+        levers=levers,
+        criteria=criteria,
+        score_matrix={
+            "l1": {
+                "o1": {"c1": ScoredValue(value=None, provenance="unverified")},
+                "o2": {"c1": ScoredValue(value=None, provenance="unverified")},
+            }
+        },
+    )
+    result = compute_design_synthesis(dp)
     assert result.ranking_withheld is True
-    assert result.pareto_frontier == []
-    assert "Struktura szpitali" in result.practical_manifestation
+    assert result.insufficient_data is True
+    assert result.preliminary is False
 
 
 def test_scored_value_unit_normalization():

@@ -375,6 +375,25 @@ export const DesignWorkspace: React.FC<DesignWorkspaceProps> = ({
           border: '1px solid oklch(60% 0.06 250 / 0.35)',
           marginBottom: '1.5rem',
         }}>
+          {(plainBriefing.label === 'policzone' || plainBriefing.label === 'wstepne') && (
+            <div style={{
+              display: 'inline-block',
+              marginBottom: '0.55rem',
+              padding: '0.18rem 0.6rem',
+              borderRadius: '999px',
+              fontSize: '0.7rem',
+              fontWeight: 800,
+              letterSpacing: '0.04em',
+              textTransform: 'uppercase',
+              color: plainBriefing.label === 'policzone' ? 'oklch(85% 0.12 145)' : 'oklch(85% 0.12 85)',
+              background: plainBriefing.label === 'policzone'
+                ? 'oklch(45% 0.10 145 / 0.25)' : 'oklch(50% 0.10 85 / 0.25)',
+              border: `1px solid ${plainBriefing.label === 'policzone'
+                ? 'oklch(60% 0.10 145 / 0.5)' : 'oklch(65% 0.10 85 / 0.5)'}`,
+            }}>
+              {plainBriefing.label === 'policzone' ? 'Policzone' : 'Wstępne'}
+            </div>
+          )}
           <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'oklch(92% 0.06 85)', marginBottom: '0.6rem' }}>
             {plainBriefing.headline?.text}
           </div>
@@ -398,7 +417,7 @@ export const DesignWorkspace: React.FC<DesignWorkspaceProps> = ({
           {(plainBriefing.evidence || []).length > 0 && (
             <div style={{ marginTop: '0.9rem' }}>
               <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'oklch(80% 0.05 140)', marginBottom: '0.3rem' }}>
-                Co mówią dokumenty źródłowe:
+                Liczby, na których stoi wynik:
               </div>
               {(plainBriefing.evidence || []).map((e, i) => (
                 <div key={`brief-ev-${i}`} style={{ fontSize: '0.8rem', color: 'oklch(80% 0.02 250)', marginBottom: '0.35rem' }}>
@@ -408,6 +427,25 @@ export const DesignWorkspace: React.FC<DesignWorkspaceProps> = ({
                   )}
                 </div>
               ))}
+            </div>
+          )}
+          {(plainBriefing.context || []).length > 0 && (
+            <div style={{ marginTop: '0.9rem' }}>
+              <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'oklch(80% 0.05 250)', marginBottom: '0.3rem' }}>
+                Co mówią dokumenty (nie weszło do obliczenia):
+              </div>
+              {(plainBriefing.context || []).map((c, i) => (
+                <div key={`brief-ctx-${i}`} style={{ fontSize: '0.8rem', color: 'oklch(76% 0.02 250)', marginBottom: '0.35rem' }}>
+                  {c.text}
+                  {c.source_ref && (
+                    <> — <a href={c.source_ref} target="_blank" rel="noopener noreferrer" style={{ color: 'oklch(78% 0.1 250)' }}>źródło</a></>
+                  )}
+                </div>
+              ))}
+              <div style={{ fontSize: '0.75rem', color: 'oklch(62% 0.02 250)', marginTop: '0.25rem', fontStyle: 'italic' }}>
+                Te zdania sprawdziłem w źródle, ale nie mówią wprost o porównywanych wariantach,
+                więc żadna liczba z nich nie weszła do obliczenia.
+              </div>
             </div>
           )}
           <button

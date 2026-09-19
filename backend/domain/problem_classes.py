@@ -410,6 +410,9 @@ class DesignSynthesisResult(BaseModel):
     # DEC-047: wynik wstępny — ranking policzony, ale na niepełnych danych
     preliminary: bool = False
     preliminary_reason: str | None = None
+    # DEC-048: dźwignie wyłączone z porównania (bez danych albo nierozróżnialne).
+    # Wyłączenie dźwigni NIE wstrzymuje rankingu — zawęża go do obszarów, które mają pokrycie.
+    levers_excluded: list[dict[str, str]] = Field(default_factory=list)
     design_criteria_excluded: list[str] = Field(default_factory=list)
     insufficient_data: bool = False
 
@@ -418,6 +421,7 @@ def compute_design_pareto_frontier(
     design: DesignProblem,
     max_configurations: int = 1000,
     active_criteria: list[DesignCriterion] | None = None,
+    active_levers: list[DesignLever] | None = None,
 ) -> list[ParetoPoint]:
     """
     Computes Pareto optimal points for small to medium models using exhaustive search or epsilon-constraint.
@@ -429,8 +433,13 @@ def compute_design_pareto_frontier(
     if not eval_criteria:
         return []
 
+    # DEC-048: dźwignie bez pokrycia dowodowego nie wchodzą do przestrzeni konfiguracji.
+    eval_levers = active_levers if active_levers is not None else design.levers
+    if not eval_levers:
+        return []
+
     # List of options per lever
-    lever_options_list = [[(l.id, opt.id) for opt in l.options] for l in design.levers]
+    lever_options_list = [[(l.id, opt.id) for opt in l.options] for l in eval_levers]
     all_combos = list(itertools.product(*lever_options_list))
 
     incompat_pairs = {
@@ -600,31 +609,69 @@ def compute_design_synthesis(
                             f"we wszystkich udokumentowanych kryteriach ({', '.join(c.name for c in active_criteria)}) i są nierozróżnialne na dostępnych danych."
                         )
 
-    # Weryfikacja warunków wstrzymania rankingu (V22 §2D, §2E)
+    # DEC-048: podział dźwigni na aktywne i wyłączone z porównania.
+    # Dźwignia wypada z porównania, gdy nie ma ani jednej udokumentowanej liczby
+    # albo gdy wszystkie jej warianty mają identyczny komplet wartości (nie rozróżniają niczego).
+    # Wyłączenie NIE wstrzymuje wyniku — zawęża porównanie do obszarów, które mają pokrycie.
+    active_levers: list[DesignLever] = []
+    levers_excluded: list[dict[str, str]] = []
+    active_documented = 0
+    active_total = 0
+
+    for lev in design.levers:
+        signatures: list[tuple[Any, ...]] = []
+        lev_documented = 0
+        for opt in lev.options:
+            sig: list[Any] = []
+            for crit in active_criteria:
+                cell = design.score_matrix.get(lev.id, {}).get(opt.id, {}).get(crit.id)
+                val = cell.value if cell else None
+                if val is not None:
+                    lev_documented += 1
+                sig.append(val)
+            signatures.append(tuple(sig))
+
+        if lev_documented == 0:
+            levers_excluded.append({"name": lev.name, "reason": "no_data"})
+        elif len(signatures) > 1 and all(sig == signatures[0] for sig in signatures):
+            levers_excluded.append({"name": lev.name, "reason": "indistinguishable"})
+        else:
+            active_levers.append(lev)
+            active_documented += lev_documented
+            active_total += len(lev.options) * len(design.criteria)
+
+    # Weryfikacja warunków wstrzymania rankingu (V22 §2D, §2E; zawężone przez DEC-048)
     ranking_withheld = False
     withheld_reasons: list[str] = []
 
     if not active_criteria or documented_count == 0:
         ranking_withheld = True
         withheld_reasons.append("Brak udokumentowanych danych w sieci dla zdefiniowanych kryteriów.")
-    elif empty_levers:
+    elif not active_levers:
         ranking_withheld = True
-        withheld_reasons.append(f"Całkowicie puste dźwignie bez danych empirycznych: {', '.join(empty_levers)}.")
-
-    # DEC-047: samo niskie pokrycie nie blokuje wyniku, jeżeli KAŻDA dźwignia ma dane.
-    # Powodem blokady jest brak całego wymiaru porównania, a nie wartość procentowa.
-    preliminary = False
-    preliminary_reason: str | None = None
-    if not ranking_withheld and coverage_percent < 25.0:
-        preliminary = True
-        preliminary_reason = (
-            f"Wynik wstępny: opiera się na {documented_count} z {total_cells} danych "
-            f"({coverage_percent}% potrzebnych), po co najmniej jednej w każdym obszarze."
+        withheld_reasons.append(
+            "Żaden obszar decyzji nie ma danych pozwalających odróżnić warianty od siebie."
         )
 
-    if indistinguishable_variants:
-        ranking_withheld = True
-        withheld_reasons.append("Wykryto warianty nierozróżnialne na dostępnych danych empirycznych.")
+    # DEC-047/DEC-048: niskie pokrycie ani wyłączony obszar nie blokują wyniku.
+    # Blokuje wyłącznie brak jakiegokolwiek zweryfikowanego faktu.
+    active_coverage_percent = (
+        round((active_documented / active_total) * 100, 1) if active_total > 0 else 0.0
+    )
+    preliminary = False
+    preliminary_reason: str | None = None
+    if not ranking_withheld and (levers_excluded or active_coverage_percent < 25.0):
+        preliminary = True
+        if levers_excluded:
+            preliminary_reason = (
+                f"Wynik wstępny: porównanie objęło {len(active_levers)} z {len(design.levers)} obszarów, "
+                f"reszta nie miała danych pozwalających odróżnić warianty."
+            )
+        else:
+            preliminary_reason = (
+                f"Wynik wstępny: opiera się na {active_documented} z {active_total} danych "
+                f"potrzebnych w porównywanych obszarach."
+            )
 
     # Jeśli ranking został wstrzymany (brak danych, pusta dźwignia, zbyt niskie pokrycie lub warianty nierozróżnialne)
     if ranking_withheld:
@@ -686,18 +733,22 @@ def compute_design_synthesis(
             ranking_withheld_reason=reason_summary,
             preliminary=False,
             preliminary_reason=None,
+            levers_excluded=levers_excluded,
             design_criteria_excluded=excluded_criteria_names,
             insufficient_data=True,
         )
 
     pareto_points = compute_design_pareto_frontier(
-        design, max_configurations=max_configurations, active_criteria=active_criteria
+        design,
+        max_configurations=max_configurations,
+        active_criteria=active_criteria,
+        active_levers=active_levers,
     )
     total_weight = sum(c.weight for c in active_criteria) or 1.0
 
     # 1. Lever importance ranking
     ranking: list[dict[str, Any]] = []
-    for lever in design.levers:
+    for lever in active_levers:
         scores_per_opt: list[float] = []
         for opt in lever.options:
             opt_score = 0.0
@@ -735,18 +786,28 @@ def compute_design_synthesis(
             best_score = score
             best_cfg = p.configuration
 
-    if not best_cfg and design.levers:
-        best_cfg = {l.id: l.options[0].id for l in design.levers if l.options}
+    if not best_cfg and active_levers:
+        best_cfg = {l.id: l.options[0].id for l in active_levers if l.options}
 
-    # 3. Map chosen option titles
+    # 3. Map chosen option titles (tylko obszary faktycznie porównane — DEC-048)
     optimal_titles: dict[str, str] = {}
-    for lever in design.levers:
+    for lever in active_levers:
         chosen_opt_id = best_cfg.get(lever.id)
         match_opt = next((o for o in lever.options if o.id == chosen_opt_id), None)
         optimal_titles[lever.name] = match_opt.title if match_opt else (chosen_opt_id or "Brak")
 
     # 4. Decisive assumptions
     assumptions: list[str] = []
+    for exc in levers_excluded:
+        if exc["reason"] == "no_data":
+            assumptions.append(
+                f"Obszar '{exc['name']}' wyłączony z porównania: brak udokumentowanych danych."
+            )
+        else:
+            assumptions.append(
+                f"Obszar '{exc['name']}' wyłączony z porównania: wszystkie warianty mają "
+                f"identyczne wartości w udokumentowanych kryteriach."
+            )
     if excluded_criteria_names:
         assumptions.append(
             f"Kryteria wykluczone z porównania z powodu braku udokumentowanych danych: {', '.join(excluded_criteria_names)}."
@@ -772,6 +833,7 @@ def compute_design_synthesis(
         optimal_titles=optimal_titles,
         pareto_points=pareto_points,
         ranking=ranking,
+        levers=active_levers,
     )
 
     return DesignSynthesisResult(
@@ -794,6 +856,7 @@ def compute_design_synthesis(
         ranking_withheld_reason=None,
         preliminary=preliminary,
         preliminary_reason=preliminary_reason,
+        levers_excluded=levers_excluded,
         design_criteria_excluded=excluded_criteria_names,
         insufficient_data=False,
     )
@@ -805,6 +868,7 @@ def _build_executive_briefing(
     optimal_titles: dict[str, str],
     pareto_points: list[ParetoPoint],
     ranking: list[dict[str, Any]],
+    levers: list[DesignLever] | None = None,
 ) -> ExecutiveBriefing:
     """
     Constructs a clear, human-oriented executive briefing for strategic decision makers,
@@ -816,7 +880,10 @@ def _build_executive_briefing(
     key_pillars: list[KeyPillar] = []
     top_two_titles: list[str] = []
 
-    for lever in design.levers:
+    # DEC-048: filar powstaje tylko dla obszaru, który faktycznie wszedł do porównania.
+    briefing_levers = levers if levers is not None else design.levers
+
+    for lever in briefing_levers:
         chosen_opt_id = best_cfg.get(lever.id)
         match_opt = next((o for o in lever.options if o.id == chosen_opt_id), None)
         chosen_title = match_opt.title if match_opt else (chosen_opt_id or "Domyślna opcja")

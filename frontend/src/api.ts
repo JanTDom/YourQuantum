@@ -743,6 +743,8 @@ export interface DesignSynthesisResult {
   ranking_withheld_reason?: string | null
   preliminary?: boolean
   preliminary_reason?: string | null
+  // DEC-048: obszary wyłączone z porównania (bez danych albo nierozróżnialne)
+  levers_excluded?: { name: string; reason: string }[]
   design_criteria_excluded?: string[]
   insufficient_data?: boolean
 }
@@ -760,6 +762,10 @@ export interface PlainBriefing {
   confidence_note?: BriefSentence | null
   tipping_points: BriefSentence[]
   evidence: BriefSentence[]
+  // DEC-048: zweryfikowane cytaty, które nie weszły do obliczenia (warstwa prezentacyjna)
+  context?: BriefSentence[]
+  // DEC-048: 'policzone' | 'wstepne' | 'brak_danych'
+  label?: string
 }
 
 export async function getDesignFixture(fixtureName: string): Promise<any> {
