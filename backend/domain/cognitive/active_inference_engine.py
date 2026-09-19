@@ -402,10 +402,15 @@ class ActiveInferenceOrchestrator:
 
             search_adapter = WebResearchAdapter()
             web_context_snippets: list[str] = []
+            search_results: list[Any] = []
             if search_adapter.is_available():
                 ws.energy_budget.consume_search(2)
                 try:
-                    search_results = await search_adapter.search(query, max_results=3)
+                    # Rozszerzenie zapytań o instytucje referencyjne (V22 §3)
+                    search_query = query
+                    if any(w in query.lower() for w in ["zdrow", "szpital", "nfz", "medycyn", "lekar", "reforma", "system", "ochron"]):
+                        search_query = f"{query} GUS NFZ Ministerstwo Zdrowia OECD Eurostat"
+                    search_results = await search_adapter.search(search_query, max_results=4)
                     for sr in search_results:
                         web_context_snippets.append(f"[{sr.title}]({sr.url}): {sr.snippet}")
                 except Exception as s_err:
@@ -457,12 +462,19 @@ class ActiveInferenceOrchestrator:
                     if opt.id not in design_problem.score_matrix[lev.id]:
                         design_problem.score_matrix[lev.id][opt.id] = {}
 
-            # Pobieranie i ekstrakcja danych z sieci dla komórek macierzy DESIGN (DEC-042)
-            # Używamy tego samego rurociągu co dla scenariuszy: SafeWebFetcher + EvidenceExtractor z weryfikacją cytatów
+            # Pobieranie i ekstrakcja danych z sieci dla komórek macierzy DESIGN (DEC-042 / DEC-043 / V22)
+            # Używamy rurociągu: SafeWebFetcher + EvidenceExtractor z weryfikacją cytatów i powiązania z wariantem
             web_quotes_verified_count = 0
+            ws.telemetry["design_cells_rejected_off_topic"] = 0
+            ws.telemetry["design_cells_rejected_duplicate"] = 0
+            assigned_evidence_keys: set[tuple[str, str]] = set()
+
             if search_results:
                 from backend.infrastructure.web_research.fetcher import SafeWebFetcher
                 from backend.infrastructure.web_research.extractor import EvidenceExtractor
+                from backend.domain.cognitive.variant_matcher import verify_variant_in_quote, get_variant_keywords
+                from backend.domain.evidence.evidence_weighting import compute_evidence_weight
+
                 fetcher = SafeWebFetcher(timeout=10.0)
                 target_urls = [sr.url for sr in search_results[:3] if sr.url]
 
@@ -478,15 +490,17 @@ class ActiveInferenceOrchestrator:
                 fetched_docs_raw = await asyncio.gather(*[_fetch_single_doc(u) for u in target_urls])
                 fetched_docs = [d for d in fetched_docs_raw if d is not None]
 
-                # Pobieramy dowody dla parametrów dźwigni i opcji (maksymalnie 6 zapytań o parametry dla budżetu czasu)
-                param_targets: list[tuple[str, str, str, str, str, str | None]] = []
-                for lev in design_problem.levers:
-                    for opt in lev.options:
-                        for crit in design_problem.criteria:
-                            if len(param_targets) < 6:
-                                param_id = f"{lev.id}_{opt.id}_{crit.id}"
-                                query_desc = f"{lev.name} {opt.title} {crit.name}"
-                                param_targets.append((lev.id, opt.id, crit.id, param_id, query_desc, crit.unit))
+                # Jawny budżet wywołań na zapytanie dla klasy DESIGN (V22 §4, DEC-043)
+                MAX_DESIGN_EXTRACTION_CALLS = 12
+
+                # Generujemy kandydujące pary (wariant, kryterium) równomiernie (round-robin) po dźwigniach
+                all_candidate_cells: list[tuple[str, str, str, str, str, str | None]] = []
+                for crit in design_problem.criteria:
+                    for lev in design_problem.levers:
+                        for opt in lev.options:
+                            param_id = f"{lev.id}_{opt.id}_{crit.id}"
+                            query_desc = f"{lev.name}: {opt.title} — kryterium: {crit.name}"
+                            all_candidate_cells.append((lev.id, opt.id, crit.id, param_id, query_desc, crit.unit))
 
                 async def _extract_param(doc, lev_id, opt_id, crit_id, p_id, p_desc, p_unit):
                     ext = EvidenceExtractor()
@@ -502,43 +516,132 @@ class ActiveInferenceOrchestrator:
                         logger.warning("Design evidence extraction error for %s: %s", p_id, ext_err)
                         return (lev_id, opt_id, crit_id, [])
 
+                # Selekcja zadań ekstrakcji z pre-filtrem leksykalnym (V22 §4)
                 extraction_tasks = []
-                for d in fetched_docs:
-                    for lev_id, opt_id, crit_id, p_id, p_desc, p_unit in param_targets:
-                        extraction_tasks.append(_extract_param(d, lev_id, opt_id, crit_id, p_id, p_desc, p_unit))
+                for lev_id, opt_id, crit_id, p_id, p_desc, p_unit in all_candidate_cells:
+                    lev = next((l for l in design_problem.levers if l.id == lev_id), None)
+                    opt = next((o for o in lev.options if o.id == opt_id), None) if lev else None
+                    if not lev or not opt:
+                        continue
+                    keywords = get_variant_keywords(opt.title, option_id=opt.id)
+                    for d in fetched_docs:
+                        if len(extraction_tasks) >= MAX_DESIGN_EXTRACTION_CALLS:
+                            break
+                        # Pre-filtr leksykalny: strona musi zawierać co najmniej jedno słowo kluczowe wariantu
+                        page_lower = d.page_text.lower()
+                        if any(kw in page_lower for kw in keywords):
+                            extraction_tasks.append(_extract_param(d, lev_id, opt_id, crit_id, p_id, p_desc, p_unit))
+                    if len(extraction_tasks) >= MAX_DESIGN_EXTRACTION_CALLS:
+                        break
 
                 if extraction_tasks:
                     ext_results = await asyncio.gather(*extraction_tasks)
                     for lev_id, opt_id, crit_id, ev_sublist in ext_results:
-                        for ev in ev_sublist:
-                            if ev.value is not None:
-                                from backend.domain.decision_case import ScoredValue
-                                try:
-                                    num_val = float(ev.value)
-                                except (ValueError, TypeError):
-                                    continue
-                                # Przypisujemy ugruntowaną wartość tylko jeśli komórka jest jeszcze pusta
-                                current_cell = design_problem.score_matrix.get(lev_id, {}).get(opt_id, {}).get(crit_id)
-                                if not current_cell or current_cell.value is None:
-                                    conf_val = float(ev.confidence) if ev.confidence is not None else 0.85
-                                    if conf_val > 1.0 and conf_val <= 5.0:
-                                        conf_val /= 5.0
-                                    elif conf_val > 5.0 and conf_val <= 100.0:
-                                        conf_val /= 100.0
-                                    clamped_conf = max(0.0, min(1.0, conf_val))
+                        lev = next((l for l in design_problem.levers if l.id == lev_id), None)
+                        opt = next((o for o in lev.options if o.id == opt_id), None) if lev else None
+                        if not lev or not opt:
+                            continue
 
-                                    scored_val = ScoredValue(
-                                        value=num_val,
-                                        unit=ev.unit or "",
-                                        provenance="web_sourced",
-                                        source_ref=ev.source_url or "Zweryfikowane źródło sieciowe",
-                                        confidence=clamped_conf,
-                                    )
-                                    design_problem.score_matrix[lev_id][opt_id][crit_id] = scored_val
-                                    opt_case_id = f"{lev_id}__{opt_id}"
-                                    if opt_case_id in case_score_matrix:
-                                        case_score_matrix[opt_case_id][crit_id] = scored_val
-                                    web_quotes_verified_count += 1
+                        for ev in ev_sublist:
+                            if ev.value is None or not ev.quote or not ev.quote.strip():
+                                continue
+
+                            from backend.domain.decision_case import ScoredValue
+                            try:
+                                num_val = float(ev.value)
+                            except (ValueError, TypeError):
+                                continue
+
+                            # 1. Reguła 2B: Wymóg trafienia w wariant (zdanie musi wymieniać wariant lub jego synonim)
+                            is_variant_hit = verify_variant_in_quote(
+                                quote=ev.quote,
+                                option_title=opt.title,
+                                option_id=opt.id,
+                                lever_name=lev.name,
+                            )
+                            if not is_variant_hit:
+                                logger.info(
+                                    "Off-topic cell evidence rejected for %s/%s (quote lacks variant name): %r",
+                                    lev_id, opt_id, ev.quote[:80]
+                                )
+                                ws.telemetry["design_cells_rejected_off_topic"] = (
+                                    ws.telemetry.get("design_cells_rejected_off_topic", 0) + 1
+                                )
+                                continue
+
+                            # 2. Reguła 2C: Zakaz duplikatów (jeden dowód nie obsadza wielu komórek)
+                            evidence_key = (str(ev.source_url or "").strip(), str(ev.quote or "").strip())
+                            if evidence_key in assigned_evidence_keys:
+                                logger.info(
+                                    "Duplicate cell evidence rejected for %s/%s: %s",
+                                    lev_id, opt_id, evidence_key[0]
+                                )
+                                ws.telemetry["design_cells_rejected_duplicate"] = (
+                                    ws.telemetry.get("design_cells_rejected_duplicate", 0) + 1
+                                )
+                                continue
+
+                            # Przypisujemy ugruntowaną wartość tylko jeśli komórka jest jeszcze pusta
+                            current_cell = design_problem.score_matrix.get(lev_id, {}).get(opt_id, {}).get(crit_id)
+                            if not current_cell or current_cell.value is None:
+                                conf_val = float(ev.confidence) if ev.confidence is not None else 0.85
+                                if conf_val > 1.0 and conf_val <= 5.0:
+                                    conf_val /= 5.0
+                                elif conf_val > 5.0 and conf_val <= 100.0:
+                                    conf_val /= 100.0
+                                clamped_conf = max(0.0, min(1.0, conf_val))
+
+                                # Wyliczenie wagi dowodowej i klasy źródła wg DEC-037
+                                w_breakdown = compute_evidence_weight(ev)
+                                assigned_evidence_keys.add(evidence_key)
+
+                                ret_str = None
+                                if ev.retrieved_at:
+                                    ret_str = ev.retrieved_at.isoformat() if hasattr(ev.retrieved_at, "isoformat") else str(ev.retrieved_at)
+
+                                scored_val = ScoredValue(
+                                    value=num_val,
+                                    unit=ev.unit,  # normalizator ScoredValue zamienia "" i "null" na None
+                                    provenance="web_sourced",
+                                    source_ref=ev.source_url or "Zweryfikowane źródło sieciowe",
+                                    confidence=clamped_conf,
+                                    quote=ev.quote,
+                                    char_start=ev.char_start,
+                                    char_end=ev.char_end,
+                                    source_title=ev.source_title or ev.publisher or "Źródło sieciowe",
+                                    retrieved_at=ret_str,
+                                    weight=round(w_breakdown.final_weight, 4),
+                                    source_class=w_breakdown.source_tier,
+                                    source_tier_name=w_breakdown.source_tier_name,
+                                )
+                                design_problem.score_matrix[lev_id][opt_id][crit_id] = scored_val
+                                opt_case_id = f"{lev_id}__{opt_id}"
+                                if opt_case_id in case_score_matrix:
+                                    case_score_matrix[opt_case_id][crit_id] = scored_val
+                                web_quotes_verified_count += 1
+
+            # Obliczenie statystyk pokrycia macierzy (V22 §2E)
+            total_possible_cells = sum(len(l.options) for l in design_problem.levers) * len(design_problem.criteria)
+            documented_cells_count = 0
+            empty_levers_list = []
+            for l in design_problem.levers:
+                l_doc = 0
+                for o in l.options:
+                    for c in design_problem.criteria:
+                        cell = design_problem.score_matrix.get(l.id, {}).get(o.id, {}).get(c.id)
+                        if cell and cell.value is not None:
+                            documented_cells_count += 1
+                            l_doc += 1
+                if l_doc == 0:
+                    empty_levers_list.append(l.name)
+
+            ws.telemetry["design_matrix_total_cells"] = total_possible_cells
+            ws.telemetry["design_matrix_documented_cells"] = documented_cells_count
+            ws.telemetry["design_matrix_empty_cells"] = total_possible_cells - documented_cells_count
+            ws.telemetry["design_empty_levers"] = empty_levers_list
+            ws.telemetry["design_coverage_percent"] = (
+                round((documented_cells_count / total_possible_cells) * 100, 1) if total_possible_cells > 0 else 0.0
+            )
 
             formalization = FormalizationResult(
                 status="ready_for_review",
@@ -553,6 +656,13 @@ class ActiveInferenceOrchestrator:
                 metadata={
                     "classification_reason": classification.reason,
                     "web_sources_count": len(web_context_snippets),
+                    "design_matrix_total_cells": total_possible_cells,
+                    "design_matrix_documented_cells": documented_cells_count,
+                    "design_matrix_empty_cells": total_possible_cells - documented_cells_count,
+                    "design_empty_levers": empty_levers_list,
+                    "design_coverage_percent": ws.telemetry["design_coverage_percent"],
+                    "design_cells_rejected_off_topic": ws.telemetry.get("design_cells_rejected_off_topic", 0),
+                    "design_cells_rejected_duplicate": ws.telemetry.get("design_cells_rejected_duplicate", 0),
                 },
             )
             ws.update_hypothesis(None, {"status": "ready_for_review", "class": "DESIGN"})

@@ -746,6 +746,34 @@ W audycie Promptu V17 i V18 stwierdzono, że we wszystkich wcześniejszych biega
    - Dodano pola telemetrii: `design_matrix_documented_cells`, `design_matrix_empty_cells`, `design_criteria_excluded`, `insufficient_data`.
    - W interfejsie `frontend/src/components/DesignWorkspace.tsx` usunięto jednostkowe przyciski „oznacz jako założenie”, dodano zbiorczy przycisk `🌐 Dociągnij dane z sieci` (ze ścisłym budżetem do 6 brakujących komórek per kliknięcie), umożliwiono ręczną edycję komórek decydentowi (`user_supplied`) oraz odblokowano syntezę Pareto natychmiast, gdy decydent lub sieć udokumentuje chociaż jedno kryterium.
 
+---
+
+## DEC-043: Uziemienie komórek macierzy DESIGN w zweryfikowanym cytacie wariantu, eliminacja duplikatów i wstrzymanie rankingu przy braku pokrycia
+
+**Data:** 2026-09-19  
+**Autor:** Antigravity (Prompt V22, zatwierdzone przez Jana Domaniewskiego)  
+**Kontekst:** W audycie V21 po wprowadzeniu rurociągu dowodowego dla klasy DESIGN zauważono krytyczne mankamenty rzetelności: liczby pobrane ze stron ogólnych trafiały do komórek macierzy bez wzmianki o konkretnym wariancie dźwigni, model `ScoredValue` nie zawierał cytatu ze źródła ani offsetów znakowych (`char_start`, `char_end`), jednostka przy braku wartości zwracała string `"null"`, ta sama para `(URL, cytat)` powielała się w różnych komórkach, identyczne sumy punktowe opcji nie generowały ostrzeżenia o nierozróżnialności w analizie Pareto, a 3 z 4 dźwigni pozostawały zupełnie puste (12,5% pokrycia).
+
+**Decyzja:**
+1. **Cytat i offsety w `ScoredValue` (Reguła 2A)**:
+   - Model `ScoredValue` (`backend/domain/decision_case.py`) został rozszerzony o pola: `quote`, `char_start`, `char_end`, `source_title`, `retrieved_at`, `weight`, `source_class`, `source_tier_name`.
+   - Wprowadzono walidator normalizujący brak jednostki (`""`, `"null"`, `"none"`) do natywnego `None` (serializowanego jako JSON `null`).
+2. **Wymóg trafienia w wariant (Reguła 2B)**:
+   - Wycinek dokumentu z liczbą musi wprost zawierać nazwę wariantu lub jego zarejestrowany synonim domenowy weryfikowany przez deterministyczny rejestr `backend/domain/cognitive/variant_matcher.py` (`verify_variant_in_quote`).
+   - Wycinki ogólne, nieodnoszące się bezpośrednio do ocenianego wariantu, są bezwzględnie odrzucane z komórki, a silnik inkrementuje licznik telemetrii `design_cells_rejected_off_topic`.
+3. **Zakaz duplikatów dowodów w macierzy (Reguła 2C)**:
+   - Silnik śledzi unikalne pary `(source_url, quote)` w zbiorze `assigned_evidence_keys`.
+   - Żaden dowód nie może zająć więcej niż jednej komórki w całej macierzy ocen; próby powielenia tego samego faktu są odrzucane z inkrementacją licznika `design_cells_rejected_duplicate`.
+4. **Wstrzymanie fałszywych rankingów dla nierozróżnialnych wariantów (Reguła 2D)**:
+   - Jeżeli warianty w obrębie dźwigni uzyskują identyczne wartości na aktywnych kryteriach, silnik nie generuje pozornego rankingu preferencji, lecz zgłasza listę `indistinguishable_variants` i wyświetla komunikat informujący decydenta, że warianty są obecnie nierozróżnialne w oparciu o dostępne dane.
+5. **Próg pokrycia 25% i wymóg reprezentacji wszystkich dźwigni (Reguła 2E)**:
+   - Ranking końcowy oraz optymalna konfiguracja architektoniczna są wstrzymywane (`ranking_withheld = True`, `ranking_withheld_reason`), jeżeli łączne pokrycie macierzy jest niższe niż 25% lub co najmniej jedna dźwignia nie posiada ani jednej udokumentowanej komórki (`design_empty_levers > 0`).
+   - W interfejsie użytkownika (`frontend/src/components/DesignWorkspace.tsx`, `frontend/src/components/RecommendationView.tsx`) wyświetlany jest czytelny baner pokrycia z wyszczególnieniem komórek udokumentowanych, pustych dźwigni i kryteriów wykluczonych.
+6. **Zarządzanie budżetem i routing celów badawczych (Zasada 3)**:
+   - Zastąpiono faworyzowanie pierwszej dźwigni strategią round-robin rozdzielającą cele badawcze równomiernie pomiędzy wszystkie dźwignie systemu.
+   - Zapytania wyszukiwania dla klasy DESIGN rozszerzono o polskie instytucje referencyjne (`GUS NFZ Ministerstwo Zdrowia OECD Eurostat`), dodane do `config/source_classes.json`.
+   - Wprowadzono limit wywołań ekstrakcji `MAX_DESIGN_EXTRACTION_CALLS = 12` ze wstępnym filtrem leksykalnym sprawdzającym obecność słów kluczowych wariantu w pobranym tekście przed zaangażowaniem modelu językowego.
+
 
 
 

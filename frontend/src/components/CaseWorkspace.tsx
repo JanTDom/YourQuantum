@@ -127,7 +127,7 @@ export const CaseWorkspace: React.FC<CaseWorkspaceProps> = ({
         const cell = currentMatrix[opt.id][crit.id]
         if (!cell || cell.value === undefined || cell.value === null || isNaN(cell.value) || !cell.source_ref) {
           currentMatrix[opt.id][crit.id] = {
-            value: cell?.value !== undefined && !isNaN(cell.value) ? cell.value : (crit.direction === 'maximize' ? 7.0 : 3.0),
+            value: cell?.value !== undefined && cell?.value !== null && !isNaN(cell.value) ? cell.value : (crit.direction === 'maximize' ? 7.0 : 3.0),
             unit: crit.unit || '',
             provenance: 'assumed',
             source_ref: 'Założenie robocze użytkownika (wypełnienie wstępne)',
@@ -959,7 +959,7 @@ export const CaseWorkspace: React.FC<CaseWorkspaceProps> = ({
                                     type="number"
                                     step="any"
                                     placeholder="Wartość..."
-                                    value={hasVal ? cell.value : ''}
+                                    value={hasVal && cell.value !== null ? cell.value : ''}
                                     onChange={(e) => {
                                       const num = parseFloat(e.target.value)
                                       if (!isNaN(num)) {

@@ -39,6 +39,10 @@
     "bbn.gov.pl": "tier_1",
     "mon.gov.pl": "tier_1",
     "msz.gov.pl": "tier_1",
+    "nfz.gov.pl": "tier_1",
+    "mz.gov.pl": "tier_1",
+    "gov.pl": "tier_1",
+    "oecd.org": "tier_1",
     "pap.pl": "tier_1",
     "reuters.com": "tier_2",
     "bloomberg.com": "tier_2",
@@ -53,6 +57,7 @@
     "tvn24.pl": "tier_3",
     "polsatnews.pl": "tier_3",
     "wnp.pl": "tier_3",
-    "defence24.pl": "tier_3"
+    "defence24.pl": "tier_3",
+    "ipsos.com": "tier_3"
   }
 }

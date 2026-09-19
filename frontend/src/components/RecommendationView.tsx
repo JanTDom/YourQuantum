@@ -1166,13 +1166,55 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                   borderLeft: '4px solid oklch(75% 0.12 80)',
                   fontSize: '0.8125rem',
                   color: 'oklch(88% 0.05 80)',
-                  marginBottom: '1.5rem',
+                  marginBottom: '1rem',
                 }}>
                   <span>⚖️</span>
                   <span>
                     <strong>Zastrzeżenie formalne:</strong> Konfiguracja{' '}
                     <em>{designData?.model_optimal_label || 'optymalna dla modelu, nie dla świata (wynik zależy od podanych kryteriów i wag)'}</em>.
                   </span>
+                </div>
+
+                {/* V22 §2E: Baner pokrycia macierzy dowodowej */}
+                <div style={{
+                  padding: '0.875rem 1.25rem',
+                  borderRadius: '8px',
+                  background: (designData?.ranking_withheld || (designData?.design_empty_levers && designData.design_empty_levers.length > 0))
+                    ? 'oklch(14% 0.05 45 / 0.4)'
+                    : 'oklch(13% 0.03 140 / 0.3)',
+                  border: `1px solid ${(designData?.ranking_withheld || (designData?.design_empty_levers && designData.design_empty_levers.length > 0))
+                    ? 'oklch(75% 0.15 45 / 0.4)'
+                    : 'oklch(80% 0.12 140 / 0.3)'}`,
+                  fontSize: '0.8125rem',
+                  marginBottom: '1.5rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.35rem',
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    <div style={{ fontWeight: 800, color: (designData?.ranking_withheld || (designData?.design_empty_levers && designData.design_empty_levers.length > 0)) ? 'oklch(88% 0.1 45)' : 'oklch(90% 0.08 140)' }}>
+                      📊 Pokrycie macierzy: {designData?.design_matrix_documented_cells ?? 0} / {designData?.design_matrix_total_cells ?? 48} komórek ({designData?.coverage_percentage ?? 0}%)
+                      {designData?.ranking_withheld ? ' — [RANKING WSTRZYMANY]' : ' — [DANE WYSTARCZAJĄCE]'}
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'oklch(70% 0.02 250)' }}>
+                      Próg: min. 25% oraz 0 pustych dźwigni (DEC-043)
+                    </div>
+                  </div>
+                  {designData?.design_empty_levers && designData.design_empty_levers.length > 0 && (
+                    <div style={{ color: 'oklch(85% 0.12 45)', fontSize: '0.75rem' }}>
+                      ⚠️ <strong>Całkowicie puste dźwignie:</strong> {designData.design_empty_levers.join(', ')}
+                    </div>
+                  )}
+                  {designData?.indistinguishable_variants && designData.indistinguishable_variants.length > 0 && (
+                    <div style={{ color: 'oklch(88% 0.12 45)', fontSize: '0.75rem' }}>
+                      ⚖️ <strong>Nierozróżnialne warianty:</strong> {designData.indistinguishable_variants.join('; ')}
+                    </div>
+                  )}
+                  {designData?.design_criteria_excluded && designData.design_criteria_excluded.length > 0 && (
+                    <div style={{ color: 'oklch(75% 0.05 80)', fontSize: '0.75rem' }}>
+                      ℹ️ <strong>Wykluczone kryteria:</strong> {designData.design_criteria_excluded.join(', ')}
+                    </div>
+                  )}
                 </div>
 
                 {/* Executive Summary Card */}
@@ -1436,102 +1478,117 @@ export const RecommendationView: React.FC<RecommendationViewProps> = ({
                       </div>
 
                       {/* Pareto Frontier 2D Chart */}
-                      <div style={{
-                        background: 'oklch(7% 0.01 250)',
-                        border: '1px solid oklch(18% 0.02 250)',
-                        borderRadius: '10px',
-                        padding: '1.25rem',
-                        marginBottom: '1rem',
-                      }}>
-                        <div style={{ fontSize: '0.75rem', color: 'oklch(70% 0.02 250)', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between' }}>
-                          <span>▲ Jakość kliniczna i dostępność (maksymalizacja)</span>
-                          <span>Koszt publiczny systemu (minimalizacja) ►</span>
+                      {designData?.ranking_withheld || !designData?.pareto_frontier || designData.pareto_frontier.length === 0 ? (
+                        <div style={{
+                          padding: '1.25rem',
+                          background: 'oklch(12% 0.02 250)',
+                          borderRadius: '8px',
+                          border: '1px solid oklch(22% 0.025 250)',
+                          color: 'oklch(80% 0.02 250)',
+                          fontSize: '0.875rem',
+                          lineHeight: 1.5,
+                          marginBottom: '1rem',
+                        }}>
+                          ⚖️ <strong>Wstrzymano obliczenie frontu Pareto:</strong> {designData?.ranking_withheld_reason || 'Brak wystarczających danych lub nierozróżnialność wariantów na dostępnych danych empirycznych.'}
                         </div>
-
-                        <svg
-                          viewBox="0 0 500 220"
-                          style={{ width: '100%', height: '220px', overflow: 'visible' }}
-                          aria-label="Wykres frontu Pareto punktów kompromisu"
-                          role="img"
-                        >
-                          <line x1="40" y1="20" x2="40" y2="180" stroke="oklch(20% 0.02 250)" strokeWidth="1" />
-                          <line x1="40" y1="180" x2="480" y2="180" stroke="oklch(20% 0.02 250)" strokeWidth="1" />
-                          <line x1="40" y1="100" x2="480" y2="100" stroke="oklch(15% 0.02 250)" strokeDasharray="3 3" />
-                          <line x1="260" y1="20" x2="260" y2="180" stroke="oklch(15% 0.02 250)" strokeDasharray="3 3" />
-
-                          {designData?.pareto_frontier.map((_pt, pIdx) => {
-                            const nPts = designData.pareto_frontier.length || 1
-                            const x = 70 + (pIdx / Math.max(1, nPts - 1)) * 370
-                            const y = 160 - Math.sin((pIdx / Math.max(1, nPts - 1)) * Math.PI * 0.7 + 0.3) * 120
-                            const isSelected = pIdx === selectedParetoIdx
-
-                            return (
-                              <g
-                                key={pIdx}
-                                style={{ cursor: 'pointer' }}
-                                onClick={() => setSelectedParetoIdx(pIdx)}
-                                tabIndex={0}
-                                role="button"
-                                aria-label={`Punkt Pareto #${pIdx + 1}`}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter' || e.key === ' ') {
-                                    setSelectedParetoIdx(pIdx)
-                                  }
-                                }}
-                              >
-                                <circle
-                                  cx={x}
-                                  cy={y}
-                                  r={isSelected ? 9 : 6}
-                                  fill={isSelected ? 'oklch(75% 0.12 80)' : 'oklch(62% 0.18 240)'}
-                                  stroke={isSelected ? 'oklch(95% 0.02 80)' : 'oklch(35% 0.08 240)'}
-                                  strokeWidth={isSelected ? 3 : 1.5}
-                                />
-                                <text
-                                  x={x}
-                                  y={y - 12}
-                                  textAnchor="middle"
-                                  fill={isSelected ? 'oklch(85% 0.12 80)' : 'oklch(60% 0.02 250)'}
-                                  fontSize="11"
-                                  fontWeight={isSelected ? '800' : '500'}
-                                >
-                                  P{pIdx + 1}
-                                </text>
-                              </g>
-                            )
-                          })}
-                        </svg>
-
-                        {designData?.pareto_frontier[selectedParetoIdx] && (
-                          <div style={{
-                            marginTop: '1rem',
-                            padding: '0.875rem 1rem',
-                            borderRadius: '8px',
-                            background: 'oklch(12% 0.025 250)',
-                            border: '1px solid oklch(75% 0.12 80 / 0.4)',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            flexWrap: 'wrap',
-                            gap: '0.75rem',
-                          }}>
-                            <div>
-                              <div style={{ fontSize: '0.75rem', color: 'oklch(75% 0.12 80)', fontWeight: 800 }}>
-                                Aktywny punkt kompromisu: P{selectedParetoIdx + 1} {selectedParetoIdx === 0 ? '(rekomendowany globalnie)' : '(wariant alternatywny)'}
-                              </div>
-                              <div style={{ fontSize: '0.8125rem', color: 'oklch(80% 0.01 250)', marginTop: '0.25rem' }}>
-                                Wartości kryteriów:{' '}
-                                {Object.entries(designData.pareto_frontier[selectedParetoIdx].objective_values)
-                                  .map(([k, v]) => `${k}: ${Number(v).toFixed(1)}`)
-                                  .join(' | ')}
-                              </div>
-                            </div>
-                            <div style={{ fontSize: '0.75rem', color: 'oklch(60% 0.02 250)' }}>
-                              Wybór niezdominowany w przestrzeni wielokryterialnej
-                            </div>
+                      ) : (
+                        <div style={{
+                          background: 'oklch(7% 0.01 250)',
+                          border: '1px solid oklch(18% 0.02 250)',
+                          borderRadius: '10px',
+                          padding: '1.25rem',
+                          marginBottom: '1rem',
+                        }}>
+                          <div style={{ fontSize: '0.75rem', color: 'oklch(70% 0.02 250)', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between' }}>
+                            <span>▲ Jakość kliniczna i dostępność (maksymalizacja)</span>
+                            <span>Koszt publiczny systemu (minimalizacja) ►</span>
                           </div>
-                        )}
-                      </div>
+
+                          <svg
+                            viewBox="0 0 500 220"
+                            style={{ width: '100%', height: '220px', overflow: 'visible' }}
+                            aria-label="Wykres frontu Pareto punktów kompromisu"
+                            role="img"
+                          >
+                            <line x1="40" y1="20" x2="40" y2="180" stroke="oklch(20% 0.02 250)" strokeWidth="1" />
+                            <line x1="40" y1="180" x2="480" y2="180" stroke="oklch(20% 0.02 250)" strokeWidth="1" />
+                            <line x1="40" y1="100" x2="480" y2="100" stroke="oklch(15% 0.02 250)" strokeDasharray="3 3" />
+                            <line x1="260" y1="20" x2="260" y2="180" stroke="oklch(15% 0.02 250)" strokeDasharray="3 3" />
+
+                            {designData?.pareto_frontier.map((_pt, pIdx) => {
+                              const nPts = designData.pareto_frontier.length || 1
+                              const x = 70 + (pIdx / Math.max(1, nPts - 1)) * 370
+                              const y = 160 - Math.sin((pIdx / Math.max(1, nPts - 1)) * Math.PI * 0.7 + 0.3) * 120
+                              const isSelected = pIdx === selectedParetoIdx
+
+                              return (
+                                <g
+                                  key={pIdx}
+                                  style={{ cursor: 'pointer' }}
+                                  onClick={() => setSelectedParetoIdx(pIdx)}
+                                  tabIndex={0}
+                                  role="button"
+                                  aria-label={`Punkt Pareto #${pIdx + 1}`}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      setSelectedParetoIdx(pIdx)
+                                    }
+                                  }}
+                                >
+                                  <circle
+                                    cx={x}
+                                    cy={y}
+                                    r={isSelected ? 9 : 6}
+                                    fill={isSelected ? 'oklch(75% 0.12 80)' : 'oklch(62% 0.18 240)'}
+                                    stroke={isSelected ? 'oklch(95% 0.02 80)' : 'oklch(35% 0.08 240)'}
+                                    strokeWidth={isSelected ? 3 : 1.5}
+                                  />
+                                  <text
+                                    x={x}
+                                    y={y - 12}
+                                    textAnchor="middle"
+                                    fill={isSelected ? 'oklch(85% 0.12 80)' : 'oklch(60% 0.02 250)'}
+                                    fontSize="11"
+                                    fontWeight={isSelected ? '800' : '500'}
+                                  >
+                                    P{pIdx + 1}
+                                  </text>
+                                </g>
+                              )
+                            })}
+                          </svg>
+
+                          {designData?.pareto_frontier[selectedParetoIdx] && (
+                            <div style={{
+                              marginTop: '1rem',
+                              padding: '0.875rem 1rem',
+                              borderRadius: '8px',
+                              background: 'oklch(12% 0.025 250)',
+                              border: '1px solid oklch(75% 0.12 80 / 0.4)',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              flexWrap: 'wrap',
+                              gap: '0.75rem',
+                            }}>
+                              <div>
+                                <div style={{ fontSize: '0.75rem', color: 'oklch(75% 0.12 80)', fontWeight: 800 }}>
+                                  Aktywny punkt kompromisu: P{selectedParetoIdx + 1} {selectedParetoIdx === 0 ? '(rekomendowany globalnie)' : '(wariant alternatywny)'}
+                                </div>
+                                <div style={{ fontSize: '0.8125rem', color: 'oklch(80% 0.01 250)', marginTop: '0.25rem' }}>
+                                  Wartości kryteriów:{' '}
+                                  {Object.entries(designData.pareto_frontier[selectedParetoIdx].objective_values)
+                                    .map(([k, v]) => `${k}: ${Number(v).toFixed(1)}`)
+                                    .join(' | ')}
+                                </div>
+                              </div>
+                              <div style={{ fontSize: '0.75rem', color: 'oklch(60% 0.02 250)' }}>
+                                Wybór niezdominowany w przestrzeni wielokryterialnej
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     {/* ── 4b. Ranking wrażliwości dźwigni ── */}

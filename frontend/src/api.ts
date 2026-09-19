@@ -132,11 +132,19 @@ export interface DecisionCase {
 }
 
 export interface ScoredValue {
-  value: number
+  value?: number | null
   unit?: string | null
-  provenance: 'user_supplied' | 'derived' | 'assumed' | 'web_sourced' | 'llm_extracted'
+  provenance: 'user_supplied' | 'derived' | 'assumed' | 'web_sourced' | 'llm_extracted' | 'llm_suggested' | 'unverified'
   source_ref?: string | null
   confidence: number
+  quote?: string | null
+  char_start?: number | null
+  char_end?: number | null
+  source_title?: string | null
+  retrieved_at?: string | null
+  weight?: number | null
+  source_class?: string | null
+  source_tier_name?: string | null
 }
 
 export interface Evidence {
@@ -726,6 +734,12 @@ export interface DesignSynthesisResult {
   briefing?: ExecutiveBriefing
   design_matrix_documented_cells?: number
   design_matrix_empty_cells?: number
+  design_matrix_total_cells?: number
+  design_empty_levers?: string[]
+  indistinguishable_variants?: string[]
+  coverage_percentage?: number
+  ranking_withheld?: boolean
+  ranking_withheld_reason?: string | null
   design_criteria_excluded?: string[]
   insufficient_data?: boolean
 }

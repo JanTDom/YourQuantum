@@ -401,6 +401,12 @@ class DesignSynthesisResult(BaseModel):
     briefing: ExecutiveBriefing | None = None
     design_matrix_documented_cells: int = 0
     design_matrix_empty_cells: int = 0
+    design_matrix_total_cells: int = 0
+    design_empty_levers: list[str] = Field(default_factory=list)
+    indistinguishable_variants: list[str] = Field(default_factory=list)
+    coverage_percentage: float = 0.0
+    ranking_withheld: bool = False
+    ranking_withheld_reason: str | None = None
     design_criteria_excluded: list[str] = Field(default_factory=list)
     insufficient_data: bool = False
 
@@ -545,35 +551,128 @@ def compute_design_synthesis(
         else:
             excluded_criteria_names.append(crit.name)
 
-    # If insufficient data exists across all criteria (0 active criteria or 0 documented cells)
+    # Total cells in design matrix
+    total_cells = sum(len(l.options) for l in design.levers) * len(design.criteria)
+    coverage_percent = round((documented_count / total_cells) * 100, 1) if total_cells > 0 else 0.0
+
+    # Sprawdzenie całkowicie pustych dźwigni (V22 §2E)
+    empty_levers: list[str] = []
+    for lev in design.levers:
+        has_lever_data = False
+        for opt in lev.options:
+            for crit in design.criteria:
+                cell = design.score_matrix.get(lev.id, {}).get(opt.id, {}).get(crit.id)
+                if cell and cell.value is not None:
+                    has_lever_data = True
+                    break
+            if has_lever_data:
+                break
+        if not has_lever_data:
+            empty_levers.append(lev.name)
+
+    # Sprawdzenie wariantów nierozróżnialnych na dostępnych danych (V22 §2D, DEC-043)
+    indistinguishable_variants: list[str] = []
+    if active_criteria:
+        for lever in design.levers:
+            opts = lever.options
+            for i in range(len(opts)):
+                for j in range(i + 1, len(opts)):
+                    opt_a = opts[i]
+                    opt_b = opts[j]
+                    identical_all = True
+                    at_least_one_documented = False
+                    for crit in active_criteria:
+                        cell_a = design.score_matrix.get(lever.id, {}).get(opt_a.id, {}).get(crit.id)
+                        cell_b = design.score_matrix.get(lever.id, {}).get(opt_b.id, {}).get(crit.id)
+                        val_a = cell_a.value if cell_a else None
+                        val_b = cell_b.value if cell_b else None
+                        if val_a is not None or val_b is not None:
+                            at_least_one_documented = True
+                        if val_a != val_b:
+                            identical_all = False
+                            break
+                    if identical_all and at_least_one_documented:
+                        indistinguishable_variants.append(
+                            f"Dźwignia '{lever.name}': warianty '{opt_a.title}' oraz '{opt_b.title}' posiadają identyczne wartości "
+                            f"we wszystkich udokumentowanych kryteriach ({', '.join(c.name for c in active_criteria)}) i są nierozróżnialne na dostępnych danych."
+                        )
+
+    # Weryfikacja warunków wstrzymania rankingu (V22 §2D, §2E)
+    ranking_withheld = False
+    withheld_reasons: list[str] = []
+
     if not active_criteria or documented_count == 0:
+        ranking_withheld = True
+        withheld_reasons.append("Brak udokumentowanych danych w sieci dla zdefiniowanych kryteriów.")
+    elif empty_levers:
+        ranking_withheld = True
+        withheld_reasons.append(f"Całkowicie puste dźwignie bez danych empirycznych: {', '.join(empty_levers)}.")
+    elif coverage_percent < 25.0:
+        ranking_withheld = True
+        withheld_reasons.append(f"Pokrycie macierzy ({coverage_percent}%) poniżej wymaganego progu 25,0%.")
+
+    if indistinguishable_variants:
+        ranking_withheld = True
+        withheld_reasons.append("Wykryto warianty nierozróżnialne na dostępnych danych empirycznych.")
+
+    # Jeśli ranking został wstrzymany (brak danych, pusta dźwignia, zbyt niskie pokrycie lub warianty nierozróżnialne)
+    if ranking_withheld:
         default_cfg = {l.id: l.options[0].id for l in design.levers if l.options}
         default_titles = {}
         for l in design.levers:
             opt = l.options[0] if l.options else None
             default_titles[l.name] = opt.title if opt else "Brak"
 
-        honest_msg = "Nie znalazłem wystarczających danych, żeby porównać te warianty."
+        assumptions_list = list(withheld_reasons)
+        if excluded_criteria_names:
+            assumptions_list.append(
+                f"Kryteria wykluczone z powodu braku danych: {', '.join(excluded_criteria_names)}."
+            )
+        if indistinguishable_variants:
+            assumptions_list.extend(indistinguishable_variants)
+
+        reason_summary = " ".join(withheld_reasons)
+        if indistinguishable_variants:
+            honest_msg = (
+                f"Wstrzymano ranking wariantów: na dostępnych danych warianty są nierozróżnialne. "
+                f"{' '.join(indistinguishable_variants)}"
+            )
+        elif documented_count == 0:
+            honest_msg = "Nie znalazłem wystarczających danych, żeby porównać te warianty."
+        else:
+            honest_msg = (
+                f"Udokumentowano {documented_count} z {total_cells} komórek ({coverage_percent}%). "
+                f"Wstrzymano ranking wariantów: {reason_summary} "
+                f"Poniżej przedstawiono zebrany materiał dowodowy bez wyłaniania pozornego zwycięzcy."
+            )
+
         return DesignSynthesisResult(
             problem_id=design.id,
             optimal_configuration=default_cfg,
             optimal_titles=default_titles,
-            model_optimal_label="brak danych w macierzy",
+            model_optimal_label="ranking wstrzymany (brak wystarczających danych lub nierozróżnialne warianty)",
             pareto_frontier=[],
             lever_importance_ranking=[],
-            unknowns_and_decisive_assumptions=[
-                "Brak udokumentowanych danych w sieci dla zdefiniowanych kryteriów (komórki macierzy pozostały puste)."
-            ],
+            unknowns_and_decisive_assumptions=assumptions_list,
             practical_manifestation=honest_msg,
             briefing=ExecutiveBriefing(
-                headline=f"Diagnoza: {design.title}",
+                headline=f"Materiał dowodowy (ranking wstrzymany): {design.title}",
                 executive_summary=honest_msg,
                 key_pillars=[],
-                primary_tradeoff="Brak podstaw empirycznych do rozróżnienia opcji.",
-                tipping_points=["Wprowadź dane liczbowe do macierzy lub dozbierz źródła z sieci www."],
+                primary_tradeoff="Brak podstaw empirycznych do wyłonienia jednoznacznego wariantu optymalnego.",
+                tipping_points=[
+                    "Uzupełnij dane w macierzy lub dociągnij dodatkowe źródła z sieci www.",
+                    f"Pokrycie dowodowe: {documented_count}/{total_cells} ({coverage_percent}%).",
+                ],
             ),
             design_matrix_documented_cells=documented_count,
             design_matrix_empty_cells=empty_count,
+            design_matrix_total_cells=total_cells,
+            design_empty_levers=empty_levers,
+            indistinguishable_variants=indistinguishable_variants,
+            coverage_percentage=coverage_percent,
+            ranking_withheld=True,
+            ranking_withheld_reason=reason_summary,
             design_criteria_excluded=excluded_criteria_names,
             insufficient_data=True,
         )
@@ -674,6 +773,12 @@ def compute_design_synthesis(
         briefing=briefing,
         design_matrix_documented_cells=documented_count,
         design_matrix_empty_cells=empty_count,
+        design_matrix_total_cells=total_cells,
+        design_empty_levers=empty_levers,
+        indistinguishable_variants=indistinguishable_variants,
+        coverage_percentage=coverage_percent,
+        ranking_withheld=False,
+        ranking_withheld_reason=None,
         design_criteria_excluded=excluded_criteria_names,
         insufficient_data=False,
     )

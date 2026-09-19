@@ -108,6 +108,29 @@ export const DesignWorkspace: React.FC<DesignWorkspaceProps> = ({
     }
   }
 
+  const totalCells = designProblem.levers.reduce((acc, l) => acc + l.options.length, 0) * (designProblem.criteria?.length || 0)
+  const coveragePercent = totalCells > 0 ? Math.round((documentedCells / totalCells) * 1000) / 10 : 0
+
+  const emptyLevers: string[] = []
+  for (const lev of designProblem.levers) {
+    let levDoc = 0
+    for (const opt of lev.options) {
+      for (const crit of designProblem.criteria) {
+        const cell = designProblem.score_matrix?.[lev.id]?.[opt.id]?.[crit.id]
+        if (cell && cell.value !== undefined && cell.value !== null && !isNaN(cell.value)) {
+          levDoc++
+        }
+      }
+    }
+    if (levDoc === 0) {
+      emptyLevers.push(lev.name)
+    }
+  }
+
+  const excludedCriteriaNames = designProblem.criteria
+    .filter((c) => !activeCriteriaIds.has(c.id))
+    .map((c) => c.name)
+
   // Synthesis is valid if there is at least one active criterion with values across options
   if (documentedCells === 0) {
     validationErrors.push('Brak danych w macierzy. Wprowadź dane liczbowe lub dociągnij je z sieci.')
@@ -174,12 +197,22 @@ export const DesignWorkspace: React.FC<DesignWorkspaceProps> = ({
         const ev = res.evidence[0]
         const num = parseFloat(String(ev.value ?? '0'))
         if (!isNaN(num) && num > 0) {
+          const rawUnit = ev.unit || crit.unit
+          const cleanUnit = (rawUnit && rawUnit.toLowerCase() !== 'null') ? rawUnit : null
           handleUpdateCell(leverId, optionId, criterionId, {
             value: num,
-            unit: ev.unit || crit.unit,
+            unit: cleanUnit,
             provenance: 'web_sourced',
             source_ref: ev.source_url || 'Sieć www',
             confidence: ev.confidence ?? 0.85,
+            quote: ev.quote || null,
+            char_start: (ev as any).char_start ?? null,
+            char_end: (ev as any).char_end ?? null,
+            source_title: ev.source_title || null,
+            retrieved_at: ev.retrieved_at || null,
+            weight: (ev as any).weight ?? null,
+            source_class: (ev as any).source_class ?? null,
+            source_tier_name: (ev as any).source_tier_name ?? null,
           })
           setResearchNotice(`✓ Pobrano dane z sieci: ${num} (${ev.source_url})`)
         } else {
@@ -261,12 +294,22 @@ export const DesignWorkspace: React.FC<DesignWorkspaceProps> = ({
           if (!matrix[leverId]) matrix[leverId] = {}
           if (!matrix[leverId][optionId]) matrix[leverId][optionId] = {}
 
+          const rawUnit = ev.unit || matchTarget.expected_unit
+          const cleanUnit = (rawUnit && rawUnit.toLowerCase() !== 'null') ? rawUnit : null
           matrix[leverId][optionId][criterionId] = {
             value: num,
-            unit: ev.unit || matchTarget.expected_unit,
+            unit: cleanUnit,
             provenance: 'web_sourced',
             source_ref: ev.source_url || 'Sieć www',
             confidence: ev.confidence ?? 0.85,
+            quote: ev.quote || null,
+            char_start: (ev as any).char_start ?? null,
+            char_end: (ev as any).char_end ?? null,
+            source_title: ev.source_title || null,
+            retrieved_at: ev.retrieved_at || null,
+            weight: (ev as any).weight ?? null,
+            source_class: (ev as any).source_class ?? null,
+            source_tier_name: (ev as any).source_tier_name ?? null,
           }
           addedCount++
         }
@@ -358,6 +401,39 @@ export const DesignWorkspace: React.FC<DesignWorkspaceProps> = ({
         >
           ← Powrót
         </button>
+      </div>
+
+      {/* Baner pokrycia macierzy dowodowej (V22 §2E, DEC-043) */}
+      <div style={{
+        padding: '0.875rem 1.25rem',
+        borderRadius: '8px',
+        background: emptyLevers.length > 0 || coveragePercent < 25 ? 'oklch(14% 0.05 45 / 0.4)' : 'oklch(13% 0.03 140 / 0.3)',
+        border: `1px solid ${emptyLevers.length > 0 || coveragePercent < 25 ? 'oklch(75% 0.15 45 / 0.4)' : 'oklch(80% 0.12 140 / 0.3)'}`,
+        marginBottom: '1.5rem',
+        fontSize: '0.8125rem',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0.4rem',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+          <div style={{ fontWeight: 800, color: emptyLevers.length > 0 || coveragePercent < 25 ? 'oklch(88% 0.1 45)' : 'oklch(90% 0.08 140)' }}>
+            📊 Pokrycie macierzy dowodowej: {documentedCells} / {totalCells} komórek ({coveragePercent}%)
+            {emptyLevers.length > 0 || coveragePercent < 25 ? ' — [PONIŻEJ PROGU 25% LUB PUSTE DŹWIGNIE]' : ' — [POWYŻEJ PROGU]'}
+          </div>
+          <div style={{ fontSize: '0.75rem', color: 'oklch(70% 0.02 250)' }}>
+            Próg generowania rankingu: min. 25% oraz 0 pustych dźwigni (DEC-043)
+          </div>
+        </div>
+        {emptyLevers.length > 0 && (
+          <div style={{ color: 'oklch(85% 0.12 45)', fontSize: '0.75rem' }}>
+            ⚠️ <strong>Całkowicie puste dźwignie:</strong> {emptyLevers.join(', ')}
+          </div>
+        )}
+        {excludedCriteriaNames.length > 0 && (
+          <div style={{ color: 'oklch(75% 0.05 80)', fontSize: '0.75rem' }}>
+            ℹ️ <strong>Wykluczone kryteria (brak danych):</strong> {excludedCriteriaNames.join(', ')}
+          </div>
+        )}
       </div>
 
       {/* Lever Tabs */}
@@ -545,7 +621,7 @@ export const DesignWorkspace: React.FC<DesignWorkspaceProps> = ({
                                 type="number"
                                 step="any"
                                 placeholder="Wartość..."
-                                value={hasVal ? cell.value : ''}
+                                value={hasVal && cell.value !== null ? cell.value : ''}
                                 onChange={(e) => {
                                   const num = parseFloat(e.target.value)
                                   if (!isNaN(num)) {
@@ -568,12 +644,61 @@ export const DesignWorkspace: React.FC<DesignWorkspaceProps> = ({
                                 }}
                               />
                               <span style={{ fontSize: '0.75rem', color: 'oklch(60% 0.02 250)' }}>
-                                {crit.unit || ''}
+                                {crit.unit && crit.unit !== 'null' ? crit.unit : ''}
                               </span>
                               <span title={`Pochodzenie: ${cell?.source_ref || 'brak'}`} style={{ cursor: 'help' }}>
                                 {icon}
                               </span>
                             </div>
+
+                            {/* V22 §2A: Cytat, klasa źródła i waga pod liczbą w komórce */}
+                            {cell?.quote && (
+                              <div style={{
+                                marginTop: '0.35rem',
+                                padding: '0.35rem 0.5rem',
+                                borderRadius: '4px',
+                                background: 'oklch(12% 0.02 250)',
+                                border: '1px solid oklch(20% 0.025 250)',
+                                fontSize: '0.6875rem',
+                                lineHeight: 1.35,
+                                color: 'oklch(80% 0.02 250)',
+                                textAlign: 'left',
+                                maxWidth: '220px',
+                              }}>
+                                <div style={{ fontStyle: 'italic', marginBottom: '0.25rem' }}>
+                                  &ldquo;{cell.quote}&rdquo;
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.25rem', fontSize: '0.625rem', color: 'oklch(60% 0.02 250)' }}>
+                                  {cell.source_tier_name && (
+                                    <span style={{
+                                      background: 'oklch(75% 0.12 80 / 0.15)',
+                                      color: 'oklch(82% 0.12 80)',
+                                      padding: '0.1rem 0.3rem',
+                                      borderRadius: '3px',
+                                      fontWeight: 700,
+                                    }}>
+                                      {cell.source_tier_name}
+                                    </span>
+                                  )}
+                                  {cell.weight !== undefined && cell.weight !== null && (
+                                    <span>Waga: {cell.weight.toFixed(2)}</span>
+                                  )}
+                                </div>
+                                {cell.source_ref && cell.source_ref.startsWith('http') && (
+                                  <div style={{ marginTop: '0.2rem' }}>
+                                    <a
+                                      href={cell.source_ref}
+                                      target="_blank"
+                                      rel="noreferrer noopener"
+                                      style={{ color: 'oklch(75% 0.15 220)', textDecoration: 'none', fontSize: '0.625rem' }}
+                                    >
+                                      {cell.source_title || 'Źródło ↗'}
+                                    </a>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
                             <div style={{ display: 'flex', gap: '0.3rem', fontSize: '0.6875rem' }}>
                               <button
                                 type="button"

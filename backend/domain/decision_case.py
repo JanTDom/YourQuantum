@@ -81,6 +81,25 @@ class ScoredValue(BaseModel):
     provenance: Literal["user_supplied", "derived", "assumed", "web_sourced", "llm_extracted", "llm_suggested", "unverified"] = "user_supplied"
     source_ref: str | None = None  # fact_id | evidence_id | "assumption" | "user_input"
     confidence: float = Field(default=1.0, ge=0.0, le=1.0)
+    # Dowód empiryczny (V22 §2A, DEC-043)
+    quote: str | None = None
+    char_start: int | None = None
+    char_end: int | None = None
+    source_title: str | None = None
+    retrieved_at: str | None = None
+    weight: float | None = None
+    source_class: str | None = None
+    source_tier_name: str | None = None
+
+    @field_validator("unit", mode="before")
+    @classmethod
+    def normalize_unit(cls, v: Any) -> str | None:
+        if v is None:
+            return None
+        s = str(v).strip()
+        if not s or s.lower() == "null" or s.lower() == "none":
+            return None
+        return s
 
     @field_validator("confidence", mode="before")
     @classmethod
