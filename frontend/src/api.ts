@@ -363,6 +363,7 @@ export interface CognitiveIntakeResponse {
   formalized?: FormalizeResponse | null
   design_problem?: any | null
   scenario_forecast?: ScenarioForecast | null
+  metadata?: Record<string, any> | null
 }
 
 export interface CognitiveEnergyBudget {
@@ -742,6 +743,21 @@ export interface DesignSynthesisResult {
   ranking_withheld_reason?: string | null
   design_criteria_excluded?: string[]
   insufficient_data?: boolean
+}
+
+export interface BriefSentence {
+  text: string
+  basis: 'computed' | 'quoted'
+  source_ref?: string | null
+  quote?: string | null
+}
+
+export interface PlainBriefing {
+  headline: BriefSentence
+  summary: BriefSentence[]
+  confidence_note?: BriefSentence | null
+  tipping_points: BriefSentence[]
+  evidence: BriefSentence[]
 }
 
 export async function getDesignFixture(fixtureName: string): Promise<any> {

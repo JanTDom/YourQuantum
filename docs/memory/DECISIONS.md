@@ -797,3 +797,47 @@ Skrypt `scripts/measure_design_v22.py` zaktualizowany: czyta pola syntezy z `dat
 
 **Alternatywa odrzucona:** Przeniesienie całej syntezy do osobnego wywołania po stronie frontendu — odrzucono, bo rozdziela logikę uczciwości (sprawdzenie `ranking_withheld` musi nastąpić po stronie serwera, zanim wynik trafi do użytkownika).
 
+---
+
+## DEC-045 — Budżet badawczy klasy DESIGN podniesiony kosztem czasu odpowiedzi
+
+**Date:** 2026-09-19
+**Status:** ACTIVE
+
+**Kontekst:**
+Pomiar z `docs/REPORT_V23.md` wykazał pokrycie macierzy ocen w przedziale 0–11,1% przy zapytaniu o kształt systemu ochrony zdrowia. Przyczyną nie był brak danych w sieci, lecz budżet badawczy: jedno zapytanie do wyszukiwarki, trzy pobrane strony i dwanaście wywołań ekstraktora na macierz liczącą od 18 do 48 komórek. Właściciel produktu zaakceptował medianę czasu odpowiedzi powyżej 100 s w zamian za rzetelne zebranie danych.
+
+**Decyzja:**
+1. Dekompozycja na dźwignie poprzedza wyszukiwanie, dzięki czemu powstają zapytania celowane w konkretną dźwignię (nazwa dźwigni, tytuły wariantów, nazwy kryteriów, instytucje referencyjne).
+2. Jawne, nazwane limity w bloku DESIGN `backend/domain/cognitive/active_inference_engine.py`: 8 zapytań wyszukiwarki, 12 pobranych stron, 60 wywołań ekstraktora, partie po 12 wywołań, twardy limit 240 s przy `maxDuration` funkcji 300 s.
+3. Kandydujące pary (wariant, kryterium) układane są w porządku przeplatanym po dźwigniach, żeby budżet rozłożył się równomiernie zamiast wyczerpać na pierwszej dźwigni.
+4. Zbieranie kończy się wcześniej, gdy każda dźwignia ma co najmniej jedną udokumentowaną komórkę albo gdy zostaje mniej niż 45 s budżetu czasowego.
+5. Telemetria: `design_search_queries_issued`, `design_pages_fetched`, `design_extraction_calls_used`, `design_budget_exhausted`, `design_elapsed_seconds`.
+
+**Zmierzony efekt (uruchomienie lokalne, pytanie o system ochrony zdrowia):** 4 zapytania, 9 pobranych stron, 36 wywołań ekstraktora, 4 udokumentowane komórki z 18, pokrycie 22,2% (poprzednio 0–11,1%), czas 152,8 s, budżet niewyczerpany.
+
+**Wpływ:** Wyższe pokrycie macierzy bez naruszenia jakiejkolwiek reguły dowodowej. Zakazy z DEC-042, DEC-043 i DEC-040 obowiązują bez zmian — rośnie liczba prób, nie swoboda ich oceny.
+
+**Alternatywa odrzucona:** Obniżenie rygoru dopasowania wariantu do zdania źródłowego. Odrzucone: pokrycie wzrosłoby kosztem liczb niedotyczących danej komórki, czyli tego błędu, który usunięto w V22.
+
+---
+
+## DEC-046 — Warstwa opisowa dla laika bez udziału modelu językowego
+
+**Date:** 2026-09-19
+**Status:** ACTIVE
+
+**Kontekst:**
+Wynik analizy projektowej był podawany językiem inżyniera (pokrycie macierzy, wstrzymanie rankingu, front Pareto). Właściciel produktu wymaga opisu zrozumiałego dla laika, za którym stoją obliczenia, a nie opowieść modelu. Warstwa narracyjna jest naturalną furtką dla twierdzeń bez pokrycia, więc wymaga zabezpieczenia mocniejszego niż instrukcja w prompcie.
+
+**Decyzja:**
+1. Moduł `backend/domain/cognitive/plain_briefing.py` składa briefing **deterministycznie**, w czystym Pythonie, bez żadnego wywołania modelu językowego.
+2. Każde zdanie niesie pole `basis` o jednej z dwóch wartości: `computed` (zdanie opisuje wyłącznie policzone wielkości) albo `quoted` (zdanie przytacza dokument i niesie cytat oraz odnośnik). Trzeciej możliwości nie ma — pole jest wymagane.
+3. Zabronione jest słownictwo techniczne w warstwie dla laika: Pareto, softmax, front, dominacja, Gibbs, argmax.
+4. Liczebniki odmieniane są poprawnie po polsku (1 wariant, 2 warianty, 5 wariantów).
+5. Bramka **G-BRIEF** (`scripts/check_plain_briefing.py`, podpięta w `scripts/check_v4.sh`) sprawdza mechanicznie: brak zdań bez podstawy, brak zdań `quoted` bez cytatu, brak żargonu oraz brak odwołań do modelu językowego w samym module.
+6. Interfejs: briefing na samej górze `frontend/src/components/DesignWorkspace.tsx`, warstwa techniczna (macierz, wagi, cytaty) domyślnie zwinięta i rozwijana przyciskiem.
+
+**Wpływ:** Laik czyta kilka zdań i rozumie, na czym stoi wynik. Każde z tych zdań da się odtworzyć z liczb albo wskazać w dokumencie. Zdanie o świecie bez cytatu nie może powstać — nie dlatego, że zabrania tego instrukcja, tylko dlatego, że nie ma w kodzie miejsca, w którym mogłoby się pojawić.
+
+**Alternatywa odrzucona:** Generowanie streszczenia przez model językowy z instrukcją „opieraj się wyłącznie na danych". Odrzucone: dokładnie ta konstrukcja zawiodła w V13 przy cytatach i w V17 przy kierunkach wpływu — instrukcja nie jest zabezpieczeniem.

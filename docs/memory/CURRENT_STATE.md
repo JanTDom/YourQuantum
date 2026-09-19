@@ -1,5 +1,28 @@
 # YourQuantum — CURRENT STATE
-_Last updated: 2026-09-19 (V23: synteza DESIGN wpięta w ścieżkę intake — `ranking_withheld` eksponowane; pomiar 5 biegów produkcyjnych: 4/5 HTTP 200, mediana 112,8 s, pokrycie macierzy 0–11,1%, zero komórek zmyślonych)_
+_Last updated: 2026-09-19 (V24: budżet badawczy DESIGN podniesiony — pokrycie macierzy 0–11,1% -> 22,2% w pomiarze lokalnym; warstwa opisowa dla laika bez udziału modelu, bramka G-BRIEF)_
+
+## Status: V24 — WIĘCEJ DANYCH I WYNIK PO LUDZKU
+
+- **Decyzje właściciela**: mediana czasu odpowiedzi powyżej 100 s zaakceptowana; ścieżka DESIGN ma dalej liczyć matematycznie, ale wynik ma być zrozumiały dla laika.
+- **Decyzje architektoniczne**: DEC-045 (budżet badawczy) i DEC-046 (warstwa opisowa bez modelu).
+
+### Część A — budżet badawczy (DEC-045)
+- Dekompozycja na dźwignie poprzedza wyszukiwanie; zapytania są celowane w dźwignię i kryteria.
+- Jawne limity: 8 zapytań, 12 stron, 60 wywołań ekstraktora, partie po 12, twardy limit 240 s.
+- Kandydujące pary przeplatane po dźwigniach; zbieranie kończy się, gdy każda dźwignia ma dane.
+- Telemetria: `design_search_queries_issued`, `design_pages_fetched`, `design_extraction_calls_used`, `design_budget_exhausted`, `design_elapsed_seconds`.
+- **Zmierzone lokalnie** (pytanie o system ochrony zdrowia): 4 zapytania, 9 stron, 36 wywołań, 4 udokumentowane komórki z 18, pokrycie **22,2%** (wcześniej 0–11,1%), czas 152,8 s, budżet niewyczerpany, 13 liczb odrzuconych jako niedotyczące wariantu.
+
+### Część B — warstwa opisowa dla laika (DEC-046)
+- `backend/domain/cognitive/plain_briefing.py` — briefing składany deterministycznie, **bez wywołania modelu językowego**.
+- Każde zdanie ma podstawę `computed` albo `quoted`; zdanie `quoted` niesie cytat i odnośnik.
+- Poprawna polska odmiana liczebników; zakaz żargonu (Pareto, softmax, front, dominacja).
+- Bramka **G-BRIEF** (`scripts/check_plain_briefing.py`) sprawdza to mechanicznie; 7 testów w `tests/unit/test_plain_briefing.py`.
+- Interfejs: briefing na górze `frontend/src/components/DesignWorkspace.tsx`, warstwa techniczna domyślnie zwinięta.
+
+### Stan bramek
+- Wszystkie bramki zielone poza `G-TESTS`, która w środowisku audytora jest czerwona z powodów środowiskowych (brak `ortools`, interpreter `.venv` i binarium rollupa spoza tej platformy). `tsc -b` przechodzi czysto, 132 testy przechodzą.
+
 
 ## Status: V23 — SYNTEZA DESIGN W INTAKE (ZAMKNIĘTE POMIAREM)
 

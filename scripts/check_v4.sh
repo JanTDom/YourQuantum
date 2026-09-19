@@ -285,6 +285,16 @@ else
 fi
 
 
+# G-BRIEF: python3 scripts/check_plain_briefing.py kończy się kodem 0 (V24 §B5 / DEC-046)
+BRIEF_OUTPUT=$(python3 scripts/check_plain_briefing.py 2>&1)
+BRIEF_STATUS=$?
+if [ "$BRIEF_STATUS" -eq 0 ]; then
+    report_gate "G-BRIEF" "PASS" "Każde zdanie briefingu ma podstawę: obliczenie albo cytat"
+else
+    report_gate "G-BRIEF" "FAIL" "Wykryto zdanie briefingu bez pokrycia albo żargon techniczny"
+    echo "$BRIEF_OUTPUT"
+fi
+
 # G-TESTS: pytest -q kończy się kodem 0; npm run build kończy się kodem 0
 echo "Sprawdzanie testów pytest i kompilacji frontendu..."
 PYTEST_STATUS=0

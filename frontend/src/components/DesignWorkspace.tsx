@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import {
   ScoredValue,
   researchEvidence,
+  PlainBriefing,
 } from '../api'
 
 export interface LeverOption {
@@ -49,6 +50,7 @@ export interface DesignProblem {
 
 interface DesignWorkspaceProps {
   designProblem: DesignProblem
+  plainBriefing?: PlainBriefing | null
   onUpdateDesign: (updated: DesignProblem) => void
   onSynthesize: (problem: DesignProblem) => void
   onBack: () => void
@@ -57,6 +59,7 @@ interface DesignWorkspaceProps {
 
 export const DesignWorkspace: React.FC<DesignWorkspaceProps> = ({
   designProblem,
+  plainBriefing = null,
   onUpdateDesign,
   onSynthesize,
   onBack,
@@ -65,6 +68,7 @@ export const DesignWorkspace: React.FC<DesignWorkspaceProps> = ({
   const [activeLeverId, setActiveLeverId] = useState<string>(
     designProblem.levers[0]?.id || ''
   )
+  const [showTechnical, setShowTechnical] = useState(false)
   const [researchNotice, setResearchNotice] = useState<string | null>(null)
   const [isSearchingWeb, setIsSearchingWeb] = useState(false)
   const [showManualUrl, setShowManualUrl] = useState(false)
@@ -362,6 +366,64 @@ export const DesignWorkspace: React.FC<DesignWorkspaceProps> = ({
 
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '1.5rem' }}>
+      {/* V24 §B: warstwa opisowa dla laika — na samej górze, przed macierzą */}
+      {plainBriefing && (
+        <div style={{
+          padding: '1.25rem 1.5rem',
+          borderRadius: '12px',
+          background: 'oklch(16% 0.02 250 / 0.55)',
+          border: '1px solid oklch(60% 0.06 250 / 0.35)',
+          marginBottom: '1.5rem',
+        }}>
+          <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'oklch(92% 0.06 85)', marginBottom: '0.6rem' }}>
+            {plainBriefing.headline?.text}
+          </div>
+          <div style={{ fontSize: '0.9rem', lineHeight: 1.6, color: 'oklch(86% 0.02 250)' }}>
+            {(plainBriefing.summary || []).map((s, i) => (
+              <div key={`brief-sum-${i}`} style={{ marginBottom: '0.25rem' }}>{s.text}</div>
+            ))}
+          </div>
+          {plainBriefing.confidence_note && (
+            <div style={{ marginTop: '0.75rem', fontSize: '0.85rem', color: 'oklch(78% 0.03 250)', fontStyle: 'italic' }}>
+              {plainBriefing.confidence_note.text}
+            </div>
+          )}
+          {(plainBriefing.tipping_points || []).length > 0 && (
+            <ul style={{ marginTop: '0.75rem', marginBottom: 0, paddingLeft: '1.1rem', fontSize: '0.85rem', color: 'oklch(84% 0.03 250)' }}>
+              {(plainBriefing.tipping_points || []).map((t, i) => (
+                <li key={`brief-tip-${i}`} style={{ marginBottom: '0.2rem' }}>{t.text}</li>
+              ))}
+            </ul>
+          )}
+          {(plainBriefing.evidence || []).length > 0 && (
+            <div style={{ marginTop: '0.9rem' }}>
+              <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'oklch(80% 0.05 140)', marginBottom: '0.3rem' }}>
+                Co mówią dokumenty źródłowe:
+              </div>
+              {(plainBriefing.evidence || []).map((e, i) => (
+                <div key={`brief-ev-${i}`} style={{ fontSize: '0.8rem', color: 'oklch(80% 0.02 250)', marginBottom: '0.35rem' }}>
+                  {e.text}
+                  {e.source_ref && (
+                    <> — <a href={e.source_ref} target="_blank" rel="noopener noreferrer" style={{ color: 'oklch(78% 0.1 250)' }}>źródło</a></>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          <button
+            onClick={() => setShowTechnical(v => !v)}
+            style={{
+              marginTop: '1rem', padding: '0.4rem 0.8rem', fontSize: '0.8rem',
+              borderRadius: '6px', cursor: 'pointer',
+              background: 'transparent', color: 'oklch(80% 0.06 250)',
+              border: '1px solid oklch(60% 0.06 250 / 0.5)',
+            }}
+          >
+            {showTechnical ? 'Ukryj szczegóły techniczne' : 'Pokaż szczegóły techniczne (macierz, wagi, cytaty)'}
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div style={{
         display: 'flex',
@@ -403,6 +465,9 @@ export const DesignWorkspace: React.FC<DesignWorkspaceProps> = ({
         </button>
       </div>
 
+      {/* V24 §B4: warstwa techniczna — domyślnie zwinięta, gdy jest briefing dla laika */}
+      {(!plainBriefing || showTechnical) && (
+        <>
       {/* Baner pokrycia macierzy dowodowej (V22 §2E, DEC-043) */}
       <div style={{
         padding: '0.875rem 1.25rem',
@@ -793,6 +858,9 @@ export const DesignWorkspace: React.FC<DesignWorkspaceProps> = ({
           </div>
         )}
       </div>
+
+        </>
+      )}
 
       {/* Validation banner & proceed button */}
       {!isValidForSynthesis && (

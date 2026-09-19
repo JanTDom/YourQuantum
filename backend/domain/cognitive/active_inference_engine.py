@@ -400,23 +400,69 @@ class ActiveInferenceOrchestrator:
             from backend.domain.cognitive.lever_decomposer import decompose_design_query_async
             from backend.infrastructure.web_research.search_adapter import WebResearchAdapter
 
+            # --- Budżet badawczy klasy DESIGN (V24 / DEC-045) ---------------------------
+            # Jan zaakceptował medianę czasu odpowiedzi powyżej 100 s w zamian za rzetelne
+            # zebranie danych. Limity są jawne, nazwane i mierzone telemetrią.
+            DESIGN_MAX_SEARCH_QUERIES = 8      # zapytań do wyszukiwarki na jedno pytanie
+            DESIGN_MAX_PAGES = 12              # pobranych stron
+            DESIGN_MAX_EXTRACTION_CALLS = 60   # wywołań ekstraktora
+            DESIGN_EXTRACTION_BATCH = 12       # wielkość jednej równoległej partii
+            DESIGN_TIME_BUDGET_SECONDS = 240.0 # twardy limit (maxDuration funkcji: 300 s)
+            design_started_at = _time.monotonic()
+
+            def _design_time_left() -> float:
+                return DESIGN_TIME_BUDGET_SECONDS - (_time.monotonic() - design_started_at)
+
             search_adapter = WebResearchAdapter()
             web_context_snippets: list[str] = []
             search_results: list[Any] = []
+
+            # Dekompozycja poprzedza wyszukiwanie: bez znajomości dźwigni nie da się
+            # zbudować zapytań celowanych w konkretną parę (wariant, kryterium) — V24 §A1.
+            design_problem = await decompose_design_query_async(query)
+
+            REFERENCE_INSTITUTIONS = "GUS NFZ Ministerstwo Zdrowia OECD Eurostat raport dane statystyka"
+
+            def _build_design_queries() -> list[str]:
+                """Zapytanie ogólne + po jednym celowanym zapytaniu na dźwignię (V24 §A1)."""
+                crit_names = " ".join(c.name for c in design_problem.criteria[:3])
+                queries: list[str] = [f"{query} {REFERENCE_INSTITUTIONS}"]
+                for lev in design_problem.levers:
+                    variant_titles = " ".join(o.title for o in lev.options[:3])
+                    queries.append(f"{lev.name} {variant_titles} {crit_names} {REFERENCE_INSTITUTIONS}")
+                return queries[:DESIGN_MAX_SEARCH_QUERIES]
+
             if search_adapter.is_available():
                 ws.energy_budget.consume_search(2)
+                design_queries = _build_design_queries()
+
+                async def _run_one_search(q: str) -> list[Any]:
+                    try:
+                        return await search_adapter.search(q, max_results=4)
+                    except Exception as s_err:
+                        logger.warning("Design search failed for %r: %s", q[:60], s_err)
+                        return []
+
                 try:
-                    # Rozszerzenie zapytań o instytucje referencyjne (V22 §3)
-                    search_query = query
-                    if any(w in query.lower() for w in ["zdrow", "szpital", "nfz", "medycyn", "lekar", "reforma", "system", "ochron"]):
-                        search_query = f"{query} GUS NFZ Ministerstwo Zdrowia OECD Eurostat"
-                    search_results = await search_adapter.search(search_query, max_results=4)
-                    for sr in search_results:
-                        web_context_snippets.append(f"[{sr.title}]({sr.url}): {sr.snippet}")
+                    search_batches = await asyncio.gather(*[_run_one_search(q) for q in design_queries])
                 except Exception as s_err:
                     logger.warning("Web search in design intake failed: %s", s_err)
+                    search_batches = []
 
-            design_problem = await decompose_design_query_async(query)
+                seen_urls: set[str] = set()
+                for batch in search_batches:
+                    for sr in batch:
+                        if not getattr(sr, "url", None) or sr.url in seen_urls:
+                            continue
+                        seen_urls.add(sr.url)
+                        search_results.append(sr)
+                        web_context_snippets.append(f"[{sr.title}]({sr.url}): {sr.snippet}")
+                        if len(search_results) >= DESIGN_MAX_PAGES:
+                            break
+                    if len(search_results) >= DESIGN_MAX_PAGES:
+                        break
+
+                ws.telemetry["design_search_queries_issued"] = len(design_queries)
 
             # Build compatible DecisionCase with options per lever
             case_options: list[Option] = []
@@ -467,6 +513,10 @@ class ActiveInferenceOrchestrator:
             web_quotes_verified_count = 0
             ws.telemetry["design_cells_rejected_off_topic"] = 0
             ws.telemetry["design_cells_rejected_duplicate"] = 0
+            ws.telemetry.setdefault("design_search_queries_issued", 0)
+            ws.telemetry.setdefault("design_pages_fetched", 0)
+            ws.telemetry.setdefault("design_extraction_calls_used", 0)
+            ws.telemetry.setdefault("design_budget_exhausted", False)
             assigned_evidence_keys: set[tuple[str, str]] = set()
 
             if search_results:
@@ -476,7 +526,7 @@ class ActiveInferenceOrchestrator:
                 from backend.domain.evidence.evidence_weighting import compute_evidence_weight
 
                 fetcher = SafeWebFetcher(timeout=10.0)
-                target_urls = [sr.url for sr in search_results[:3] if sr.url]
+                target_urls = [sr.url for sr in search_results[:DESIGN_MAX_PAGES] if sr.url]
 
                 async def _fetch_single_doc(u: str):
                     try:
@@ -489,18 +539,26 @@ class ActiveInferenceOrchestrator:
 
                 fetched_docs_raw = await asyncio.gather(*[_fetch_single_doc(u) for u in target_urls])
                 fetched_docs = [d for d in fetched_docs_raw if d is not None]
+                ws.telemetry["design_pages_fetched"] = len(fetched_docs)
 
-                # Jawny budżet wywołań na zapytanie dla klasy DESIGN (V22 §4, DEC-043)
-                MAX_DESIGN_EXTRACTION_CALLS = 12
-
-                # Generujemy kandydujące pary (wariant, kryterium) równomiernie (round-robin) po dźwigniach
-                all_candidate_cells: list[tuple[str, str, str, str, str, str | None]] = []
-                for crit in design_problem.criteria:
-                    for lev in design_problem.levers:
+                # Kandydujące pary (wariant, kryterium) w porządku przeplatanym po dźwigniach,
+                # żeby budżet rozłożył się równomiernie, a nie wyczerpał na pierwszej dźwigni (V24 §A3).
+                per_lever_cells: dict[str, list[tuple[str, str, str, str, str, str | None]]] = {}
+                for lev in design_problem.levers:
+                    bucket: list[tuple[str, str, str, str, str, str | None]] = []
+                    for crit in design_problem.criteria:
                         for opt in lev.options:
                             param_id = f"{lev.id}_{opt.id}_{crit.id}"
                             query_desc = f"{lev.name}: {opt.title} — kryterium: {crit.name}"
-                            all_candidate_cells.append((lev.id, opt.id, crit.id, param_id, query_desc, crit.unit))
+                            bucket.append((lev.id, opt.id, crit.id, param_id, query_desc, crit.unit))
+                    per_lever_cells[lev.id] = bucket
+
+                all_candidate_cells: list[tuple[str, str, str, str, str, str | None]] = []
+                max_bucket = max((len(v) for v in per_lever_cells.values()), default=0)
+                for position in range(max_bucket):
+                    for lev_id_key, bucket in per_lever_cells.items():
+                        if position < len(bucket):
+                            all_candidate_cells.append(bucket[position])
 
                 async def _extract_param(doc, lev_id, opt_id, crit_id, p_id, p_desc, p_unit):
                     ext = EvidenceExtractor()
@@ -516,26 +574,57 @@ class ActiveInferenceOrchestrator:
                         logger.warning("Design evidence extraction error for %s: %s", p_id, ext_err)
                         return (lev_id, opt_id, crit_id, [])
 
-                # Selekcja zadań ekstrakcji z pre-filtrem leksykalnym (V22 §4)
-                extraction_tasks = []
-                for lev_id, opt_id, crit_id, p_id, p_desc, p_unit in all_candidate_cells:
+                def _lever_has_documented(lever) -> bool:
+                    for o in lever.options:
+                        for c in design_problem.criteria:
+                            cell = design_problem.score_matrix.get(lever.id, {}).get(o.id, {}).get(c.id)
+                            if cell and cell.value is not None:
+                                return True
+                    return False
+
+                def _all_levers_documented() -> bool:
+                    return all(_lever_has_documented(l) for l in design_problem.levers)
+
+                # Lista zadań: para (wariant, kryterium) × dokument, z pre-filtrem leksykalnym.
+                pending_tasks: list[tuple[Any, tuple[str, str, str, str, str, str | None]]] = []
+                for cell in all_candidate_cells:
+                    lev_id, opt_id, crit_id, p_id, p_desc, p_unit = cell
                     lev = next((l for l in design_problem.levers if l.id == lev_id), None)
                     opt = next((o for o in lev.options if o.id == opt_id), None) if lev else None
                     if not lev or not opt:
                         continue
                     keywords = get_variant_keywords(opt.title, option_id=opt.id)
                     for d in fetched_docs:
-                        if len(extraction_tasks) >= MAX_DESIGN_EXTRACTION_CALLS:
-                            break
-                        # Pre-filtr leksykalny: strona musi zawierać co najmniej jedno słowo kluczowe wariantu
                         page_lower = d.page_text.lower()
                         if any(kw in page_lower for kw in keywords):
-                            extraction_tasks.append(_extract_param(d, lev_id, opt_id, crit_id, p_id, p_desc, p_unit))
-                    if len(extraction_tasks) >= MAX_DESIGN_EXTRACTION_CALLS:
+                            pending_tasks.append((d, cell))
+
+                extraction_calls_used = 0
+                budget_exhausted = False
+
+                for batch_start in range(0, len(pending_tasks), DESIGN_EXTRACTION_BATCH):
+                    if extraction_calls_used >= DESIGN_MAX_EXTRACTION_CALLS:
+                        budget_exhausted = True
+                        break
+                    if _design_time_left() < 45.0:
+                        budget_exhausted = True
+                        logger.info("Design research stopped: time budget nearly exhausted.")
+                        break
+                    if _all_levers_documented():
+                        logger.info("Design research stopped: every lever already has documented data.")
                         break
 
-                if extraction_tasks:
-                    ext_results = await asyncio.gather(*extraction_tasks)
+                    batch = pending_tasks[batch_start:batch_start + DESIGN_EXTRACTION_BATCH]
+                    remaining_calls = DESIGN_MAX_EXTRACTION_CALLS - extraction_calls_used
+                    batch = batch[:remaining_calls]
+                    if not batch:
+                        break
+                    extraction_calls_used += len(batch)
+
+                    ext_results = await asyncio.gather(*[
+                        _extract_param(doc, c[0], c[1], c[2], c[3], c[4], c[5]) for doc, c in batch
+                    ])
+
                     for lev_id, opt_id, crit_id, ev_sublist in ext_results:
                         lev = next((l for l in design_problem.levers if l.id == lev_id), None)
                         opt = next((o for o in lev.options if o.id == opt_id), None) if lev else None
@@ -620,6 +709,9 @@ class ActiveInferenceOrchestrator:
                                     case_score_matrix[opt_case_id][crit_id] = scored_val
                                 web_quotes_verified_count += 1
 
+                ws.telemetry["design_extraction_calls_used"] = extraction_calls_used
+                ws.telemetry["design_budget_exhausted"] = budget_exhausted
+
             # Obliczenie statystyk pokrycia macierzy (V22 §2E)
             total_possible_cells = sum(len(l.options) for l in design_problem.levers) * len(design_problem.criteria)
             documented_cells_count = 0
@@ -648,6 +740,7 @@ class ActiveInferenceOrchestrator:
             # i indistinguishable_variants — wszystkie pola trafiają do metadata odpowiedzi intake,
             # dzięki czemu skrypt pomiaru i frontend mogą je odczytać bezpośrednio.
             from backend.domain.problem_classes import compute_design_synthesis as _compute_synthesis
+            synthesis_result = None
             try:
                 synthesis_result = _compute_synthesis(design_problem)
                 synthesis_ranking_withheld: bool = synthesis_result.ranking_withheld
@@ -662,6 +755,29 @@ class ActiveInferenceOrchestrator:
                 synthesis_coverage = ws.telemetry["design_coverage_percent"]
                 synthesis_indistinguishable = []
                 synthesis_insufficient = documented_cells_count == 0
+
+            # Warstwa opisowa dla laika (V24 §B / DEC-046).
+            # Budowana deterministycznie z policzonych wielkości i zacytowanych dokumentów —
+            # bez udziału modelu językowego, więc nie może wprowadzić twierdzenia bez pokrycia.
+            from backend.domain.cognitive.plain_briefing import build_plain_briefing
+            try:
+                plain_briefing = build_plain_briefing(
+                    design_problem,
+                    documented_cells=documented_cells_count,
+                    total_cells=total_possible_cells,
+                    empty_levers=empty_levers_list,
+                    rejected_off_topic=ws.telemetry.get("design_cells_rejected_off_topic", 0),
+                    rejected_duplicate=ws.telemetry.get("design_cells_rejected_duplicate", 0),
+                    pages_fetched=ws.telemetry.get("design_pages_fetched", 0),
+                    extraction_calls=ws.telemetry.get("design_extraction_calls_used", 0),
+                    ranking_withheld=synthesis_ranking_withheld,
+                    ranking_withheld_reason=synthesis_ranking_reason,
+                    optimal_titles=getattr(synthesis_result, "optimal_titles", None) if synthesis_result is not None else None,
+                )
+                plain_briefing_json = plain_briefing.model_dump(mode="json")
+            except Exception as _brief_err:
+                logger.warning("Plain briefing build failed (non-fatal): %s", _brief_err)
+                plain_briefing_json = None
 
             formalization = FormalizationResult(
                 status="ready_for_review",
@@ -683,6 +799,14 @@ class ActiveInferenceOrchestrator:
                     "design_coverage_percent": synthesis_coverage,
                     "design_cells_rejected_off_topic": ws.telemetry.get("design_cells_rejected_off_topic", 0),
                     "design_cells_rejected_duplicate": ws.telemetry.get("design_cells_rejected_duplicate", 0),
+                    # Telemetria budżetu badawczego — V24 §A4 / DEC-045
+                    "design_search_queries_issued": ws.telemetry.get("design_search_queries_issued", 0),
+                    "design_pages_fetched": ws.telemetry.get("design_pages_fetched", 0),
+                    "design_extraction_calls_used": ws.telemetry.get("design_extraction_calls_used", 0),
+                    "design_budget_exhausted": ws.telemetry.get("design_budget_exhausted", False),
+                    "design_elapsed_seconds": round(_time.monotonic() - design_started_at, 2),
+                    # Warstwa opisowa dla laika — V24 §B / DEC-046
+                    "plain_briefing": plain_briefing_json,
                     # Pola syntezy — DEC-044 / V23
                     "ranking_withheld": synthesis_ranking_withheld,
                     "ranking_withheld_reason": synthesis_ranking_reason,

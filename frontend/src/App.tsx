@@ -7,6 +7,7 @@ import {
   DesignSynthesisResult,
   synthesizeDesign,
   ScenarioForecast,
+  PlainBriefing,
 } from './api'
 import { AppHeader } from './components/AppHeader'
 import { LandingPage } from './components/LandingPage'
@@ -42,6 +43,7 @@ export const App: React.FC = () => {
   const [intakeExplanation, setIntakeExplanation] = useState<string>('')
   const [decisionCase, setDecisionCase] = useState<DecisionCase | null>(null)
   const [designProblem, setDesignProblem] = useState<DesignProblem | null>(null)
+  const [plainBriefing, setPlainBriefing] = useState<PlainBriefing | null>(null)
   const [designSynthesis, setDesignSynthesis] = useState<DesignSynthesisResult | null>(null)
   const [scenarioForecast, setScenarioForecast] = useState<ScenarioForecast | null>(null)
   const [formalized, setFormalized] = useState<FormalizeResponse | null>(null)
@@ -56,6 +58,7 @@ export const App: React.FC = () => {
     setIntakeExplanation('')
     setDecisionCase(null)
     setDesignProblem(null)
+    setPlainBriefing(null)
     setDesignSynthesis(null)
     setScenarioForecast(null)
     setFormalized(null)
@@ -111,6 +114,7 @@ export const App: React.FC = () => {
 
       if (intakeRes.design_problem) {
         setDesignProblem(intakeRes.design_problem)
+        setPlainBriefing(((intakeRes.metadata || {}) as any).plain_briefing || null)
         setProblemClass('DESIGN')
         if (intakeRes.decision_case) {
           setDecisionCase(intakeRes.decision_case)
@@ -416,6 +420,7 @@ export const App: React.FC = () => {
             designProblem ? (
               <DesignWorkspace
                 designProblem={designProblem}
+                plainBriefing={plainBriefing}
                 onUpdateDesign={setDesignProblem}
                 onSynthesize={handleSynthesizeDesign}
                 onBack={() => setStage('INTAKE')}
